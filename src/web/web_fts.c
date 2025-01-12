@@ -420,8 +420,8 @@ void fts_get_document(struct mg_connection *nc, struct mg_http_message *hm) {
 
     sist_id_t sid;
 
-    if (hm->uri.len != 24 || !parse_sid(&sid, hm->uri.ptr + 7)) {
-        LOG_DEBUGF("serve.c", "Invalid /fts/d/ path: %.*s", (int) hm->uri.len, hm->uri.ptr);
+    if (hm->uri.len != 24 || !parse_sid(&sid, hm->uri.buf + 7)) {
+        LOG_DEBUGF("serve.c", "Invalid /fts/d/ path: %.*s", (int) hm->uri.len, hm->uri.buf);
         HTTP_REPLY_NOT_FOUND
         return;
     }

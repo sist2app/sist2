@@ -1,5 +1,4 @@
-FROM simon987/sist2-build as build
-MAINTAINER simon987 <me@simon987.net>
+FROM sist2app/sist2-build as build
 
 WORKDIR /build/
 

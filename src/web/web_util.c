@@ -73,7 +73,7 @@ cJSON *web_get_json_body(struct mg_http_message *hm) {
     }
 
     char *body = malloc(hm->body.len + 1);
-    memcpy(body, hm->body.ptr, hm->body.len);
+    memcpy(body, hm->body.buf, hm->body.len);
     *(body + hm->body.len) = '\0';
     cJSON *json = cJSON_Parse(body);
     free(body);
@@ -87,7 +87,7 @@ char *web_get_string_body(struct mg_http_message *hm) {
     }
 
     char *body = malloc(hm->body.len + 1);
-    memcpy(body, hm->body.ptr, hm->body.len);
+    memcpy(body, hm->body.buf, hm->body.len);
     *(body + hm->body.len) = '\0';
 
     return body;

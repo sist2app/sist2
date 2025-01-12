@@ -50,13 +50,13 @@ void get_embedding(struct mg_connection *nc, struct mg_http_message *hm) {
 
     sist_id_t sid;
 
-    if (hm->uri.len != SIST_SID_LEN + 2 + 4 || !parse_sid(&sid, hm->uri.ptr + 3)) {
-        LOG_DEBUGF("serve.c", "Invalid embedding path: %.*s", (int) hm->uri.len, hm->uri.ptr);
+    if (hm->uri.len != SIST_SID_LEN + 2 + 4 || !parse_sid(&sid, hm->uri.buf + 3)) {
+        LOG_DEBUGF("serve.c", "Invalid embedding path: %.*s", (int) hm->uri.len, hm->uri.buf);
         HTTP_REPLY_NOT_FOUND
         return;
     }
 
-    int model_id = (int) strtol(hm->uri.ptr + SIST_SID_LEN + 3, NULL, 10);
+    int model_id = (int) strtol(hm->uri.buf + SIST_SID_LEN + 3, NULL, 10);
 
     database_t *db = web_get_database(sid.index_id);
     if (db == NULL) {
@@ -86,11 +86,11 @@ void stats_files(struct mg_connection *nc, struct mg_http_message *hm) {
     char index_id_str[9];
     char arg_stat_type[5];
 
-    memcpy(index_id_str, hm->uri.ptr + 3, 8);
+    memcpy(index_id_str, hm->uri.buf + 3, 8);
     *(index_id_str + 8) = '\0';
     int index_id = (int) strtol(index_id_str, NULL, 16);
 
-    memcpy(arg_stat_type, hm->uri.ptr + 3 + 9, 4);
+    memcpy(arg_stat_type, hm->uri.buf + 3 + 9, 4);
     *(arg_stat_type + sizeof(arg_stat_type) - 1) = '\0';
 
     database_stat_type_d stat_type = database_get_stat_type_by_mnemonic(arg_stat_type);
@@ -135,19 +135,19 @@ void serve_chunk_vendors_js(struct mg_connection *nc, struct mg_http_message *hm
     }
 }
 
-void serve_favicon_ico(struct mg_connection *nc, struct mg_http_message *hm) {
+void serve_favicon_ico(struct mg_connection *nc, UNUSED(struct mg_http_message *hm)) {
     web_serve_asset_favicon_ico(nc);
 }
 
-void serve_style_css(struct mg_connection *nc, struct mg_http_message *hm) {
+void serve_style_css(struct mg_connection *nc, UNUSED(struct mg_http_message *hm)) {
     web_serve_asset_style_css(nc);
 }
 
-void serve_chunk_vendors_css(struct mg_connection *nc, struct mg_http_message *hm) {
+void serve_chunk_vendors_css(struct mg_connection *nc, UNUSED(struct mg_http_message *hm)) {
     web_serve_asset_chunk_vendors_css(nc);
 }
 
-void serve_thumbnail(struct mg_connection *nc, struct mg_http_message *hm, int index_id,
+void serve_thumbnail(struct mg_connection *nc, UNUSED(struct mg_http_message *hm), int index_id,
                      int doc_id, int arg_num) {
 
     database_t *db = web_get_database(index_id);
@@ -179,13 +179,13 @@ void serve_thumbnail(struct mg_connection *nc, struct mg_http_message *hm, int i
 void thumbnail_with_num(struct mg_connection *nc, struct mg_http_message *hm) {
     sist_id_t sid;
 
-    if (hm->uri.len != SIST_SID_LEN + 2 + 4 || !parse_sid(&sid, hm->uri.ptr + 3)) {
-        LOG_DEBUGF("serve.c", "Invalid thumbnail path: %.*s", (int) hm->uri.len, hm->uri.ptr);
+    if (hm->uri.len != SIST_SID_LEN + 2 + 4 || !parse_sid(&sid, hm->uri.buf + 3)) {
+        LOG_DEBUGF("serve.c", "Invalid thumbnail path: %.*s", (int) hm->uri.len, hm->uri.buf);
         HTTP_REPLY_NOT_FOUND
         return;
     }
 
-    int num = (int) strtol(hm->uri.ptr + SIST_SID_LEN + 3, NULL, 10);
+    int num = (int) strtol(hm->uri.buf + SIST_SID_LEN + 3, NULL, 10);
 
     serve_thumbnail(nc, hm, sid.index_id, sid.doc_id, num);
 }
@@ -193,8 +193,8 @@ void thumbnail_with_num(struct mg_connection *nc, struct mg_http_message *hm) {
 void thumbnail(struct mg_connection *nc, struct mg_http_message *hm) {
     sist_id_t sid;
 
-    if (hm->uri.len != 20 || !parse_sid(&sid, hm->uri.ptr + 3)) {
-        LOG_DEBUGF("serve.c", "Invalid thumbnail path: %.*s", (int) hm->uri.len, hm->uri.ptr);
+    if (hm->uri.len != 20 || !parse_sid(&sid, hm->uri.buf + 3)) {
+        LOG_DEBUGF("serve.c", "Invalid thumbnail path: %.*s", (int) hm->uri.len, hm->uri.buf);
         HTTP_REPLY_NOT_FOUND
         return;
     }
@@ -210,7 +210,7 @@ void search(struct mg_connection *nc, struct mg_http_message *hm) {
     }
 
     char *body = malloc(hm->body.len + 1);
-    memcpy(body, hm->body.ptr, hm->body.len);
+    memcpy(body, hm->body.buf, hm->body.len);
     *(body + hm->body.len) = '\0';
 
     char url[4096];
@@ -416,8 +416,8 @@ cJSON *get_root_document_by_id(int index_id, int doc_id) {
 void file(struct mg_connection *nc, struct mg_http_message *hm) {
     sist_id_t sid;
 
-    if (hm->uri.len != 20 || !parse_sid(&sid, hm->uri.ptr + 3)) {
-        LOG_DEBUGF("serve.c", "Invalid file path: %.*s", (int) hm->uri.len, hm->uri.ptr);
+    if (hm->uri.len != 20 || !parse_sid(&sid, hm->uri.buf + 3)) {
+        LOG_DEBUGF("serve.c", "Invalid file path: %.*s", (int) hm->uri.len, hm->uri.buf);
         HTTP_REPLY_NOT_FOUND
         return;
     }
@@ -528,14 +528,14 @@ subreq_ctx_t *elastic_write_tag(const char *sid, const tag_req_t *req) {
 
 void tag(struct mg_connection *nc, struct mg_http_message *hm) {
     sist_id_t sid;
-    if (hm->uri.len != 22 || !parse_sid(&sid, hm->uri.ptr + 5)) {
-        LOG_DEBUGF("serve.c", "Invalid tag path: %.*s", (int) hm->uri.len, hm->uri.ptr);
+    if (hm->uri.len != 22 || !parse_sid(&sid, hm->uri.buf + 5)) {
+        LOG_DEBUGF("serve.c", "Invalid tag path: %.*s", (int) hm->uri.len, hm->uri.buf);
         HTTP_REPLY_NOT_FOUND
         return;
     }
 
     char *body = malloc(hm->body.len + 1);
-    memcpy(body, hm->body.ptr, hm->body.len);
+    memcpy(body, hm->body.buf, hm->body.len);
     *(body + hm->body.len) = '\0';
     cJSON *json = cJSON_Parse(body);
     free(body);
@@ -612,7 +612,7 @@ int check_auth0(struct mg_http_message *hm) {
     }
 
     token_str = malloc(token.len + 1);
-    strncpy(token_str, token.ptr, token.len);
+    strncpy(token_str, token.buf, token.len);
     *(token_str + token.len) = '\0';
 
     int res = auth0_verify_jwt(
@@ -642,12 +642,14 @@ static void ev_router(struct mg_connection *nc, int ev, void *ev_data) {
         }
 
         char uri[256];
-        memcpy(uri, hm->uri.ptr, hm->uri.len);
+        memcpy(uri, hm->uri.buf, hm->uri.len);
         *(uri + hm->uri.len) = '\0';
         LOG_DEBUGF("serve.c", "<%s> GET %s",
                    web_address_to_string(&(nc->rem)),
                    uri
         );
+
+#define mg_http_match_uri(hm, pattern) mg_match((hm)->uri, mg_str(pattern), NULL)
 
         if (mg_http_match_uri(hm, "/")) {
             serve_index_html(nc, hm);

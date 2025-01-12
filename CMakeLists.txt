@@ -147,6 +147,7 @@ add_dependencies(
 target_link_libraries(
         sist2
 
+        m
         z
         argparse
         unofficial::mongoose::mongoose
