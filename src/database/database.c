@@ -478,8 +478,7 @@ index_descriptor_t *database_read_index_descriptor(database_t *db) {
 database_iterator_t *database_create_delete_list_iterator(database_t *db) {
 
     sqlite3_stmt *stmt;
-    sqlite3_prepare_v2(db->db, "SELECT doc.id FROM delete_list "
-                               "INNER JOIN document doc ON doc.ROWID = delete_list.id;", -1, &stmt, NULL);
+    sqlite3_prepare_v2(db->db, "SELECT id FROM delete_list", -1, &stmt, NULL);
 
     database_iterator_t *iter = malloc(sizeof(database_iterator_t));
 

@@ -161,7 +161,8 @@ void parse(parse_job_t *job) {
         return;
     }
 
-    if (database_mark_document(ProcData.index_db, doc->filepath + ScanCtx.index.desc.root_len, doc->mtime)) {
+    int document_exists = database_mark_document(ProcData.index_db, doc->filepath + ScanCtx.index.desc.root_len, doc->mtime);
+    if (document_exists) {
         CLOSE_FILE(job->vfile)
         free(doc);
         return;
