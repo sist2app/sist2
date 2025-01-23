@@ -7,8 +7,14 @@ platform:
   arch: amd64
 
 steps:
+  - name: submodules
+    image: alpine/git
+    commands:
+      - git submodule update --init --recursive
   - name: docker
     image: plugins/docker
+    depends_on:
+      - submodules
     settings:
       username:
         from_secret: DOCKER_USER
@@ -22,10 +28,6 @@ steps:
       when:
         event:
           - tag
-  - name: submodules
-    image: alpine/git
-    commands:
-      - git submodule update --init --recursive
   - name: build
     image: sist2app/sist2-build
     depends_on:
@@ -60,8 +62,14 @@ platform:
   arch: arm64
 
 steps:
+  - name: submodules
+    image: alpine/git
+    commands:
+      - git submodule update --init --recursive
   - name: docker
     image: plugins/docker
+    depends_on:
+      - submodules
     settings:
       username:
         from_secret: DOCKER_USER
@@ -75,10 +83,6 @@ steps:
       when:
         event:
           - tag
-  - name: submodules
-    image: alpine/git
-    commands:
-      - git submodule update --init --recursive
   - name: build
     image: sist2app/sist2-build-arm64
     depends_on:
