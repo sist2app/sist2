@@ -8,7 +8,7 @@ platform:
 
 steps:
   - name: build
-    image: simon987/sist2-build
+    image: sist2app/sist2-build
     commands:
       - ./scripts/build.sh
   - name: scp files
@@ -34,7 +34,7 @@ steps:
         from_secret: DOCKER_USER
       password:
         from_secret: DOCKER_PASSWORD
-      repo: simon987/sist2
+      repo: sist2app/sist2
       context: ./
       dockerfile: ./Dockerfile
       auto_tag: true
@@ -53,7 +53,7 @@ platform:
 
 steps:
   - name: build
-    image: simon987/sist2-build-arm64
+    image: sist2app/sist2-build-arm64
     commands:
       - ./scripts/build_arm64.sh
   - name: scp files
@@ -78,7 +78,7 @@ steps:
         from_secret: DOCKER_USER
       password:
         from_secret: DOCKER_PASSWORD
-      repo: simon987/sist2
+      repo: sist2app/sist2
       context: ./
       dockerfile: ./Dockerfile.arm64
       auto_tag: true
