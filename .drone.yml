@@ -7,6 +7,21 @@ platform:
   arch: amd64
 
 steps:
+  - name: docker
+    image: plugins/docker
+    settings:
+      username:
+        from_secret: DOCKER_USER
+      password:
+        from_secret: DOCKER_PASSWORD
+      repo: sist2app/sist2
+      context: ./
+      dockerfile: ./Dockerfile
+      auto_tag: true
+      auto_tag_suffix: x64-linux
+      when:
+        event:
+          - tag
   - name: build
     image: sist2app/sist2-build
     commands:
@@ -24,28 +39,11 @@ steps:
         from_secret: SSH_USER
       key:
         from_secret: SSH_KEY
-      target: /home/${SSH_USER}/files/sist2/${DRONE_REPO_OWNER}_${DRONE_REPO_NAME}/${DRONE_BRANCH}_${DRONE_BUILD_NUMBER}_${DRONE_COMMIT}/
+      target: ~/files/sist2/${DRONE_REPO_OWNER}_${DRONE_REPO_NAME}/${DRONE_BRANCH}_${DRONE_BUILD_NUMBER}_${DRONE_COMMIT}/
       source:
         - ./VERSION
         - ./sist2-x64-linux
         - ./sist2-x64-linux-debug
-  - name: docker
-    depends_on:
-      - build
-    image: plugins/docker
-    settings:
-      username:
-        from_secret: DOCKER_USER
-      password:
-        from_secret: DOCKER_PASSWORD
-      repo: sist2app/sist2
-      context: ./
-      dockerfile: ./Dockerfile
-      auto_tag: true
-      auto_tag_suffix: x64-linux
-      when:
-        event:
-          - tag
 
 ---
 kind: pipeline
@@ -56,6 +54,21 @@ platform:
   arch: arm64
 
 steps:
+  - name: docker
+    image: plugins/docker
+    settings:
+      username:
+        from_secret: DOCKER_USER
+      password:
+        from_secret: DOCKER_PASSWORD
+      repo: sist2app/sist2
+      context: ./
+      dockerfile: ./Dockerfile.arm64
+      auto_tag: true
+      auto_tag_suffix: arm64-linux
+      when:
+        event:
+          - tag
   - name: build
     image: sist2app/sist2-build-arm64
     commands:
@@ -73,24 +86,7 @@ steps:
         from_secret: SSH_USER
       key:
         from_secret: SSH_KEY
-      target: /home/${SSH_USER}/files/sist2/${DRONE_REPO_OWNER}_${DRONE_REPO_NAME}/arm_${DRONE_BRANCH}_${DRONE_BUILD_NUMBER}_${DRONE_COMMIT}/
+      target: ~/files/sist2/${DRONE_REPO_OWNER}_${DRONE_REPO_NAME}/arm_${DRONE_BRANCH}_${DRONE_BUILD_NUMBER}_${DRONE_COMMIT}/
       source:
         - ./sist2-arm64-linux
         - ./sist2-arm64-linux-debug
-  - name: docker
-    depends_on:
-      - build
-    image: plugins/docker
-    settings:
-      username:
-        from_secret: DOCKER_USER
-      password:
-        from_secret: DOCKER_PASSWORD
-      repo: sist2app/sist2
-      context: ./
-      dockerfile: ./Dockerfile.arm64
-      auto_tag: true
-      auto_tag_suffix: arm64-linux
-      when:
-        event:
-          - tag
