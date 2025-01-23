@@ -12,6 +12,8 @@ steps:
     commands:
       - ./scripts/build.sh
   - name: scp files
+    depends_on:
+      - build
     image: appleboy/drone-scp
     settings:
       host:
@@ -22,12 +24,14 @@ steps:
         from_secret: SSH_USER
       key:
         from_secret: SSH_KEY
-      target: /files/sist2/${DRONE_REPO_OWNER}_${DRONE_REPO_NAME}/${DRONE_BRANCH}_${DRONE_BUILD_NUMBER}_${DRONE_COMMIT}/
+      target: /home/${SSH_USER}/files/sist2/${DRONE_REPO_OWNER}_${DRONE_REPO_NAME}/${DRONE_BRANCH}_${DRONE_BUILD_NUMBER}_${DRONE_COMMIT}/
       source:
         - ./VERSION
         - ./sist2-x64-linux
         - ./sist2-x64-linux-debug
   - name: docker
+    depends_on:
+      - build
     image: plugins/docker
     settings:
       username:
@@ -57,6 +61,8 @@ steps:
     commands:
       - ./scripts/build_arm64.sh
   - name: scp files
+    depends_on:
+      - build
     image: appleboy/drone-scp
     settings:
       host:
@@ -72,6 +78,8 @@ steps:
         - ./sist2-arm64-linux
         - ./sist2-arm64-linux-debug
   - name: docker
+    depends_on:
+      - build
     image: plugins/docker
     settings:
       username:
