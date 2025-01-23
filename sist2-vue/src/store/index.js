@@ -58,7 +58,7 @@ export default new Vuex.Store({
         optVidPreviewInterval: 700,
         optSimpleLightbox: true,
         optShowTagPickerFilter: true,
-        optMlRepositories: "https://raw.githubusercontent.com/simon987/sist2-ner-models/main/repo.json",
+        optMlRepositories: "https://raw.githubusercontent.com/sist2app/sist2-ner-models/main/repo.json",
         optAutoAnalyze: false,
         optMlDefaultModel: null,
 

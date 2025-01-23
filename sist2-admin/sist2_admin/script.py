@@ -96,7 +96,7 @@ SCRIPT_TEMPLATES = {
     "CLIP - Generate embeddings to predict the most relevant image based on the text prompt": lambda name: UserScript(
         name=name,
         type=ScriptType.GIT,
-        git_repository="https://github.com/simon987/sist2-script-clip",
+        git_repository="https://github.com/sist2app/sist2-script-clip",
         extra_args="--num-tags=1 --tags-file=general.txt --color=#dcd7ff"
     ),
     "Whisper - Speech to text with OpenAI Whisper": lambda name: UserScript(

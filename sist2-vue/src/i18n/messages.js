@@ -138,7 +138,7 @@ export default {
         },
         debug: "Debug information",
         debugDescription: "Information useful for debugging. If you encounter bugs or have suggestions for" +
-            " new features, please submit a new issue <a href='https://github.com/simon987/sist2/issues/new/choose'>here</a>.",
+            " new features, please submit a new issue <a href='https://github.com/sist2app/sist2/issues/new/choose'>here</a>.",
         tagline: "Tagline",
         toast: {
             esConnErrTitle: "Elasticsearch connection error",
@@ -318,7 +318,7 @@ export default {
         },
         debug: "Debug Informationen",
         debugDescription: "Informationen für das Debugging. Wenn du Bugs gefunden oder Anregungen für " +
-            "neue Features hast, poste sie bitte <a href='https://github.com/simon987/sist2/issues/new/choose'>hier</a>.",
+            "neue Features hast, poste sie bitte <a href='https://github.com/sist2app/sist2/issues/new/choose'>hier</a>.",
         tagline: "Tagline",
         toast: {
             esConnErrTitle: "Elasticsearch Verbindungsfehler",
@@ -494,7 +494,7 @@ export default {
         debug: "Information de débogage",
         debugDescription: "Informations utiles pour le débogage\n" +
             "Si vous rencontrez des bogues ou si vous avez des suggestions pour de nouvelles fonctionnalités," +
-            " veuillez soumettre un nouvel Issue <a href='https://github.com/simon987/sist2/issues/new/choose'>ici</a>.",
+            " veuillez soumettre un nouvel Issue <a href='https://github.com/sist2app/sist2/issues/new/choose'>ici</a>.",
         tagline: "Tagline",
         toast: {
             esConnErrTitle: "Erreur de connexion Elasticsearch",
@@ -668,7 +668,7 @@ export default {
         },
         debug: "调试信息",
         debugDescription: "对调试除错有用的信息。 若您遇到bug或者想建议新功能，请提交新Issue到" +
-            "<a href='https://github.com/simon987/sist2/issues/new/choose'>这里</a>.",
+            "<a href='https://github.com/sist2app/sist2/issues/new/choose'>这里</a>.",
         tagline: "标签栏",
         toast: {
             esConnErrTitle: "Elasticsearch连接错误",
@@ -846,7 +846,7 @@ export default {
         },
         debug: "Informacje dla programistów",
         debugDescription: "Informacje przydatne do znajdowania błędów w oprogramowaniu. Jeśli napotkasz błąd lub masz" +
-            " propozycje zmian, zgłoś to proszę <a href='https://github.com/simon987/sist2/issues/new/choose'>tutaj</a>.",
+            " propozycje zmian, zgłoś to proszę <a href='https://github.com/sist2app/sist2/issues/new/choose'>tutaj</a>.",
         tagline: "Slogan",
         toast: {
             esConnErrTitle: "Problem z połączeniem z Elasticsearch",
