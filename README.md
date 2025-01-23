@@ -45,13 +45,11 @@ services:
     image: elasticsearch:7.17.9
     restart: unless-stopped
     volumes:
-      # This directory must have 1000:1000 permissions (or update PUID & PGID below)
+      # This directory must have 1000:1000 permissions
       - /data/sist2-es-data/:/usr/share/elasticsearch/data
     environment:
       - "discovery.type=single-node"
       - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
-      - "PUID=1000"
-      - "PGID=1000"
   sist2-admin:
     image: simon987/sist2:3.4.2-x64-linux
     restart: unless-stopped
