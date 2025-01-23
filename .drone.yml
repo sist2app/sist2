@@ -22,8 +22,14 @@ steps:
       when:
         event:
           - tag
+  - name: submodules
+    image: alpine/git
+    commands:
+      - git submodule update --init --recursive
   - name: build
     image: sist2app/sist2-build
+    depends_on:
+    - submodules
     commands:
       - ./scripts/build.sh
   - name: scp files
@@ -69,8 +75,14 @@ steps:
       when:
         event:
           - tag
+  - name: submodules
+    image: alpine/git
+    commands:
+      - git submodule update --init --recursive
   - name: build
     image: sist2app/sist2-build-arm64
+    depends_on:
+      - submodules
     commands:
       - ./scripts/build_arm64.sh
   - name: scp files

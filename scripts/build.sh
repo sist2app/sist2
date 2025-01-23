@@ -2,8 +2,6 @@
 
 VCPKG_ROOT="/vcpkg"
 
-git submodule update --init --recursive
-
 (
   cd sist2-vue/
   npm install
