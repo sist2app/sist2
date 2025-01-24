@@ -175,8 +175,18 @@ int render_cover(scan_ebook_ctx_t *ctx, fz_context *fzctx, document_t *doc, fz_d
     return TRUE;
 }
 
+#define IS_IGNORED_MESSAGE(message)           \
+    (                                          \
+        strstr(message, "invalid glyph index") \
+        || strstr(message, "... repeated")     \
+    )                                          \
+
 void fz_err_callback(void *user, const char *message) {
     document_t *doc = (document_t *) user;
+
+    if (IS_IGNORED_MESSAGE(message)) {
+        return;
+    }
 
     const scan_ebook_ctx_t *ctx = &thread_ctx;
     CTX_LOG_WARNINGF(doc->filepath, "FZ: %s", message);
@@ -184,6 +194,10 @@ void fz_err_callback(void *user, const char *message) {
 
 void fz_warn_callback(void *user, const char *message) {
     document_t *doc = (document_t *) user;
+
+    if (IS_IGNORED_MESSAGE(message)) {
+        return;
+    }
 
     const scan_ebook_ctx_t *ctx = &thread_ctx;
     CTX_LOG_DEBUGF(doc->filepath, "FZ: %s", message);
