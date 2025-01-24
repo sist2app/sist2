@@ -57,7 +57,7 @@ services:
     restart: unless-stopped
     volumes:
       - /data/sist2-admin-data/:/sist2-admin/
-      - /:/host
+      - /<path to index>/:/host
     ports:
       - 4090:4090
       # NOTE: Don't expose this port publicly!

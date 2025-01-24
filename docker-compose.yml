@@ -18,7 +18,7 @@ services:
     container_name: sist2-admin
     volumes:
       - /data/sist2-admin-data/:/sist2-admin/
-      - /:/host
+      - /<path to index>/:/host
     ports:
       - 4090:4090
       # NOTE: Don't export this port publicly!
