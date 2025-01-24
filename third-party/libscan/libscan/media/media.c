@@ -223,14 +223,10 @@ read_frame(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, AVCodecContext *d
 
 void append_tag_meta_if_not_exists(scan_media_ctx_t *ctx, document_t *doc, AVDictionaryEntry *tag, enum metakey key) {
 
-    meta_line_t *meta = doc->meta_head;
-    while (meta != NULL) {
-        if (meta->key == key) {
-            CTX_LOG_DEBUGF(doc->filepath, "Ignoring duplicate tag: '%02x=%s' and '%02x=%s'",
-                           key, meta->str_val, key, tag->value);
-            return;
-        }
-        meta = meta->next;
+    if (meta_contains_key(doc->meta_head, key)) {
+        CTX_LOG_DEBUGF(doc->filepath, "Ignoring duplicate tag: '%02x=%s'",
+                       key, tag->value);
+        return;
     }
 
     text_buffer_t tex = text_buffer_create(-1);
@@ -445,7 +441,7 @@ int decode_frame_and_save_thumbnail(scan_media_ctx_t *ctx, AVFormatContext *pFor
         return SAVE_THUMBNAIL_FAILED;
     }
 
-    if (ctx->tesseract_lang != NULL && thumbnail_index == 0) {
+    if (ctx->tesseract_lang != NULL && thumbnail_index == 0 && !meta_contains_key(doc->meta_head, MetaContent)) {
         ocr_image(ctx, doc, decoder, frame_and_packet->frame);
     }
 

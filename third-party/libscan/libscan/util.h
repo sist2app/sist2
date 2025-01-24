@@ -392,4 +392,18 @@ static parse_job_t *create_parse_job(const char *filepath, int mtime, size_t st_
     return job;
 }
 
+
+static int meta_contains_key (meta_line_t *meta_head, enum metakey key) {
+
+    meta_line_t *meta = meta_head;
+    while (meta != NULL) {
+        if (meta->key == key) {
+            return TRUE;
+        }
+        meta = meta->next;
+    }
+
+    return FALSE;
+}
+
 #endif
