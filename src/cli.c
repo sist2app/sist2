@@ -25,6 +25,7 @@ const char *TESS_DATAPATHS[] = {
         "/usr/share/tessdata/",
         "/usr/share/tesseract-ocr/tessdata/",
         "/usr/share/tesseract-ocr/4.00/tessdata/",
+        "/usr/share/tesseract-ocr/5/tessdata/",
         "./",
         NULL
 };
