@@ -117,11 +117,11 @@ class Sist2ElasticsearchQuery {
             }
 
             if (dateMin && dateMax) {
-                filters.push({range: {mtime: {gte: dateMin, lte: dateMax}}})
+                filters.push({range: {mtime: {gte: dateMin, lte: dateMax, format: "epoch_second"}}})
             } else if (dateMin) {
-                filters.push({range: {mtime: {gte: dateMin}}})
+                filters.push({range: {mtime: {gte: dateMin, format: "epoch_second"}}})
             } else if (dateMax) {
-                filters.push({range: {mtime: {lte: dateMax}}})
+                filters.push({range: {mtime: {lte: dateMax, format: "epoch_second"}}})
             }
 
             const path = pathText.replace(/\/$/, "").toLowerCase(); //remove trailing slashes
