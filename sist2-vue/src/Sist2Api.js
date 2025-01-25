@@ -309,7 +309,7 @@ class Sist2Api {
     }
 
     getTagsSqlite() {
-        return axios.get(`${this.baseUrl}/fts/tags`)
+        return axios.get(`${this.baseUrl}fts/tags`)
             .then(resp => {
                 return resp.data.map(tag => this._createEsTag(tag.tag, tag.count))
             });
@@ -566,7 +566,7 @@ class Sist2Api {
     }
 
     getDocumentSqlite(sid) {
-        return axios.get(`${this.baseUrl}/fts/d/${sid}`)
+        return axios.get(`${this.baseUrl}fts/d/${sid}`)
             .then(resp => ({
                 _source: resp.data
             }));
@@ -589,7 +589,7 @@ class Sist2Api {
     }
 
     getTagSuggestionsSqlite(prefix) {
-        return axios.post(`${this.baseUrl}/fts/suggestTags`, prefix)
+        return axios.post(`${this.baseUrl}fts/suggestTags`, prefix)
             .then(resp => (resp.data));
     }
 
@@ -620,7 +620,7 @@ class Sist2Api {
     }
 
     getEmbeddings(sid, modelId) {
-        return axios.post(`${this.baseUrl}/e/${sid}/${modelId.toString().padStart(3, '0')}`)
+        return axios.post(`${this.baseUrl}e/${sid}/${modelId.toString().padStart(3, '0')}`)
             .then(resp => (resp.data));
     }
 }
