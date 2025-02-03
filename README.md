@@ -38,8 +38,6 @@ sist2 (Simple incremental search tool)
 ### Using Docker Compose *(Windows/Linux/Mac)*
 
 ```yaml
-version: "3"
-
 services:
   elasticsearch:
     image: elasticsearch:7.17.9
@@ -53,7 +51,7 @@ services:
       - "PUID=1000"
       - "PGID=1000"
   sist2-admin:
-    image: simon987/sist2:3.4.2-x64-linux
+    image: sist2app/sist2:x64-linux
     restart: unless-stopped
     volumes:
       - /data/sist2-admin-data/:/sist2-admin/
