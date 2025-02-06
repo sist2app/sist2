@@ -1,5 +1,5 @@
-![GitHub](https://img.shields.io/github/license/simon987/sist2.svg)
-[![CodeFactor](https://www.codefactor.io/repository/github/simon987/sist2/badge?s=05daa325188aac4eae32c786f3d9cf4e0593f822)](https://www.codefactor.io/repository/github/simon987/sist2)
+![GitHub](https://img.shields.io/github/license/sist2app/sist2.svg)
+[![CodeFactor](https://www.codefactor.io/repository/github/sist2app/sist2/badge?s=05daa325188aac4eae32c786f3d9cf4e0593f822)](https://www.codefactor.io/repository/github/sist2app/sist2)
 [![Development snapshots](https://ci.simon987.net/api/badges/simon987/sist2/status.svg)](https://files.simon987.net/.gate/sist2/simon987_sist2/)
 
 **Demo**: [sist2.simon987.net](https://sist2.simon987.net/)
@@ -81,7 +81,7 @@ Navigate to http://localhost:8080/ to configure sist2-admin.
             ```
     * **SQLite**: No installation required
 
-2. Download the [latest sist2 release](https://github.com/simon987/sist2/releases).
+2. Download the [latest sist2 release](https://github.com/sist2app/sist2/releases).
    Select the file corresponding to your CPU architecture and mark the binary as executable with `chmod +x`.
 3. See [usage guide](docs/USAGE.md) for command line usage.
 
@@ -100,20 +100,20 @@ Example usage:
 | File type                                                                 | Library                                                                      | Content  | Thumbnail   | Metadata                                                                                                                               |
 |:--------------------------------------------------------------------------|:-----------------------------------------------------------------------------|:---------|:------------|:---------------------------------------------------------------------------------------------------------------------------------------|
 | pdf,xps,fb2,epub                                                          | MuPDF                                                                        | text+ocr | yes         | author, title                                                                                                                          |
-| cbz,cbr                                                                   | [libscan](https://github.com/simon987/sist2/tree/master/third-party/libscan) | -        | yes         | -                                                                                                                                      |
+| cbz,cbr                                                                   | [libscan](https://github.com/sist2app/sist2/tree/master/third-party/libscan) | -        | yes         | -                                                                                                                                      |
 | `audio/*`                                                                 | ffmpeg                                                                       | -        | yes         | ID3 tags                                                                                                                               |
 | `video/*`                                                                 | ffmpeg                                                                       | -        | yes         | title, comment, artist                                                                                                                 |
-| `image/*`                                                                 | ffmpeg                                                                       | ocr      | yes         | [Common EXIF tags](https://github.com/simon987/sist2/blob/efdde2734eca9b14a54f84568863b7ffd59bdba3/src/parsing/media.c#L190), GPS tags |
+| `image/*`                                                                 | ffmpeg                                                                       | ocr      | yes         | [Common EXIF tags](https://github.com/sist2app/sist2/blob/efdde2734eca9b14a54f84568863b7ffd59bdba3/src/parsing/media.c#L190), GPS tags |
 | raw, rw2, dng, cr2, crw, dcr, k25, kdc, mrw, pef, xf3, arw, sr2, srf, erf | LibRaw                                                                       | no       | yes         | Common EXIF tags, GPS tags                                                                                                             |
 | ttf,ttc,cff,woff,fnt,otf                                                  | Freetype2                                                                    | -        | yes, `bmp`  | Name & style                                                                                                                           |
-| `text/plain`                                                              | [libscan](https://github.com/simon987/sist2/tree/master/third-party/libscan) | yes      | no          | -                                                                                                                                      |
-| html, xml                                                                 | [libscan](https://github.com/simon987/sist2/tree/master/third-party/libscan) | yes      | no          | -                                                                                                                                      |
+| `text/plain`                                                              | [libscan](https://github.com/sist2app/sist2/tree/master/third-party/libscan) | yes      | no          | -                                                                                                                                      |
+| html, xml                                                                 | [libscan](https://github.com/sist2app/sist2/tree/master/third-party/libscan) | yes      | no          | -                                                                                                                                      |
 | tar, zip, rar, 7z, ar ...                                                 | Libarchive                                                                   | yes\*    | -           | no                                                                                                                                     |
-| docx, xlsx, pptx                                                          | [libscan](https://github.com/simon987/sist2/tree/master/third-party/libscan) | yes      | if embedded | creator, modified_by, title                                                                                                            |
+| docx, xlsx, pptx                                                          | [libscan](https://github.com/sist2app/sist2/tree/master/third-party/libscan) | yes      | if embedded | creator, modified_by, title                                                                                                            |
 | doc (MS Word 97-2003)                                                     | antiword                                                                     | yes      | no          | author, title                                                                                                                          |
 | mobi, azw, azw3                                                           | libmobi                                                                      | yes      | yes         | author, title                                                                                                                          |
 | wpd (WordPerfect)                                                         | libwpd                                                                       | yes      | no          | *planned*                                                                                                                              |
-| json, jsonl, ndjson                                                       | [libscan](https://github.com/simon987/sist2/tree/master/third-party/libscan) | yes      | -           | -                                                                                                                                      |
+| json, jsonl, ndjson                                                       | [libscan](https://github.com/sist2app/sist2/tree/master/third-party/libscan) | yes      | -           | -                                                                                                                                      |
 
 \* *See [Archive files](#archive-files)*
 
@@ -137,7 +137,7 @@ You can enable OCR support for ebook (pdf,xps,fb2,epub) or image file types with
 Download the language data files with your package manager (`apt install tesseract-ocr-eng`) or
 directly [from Github](https://github.com/tesseract-ocr/tesseract/wiki/Data-Files).
 
-The `simon987/sist2` image comes with common languages
+The `sist2app/sist2` image comes with common languages
 (hin, jpn, eng, fra, rus, spa, chi_sim, deu, pol) pre-installed.
 
 You can use the `+` separator to specify multiple languages. The language
@@ -177,13 +177,13 @@ sist2 v3.0.4+ supports named-entity recognition (NER). Simply add a supported re
 to enable it.
 
 The text processing is done in your browser, no data is sent to any third-party services.
-See [simon987/sist2-ner-models](https://github.com/simon987/sist2-ner-models) for more details.
+See [sist2app/sist2-ner-models](https://github.com/sist2app/sist2-ner-models) for more details.
 
 #### List of available repositories:
 
 | URL                                                                                                     | Maintainer                              | Purpose |
 |---------------------------------------------------------------------------------------------------------|-----------------------------------------|---------|
-| [simon987/sist2-ner-models](https://raw.githubusercontent.com/simon987/sist2-ner-models/main/repo.json) | [simon987](https://github.com/simon987) | General |
+| [sist2app/sist2-ner-models](https://raw.githubusercontent.com/sist2app/sist2-ner-models/main/repo.json) | [sist2app](https://github.com/sist2app) | General |
 
 <details>
   <summary>Screenshot</summary>
@@ -199,7 +199,7 @@ You can compile **sist2** by yourself if you don't want to use the pre-compiled 
 ### Using docker
 
 ```bash
-git clone --recursive https://github.com/simon987/sist2/
+git clone --recursive https://github.com/sist2app/sist2/
 cd sist2
 docker build . -t my-sist2-image
 # Copy sist2 executable from docker image
@@ -214,7 +214,7 @@ docker run --rm --entrypoint cat my-sist2-image /root/sist2 > sist2-x64-linux
    apt install gcc g++ python3 yasm ragel automake autotools-dev wget libtool libssl-dev curl zip unzip tar xorg-dev libglu1-mesa-dev libxcursor-dev libxml2-dev libxinerama-dev gettext nasm git nodejs
    ```
 
-2. Install vcpkg using my fork: https://github.com/simon987/vcpkg
+2. Install vcpkg using my fork: https://github.com/sist2app/vcpkg
 3. Install vcpkg dependencies
 
     ```bash
@@ -223,7 +223,7 @@ docker run --rm --entrypoint cat my-sist2-image /root/sist2 > sist2-x64-linux
 
 4. Build
     ```bash
-    git clone --recursive https://github.com/simon987/sist2/
+    git clone --recursive https://github.com/sist2app/sist2/
     (cd sist2-vue; npm install; npm run build)
     (cd sist2-admin/frontend; npm install; npm run build)
     cmake -DSIST_DEBUG=off -DCMAKE_TOOLCHAIN_FILE=<VCPKG_ROOT>/scripts/buildsystems/vcpkg.cmake .
