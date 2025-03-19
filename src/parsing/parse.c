@@ -142,6 +142,10 @@ void parse(parse_job_t *job) {
         job->vfile.calculate_checksum = ScanCtx.calculate_checksums;
     }
 
+    if (IS_SUB_JOB(job)) {
+        SET_CURRENT_JOB(ProcData.ipc_db->ipc_ctx, job->filepath);
+    }
+
     document_t *doc = malloc(sizeof(document_t));
 
     strcpy(doc->filepath, job->filepath);

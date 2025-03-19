@@ -114,7 +114,7 @@ void save_current_job_info(sqlite3_context *ctx, int argc, sqlite3_value **argv)
     char buf[PATH_MAX];
     strcpy(buf, current_job);
 
-    strcpy(ipc_ctx->current_job[ProcData.thread_id], current_job);
+    SET_CURRENT_JOB(ipc_ctx, current_job);
 
     sqlite3_result_text(ctx, "ok", -1, SQLITE_STATIC);
 }

@@ -172,6 +172,8 @@ typedef struct {
     char filepath[PATH_MAX * 2 + 1];
 } parse_job_t;
 
+#define IS_SUB_JOB(job) ((job)->parent[0] != '\0')
+
 
 #include "util.h"
 

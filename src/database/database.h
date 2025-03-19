@@ -64,6 +64,8 @@ typedef struct {
     char current_job[MAX_THREADS][PATH_MAX * 2];
 } database_ipc_ctx_t;
 
+#define SET_CURRENT_JOB(ctx, job) (strcpy((ctx)->current_job[ProcData.thread_id], job))
+
 typedef struct {
     double date_min;
     double date_max;
