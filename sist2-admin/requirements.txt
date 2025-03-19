@@ -4,4 +4,4 @@ uvicorn
 websockets
 pycron
 GitPython
-git+https://github.com/sist2app/sist2-python.git
+git+https://github.com/sist2app/sist2-python.git@2.1
