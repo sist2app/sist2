@@ -89,7 +89,7 @@ target_include_directories(
 target_compile_options(
         sist2
         PRIVATE
-        -fPIC
+#        -fPIC
 )
 
 if (SIST_DEBUG)
@@ -147,7 +147,7 @@ add_dependencies(
 target_link_libraries(
         sist2
 
-        m
+#        m
         z
         argparse
         unofficial::mongoose::mongoose
