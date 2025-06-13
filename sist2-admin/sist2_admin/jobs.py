@@ -220,7 +220,7 @@ class Sist2IndexTask(Sist2Task):
             except ProcessLookupError:
                 pass
             try:
-                os.wait()
+                os.waitpid(pid, 0)
             except ChildProcessError:
                 pass
 
