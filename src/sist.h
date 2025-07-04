@@ -51,11 +51,11 @@
 #include <ctype.h>
 #include "git_hash.h"
 
-#define VERSION "3.4.2"
+#define VERSION "3.4.5"
 static const char *const Version = VERSION;
 static const int VersionMajor = 3;
 static const int VersionMinor = 4;
-static const int VersionPatch = 4;
+static const int VersionPatch = 5;
 
 #ifndef SIST_PLATFORM
 #define SIST_PLATFORM unknown
