@@ -44,6 +44,12 @@
 
                 <label>{{ $t("backendOptions.batchSize") }}</label>
                 <b-form-input v-model="backend.batch_size" type="number" min="1" @change="update()"></b-form-input>
+
+                <label>{{ $t("backendOptions.esMappings") }}</label>
+                <b-form-textarea v-model="backend.es_mappings" rows="4" @change="update()"></b-form-textarea>
+
+                <label>{{ $t("backendOptions.esSettings") }}</label>
+                <b-form-textarea v-model="backend.es_settings" rows="4" @change="update()"></b-form-textarea>
             </template>
             <template v-else>
                 <label>{{ $t("backendOptions.searchIndex") }}</label>

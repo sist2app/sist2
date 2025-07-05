@@ -93,7 +93,9 @@ export default {
             threads: "Number of threads",
             batchSize: "Index batch size",
             script: "User script",
-            searchIndex: "Search index file location"
+            searchIndex: "Search index file location",
+            esMappings: "Elasticsearch mappings file override",
+            esSettings: "Elasticsearch settings file override"
         },
         scanOptions: {
             title: "Scanning options",

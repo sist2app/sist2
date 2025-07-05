@@ -10,7 +10,7 @@ from logging import FileHandler, StreamHandler
 from subprocess import Popen, PIPE
 from tempfile import NamedTemporaryFile
 from threading import Thread
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -40,6 +40,8 @@ class Sist2SearchBackend(BaseModel):
 
     es_url: str = "http://elasticsearch:9200"
     es_insecure_ssl: bool = False
+    es_mappings: Optional[str] = None
+    es_settings: Optional[str] = None
     es_index: str = "sist2"
     threads: int = 1
     batch_size: int = 70
@@ -57,6 +59,8 @@ class IndexOptions(BaseModel):
     path: str = None
     incremental_index: bool = True
     search_backend: str = None
+    es_mappings_file: Optional[str] = None
+    es_settings_file: Optional[str] = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -75,6 +79,12 @@ class IndexOptions(BaseModel):
 
             if search_backend.es_insecure_ssl:
                 args.append(f"--es-insecure-ssl")
+
+            if self.es_mappings_file:
+                args.append(f"--mappings-file={self.es_mappings_file}")
+            if self.es_settings_file:
+                args.append(f"--settings-file={self.es_settings_file}")
+
             if self.incremental_index:
                 args.append(f"--incremental-index")
 
@@ -248,6 +258,20 @@ class Sist2:
         self._data_dir = data_directory
 
     def index(self, options: IndexOptions, search_backend: Sist2SearchBackend, logs_cb, set_pid_cb):
+
+        if search_backend.es_mappings:
+            with NamedTemporaryFile("w", prefix="sist2-admin", suffix=".txt", delete=False) as f:
+                f.write(search_backend.es_mappings)
+            options.es_mappings_file = f.name
+        else:
+            options.es_mappings_file = None
+
+        if search_backend.es_settings:
+            with NamedTemporaryFile("w", prefix="sist2-admin", suffix=".txt", delete=False) as f:
+                f.write(search_backend.es_settings)
+            options.es_settings_file = f.name
+        else:
+            options.es_settings_file = None
 
         args = [
             self.bin_path,
