@@ -151,6 +151,10 @@
                     <b-form-input :value="optFragmentSize" step="10" type="number" min="0"
                                   @input="setOptFragmentSize"></b-form-input>
 
+                  <label :class="{'text-muted': uiSqliteMode}">{{ $t("opt.fragmentCount") }}</label>
+                  <b-form-input :value="optFragmentCount" :disabled="uiSqliteMode" step="1" type="number" min="1"
+                                @input="setOptFragmentCount"></b-form-input>
+
                     <label>{{ $t("opt.resultSize") }}</label>
                     <b-form-input :value="optResultSize" type="number" min="10"
                                   @input="setOptResultSize"></b-form-input>
@@ -314,6 +318,7 @@ export default {
             "optSearchInPath",
             "optSuggestPath",
             "optFragmentSize",
+            "optFragmentCount",
             "optQueryMode",
             "optTreemapType",
             "optTreemapTiling",
@@ -360,6 +365,7 @@ export default {
             "setOptSearchInPath",
             "setOptSuggestPath",
             "setOptFragmentSize",
+            "setOptFragmentCount",
             "setOptQueryMode",
             "setOptTreemapType",
             "setOptTreemapTiling",

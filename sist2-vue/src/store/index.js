@@ -3,7 +3,7 @@ import Vuex from "vuex"
 import {deserializeMimes, randomSeed, serializeMimes} from "@/util";
 import {getInstance} from "@/plugins/auth0.js";
 
-const CONF_VERSION = 3;
+const CONF_VERSION = 4;
 
 Vue.use(Vuex);
 
@@ -41,6 +41,7 @@ export default new Vuex.Store({
         optTagOrOperator: false,
         optFuzzy: true,
         optFragmentSize: 200,
+        optFragmentCount: 1,
         optQueryMode: "simple",
         optSearchInPath: false,
         optColumns: "auto",
@@ -170,6 +171,7 @@ export default new Vuex.Store({
         setOptSearchInPath: (state, val) => state.optSearchInPath = val,
         setOptSuggestPath: (state, val) => state.optSuggestPath = val,
         setOptFragmentSize: (state, val) => state.optFragmentSize = val,
+        setOptFragmentCount: (state, val) => state.optFragmentCount = val,
         setOptQueryMode: (state, val) => state.optQueryMode = val,
         setOptResultSize: (state, val) => state.optSize = val,
         setOptTagOrOperator: (state, val) => state.optTagOrOperator = val,
@@ -430,6 +432,7 @@ export default new Vuex.Store({
         optSearchInPath: state => state.optSearchInPath,
         optSuggestPath: state => state.optSuggestPath,
         optFragmentSize: state => state.optFragmentSize,
+        optFragmentCount: state => state.optFragmentCount,
         optQueryMode: state => state.optQueryMode,
         optTreemapType: state => state.optTreemapType,
         optTreemapTiling: state => state.optTreemapTiling,

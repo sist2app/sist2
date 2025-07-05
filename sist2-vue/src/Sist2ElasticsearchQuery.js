@@ -238,7 +238,7 @@ class Sist2ElasticsearchQuery {
                 pre_tags: ["<mark>"],
                 post_tags: ["</mark>"],
                 fragment_size: getters.optFragmentSize,
-                number_of_fragments: 1,
+                number_of_fragments: getters.optFragmentCount,
                 order: "score",
                 fields: {
                     content: {},
