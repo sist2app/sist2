@@ -11,6 +11,7 @@
 #include "web/serve.h"
 #include "parsing/mime.h"
 #include "parsing/parse.h"
+#include "ignorelist.h"
 
 #include <signal.h>
 #include <pthread.h>
@@ -239,6 +240,13 @@ void sist2_scan(scan_args_t *args) {
 
     LOG_INFOF("main.c", "sist2 v%s", Version);
 
+    ScanCtx.ignorelist = ignorelist_create();
+
+    char ignore_filepath[PATH_MAX];
+    sprintf(ignore_filepath, "%s.sist2ignore", args->path);
+
+    ignorelist_load_ignore_file(ScanCtx.ignorelist, ignore_filepath);
+
     ScanCtx.pool = tpool_create(ScanCtx.threads, TRUE);
     tpool_start(ScanCtx.pool);
 
@@ -268,6 +276,7 @@ void sist2_scan(scan_args_t *args) {
 
     database_generate_stats(db, args->treemap_threshold);
     database_close(db, args->optimize_database);
+    ignorelist_destroy(ScanCtx.ignorelist);
 }
 
 void sist2_index(index_args_t *args) {

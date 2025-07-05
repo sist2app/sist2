@@ -23,8 +23,17 @@ int handle_entry(const char *filepath, const struct stat *info, int typeflag, st
     if (ScanCtx.exclude != NULL && EXCLUDED(filepath)) {
         LOG_DEBUGF("walk.c", "Excluded: %s", filepath);
 
-        if (typeflag == FTW_F && S_ISREG(info->st_mode)) {
-        } else if (typeflag == FTW_D) {
+        if (typeflag == FTW_D) {
+            return FTW_SKIP_SUBTREE;
+        }
+
+        return FTW_CONTINUE;
+    }
+
+    if (ignorelist_is_ignored(ScanCtx.ignorelist, filepath)) {
+        LOG_DEBUGF("walk.c", "Ignored: %s", filepath);
+
+        if (typeflag == FTW_D) {
             return FTW_SKIP_SUBTREE;
         }
 

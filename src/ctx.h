@@ -19,6 +19,7 @@
 #include "src/database/database.h"
 #include "src/index/elastic.h"
 #include "sqlite3.h"
+#include "ignorelist.h"
 
 #include <pcre.h>
 
@@ -34,6 +35,7 @@ typedef struct {
     pcre *exclude;
     pcre_extra *exclude_extra;
     int fast;
+    ignorelist_t *ignorelist;
 
     scan_arc_ctx_t arc_ctx;
     scan_comic_ctx_t comic_ctx;

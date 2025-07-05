@@ -62,7 +62,9 @@ add_executable(
         src/database/database_schema.c
         src/database/database_fts.c
         src/web/web_fts.c
-        src/database/database_embeddings.c)
+        src/database/database_embeddings.c
+        src/ignorelist.c
+        src/ignorelist.h)
 set_target_properties(sist2 PROPERTIES LINKER_LANGUAGE C)
 
 target_link_directories(sist2 PRIVATE BEFORE ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/)
@@ -76,6 +78,7 @@ find_package(CURL CONFIG REQUIRED)
 find_library(MAGIC_LIB NAMES libmagic.a REQUIRED)
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
 find_package(OpenBLAS CONFIG REQUIRED)
+find_package(libgit2 CONFIG REQUIRED)
 
 
 target_include_directories(
@@ -149,6 +152,7 @@ target_link_libraries(
 
 #        m
         z
+        libgit2::libgit2package
         argparse
         unofficial::mongoose::mongoose
         CURL::libcurl

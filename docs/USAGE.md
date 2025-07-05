@@ -108,6 +108,27 @@ sist scan ~/Documents -o ./documents.sist2 --incremental
 sist scan ~/Documents -o ./documents.sist2 --incremental
 ```
 
+### Excluding files
+
+You can use the `--exclude` option to specify exclude patterns. For more complex setups, you can create a 
+`.sist2ignore` file at the root of the scan path (For example, `~/Documents/.sist2ignore` for the example above). 
+
+The syntax for sist2ignore is the same as .gitignore for Git (reference [here](https://git-scm.com/docs/gitignore)).
+
+Example:
+
+**.sist2ignore**
+```gitignore
+# Ignore all PDF files
+*.pdf
+
+# But don't ignore them for the /important_files/ directory
+!/important_videos/*.pdf
+
+# Ignore all files in _staging/ directories
+_staging/
+```
+
 ### Index documents to Elasticsearch search backend
 
 ```bash
