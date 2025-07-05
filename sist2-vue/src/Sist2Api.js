@@ -69,7 +69,8 @@ class Sist2Api {
                     hit._props.isImage = true;
                 }
                 if ("width" in hit._source && !hit._props.isSubDocument && hit._source.videoc !== "tiff"
-                    && hit._source.videoc !== "raw" && hit._source.videoc !== "ppm") {
+                    && hit._source.videoc !== "raw" && hit._source.videoc !== "ppm"
+                    && hit._source.mime !== "image/jp2") {
                     hit._props.isPlayableImage = true;
                 }
                 if ("width" in hit._source && "height" in hit._source) {

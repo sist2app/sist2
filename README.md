@@ -224,6 +224,6 @@ docker run --rm --entrypoint cat my-sist2-image /root/sist2 > sist2-x64-linux
     git clone --recursive https://github.com/sist2app/sist2/
     (cd sist2-vue; npm install; npm run build)
     (cd sist2-admin/frontend; npm install; npm run build)
-    cmake -DSIST_DEBUG=off -DCMAKE_TOOLCHAIN_FILE=<VCPKG_ROOT>/scripts/buildsystems/vcpkg.cmake .
+    cmake -DSIST_DEBUG=off -G "Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE=<VCPKG_ROOT>/scripts/buildsystems/vcpkg.cmake .
     make
     ```
