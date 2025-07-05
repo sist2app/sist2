@@ -216,7 +216,7 @@ docker run --rm --entrypoint cat my-sist2-image /root/sist2 > sist2-x64-linux
 3. Install vcpkg dependencies
 
     ```bash
-    vcpkg install openblas curl[core,openssl] sqlite3[core,fts5,json1] cpp-jwt pcre cjson brotli libarchive[core,bzip2,libxml2,lz4,lzma,lzo] pthread tesseract libxml2 libmupdf[ocr] gtest mongoose libmagic libraw gumbo ffmpeg[core,avcodec,avformat,swscale,swresample,webp,opus,mp3lame,vpx,zlib]
+    vcpkg install openblas curl[core,openssl] sqlite3[core,fts5,json1] cpp-jwt pcre cjson brotli libarchive[core,bzip2,libxml2,lz4,lzma,lzo] pthread tesseract libxml2 libmupdf[ocr] gtest mongoose libmagic libraw gumbo ffmpeg[core,avcodec,avformat,swscale,swresample,webp,opus,mp3lame,vpx,zlib] libgit2[core,pcre]
     ```
 
 4. Build

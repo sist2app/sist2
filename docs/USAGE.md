@@ -123,7 +123,7 @@ Example:
 *.pdf
 
 # But don't ignore them for the /important_files/ directory
-!/important_videos/*.pdf
+!/important_files/*.pdf
 
 # Ignore all files in _staging/ directories
 _staging/
