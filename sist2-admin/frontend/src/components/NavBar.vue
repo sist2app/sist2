@@ -3,7 +3,11 @@
     <b-navbar-brand to="/">
       <Sist2Icon></Sist2Icon>
     </b-navbar-brand>
-
+    
+    <span class="badge badge-pill version" v-if="$store && $store.state.sist2Info">
+      v{{ sist2Version() }}
+    </span>
+      
     <b-button class="ml-auto" to="/task" variant="link">{{ $t("tasks") }}</b-button>
   </b-navbar>
 </template>
