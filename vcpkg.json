@@ -1,0 +1,54 @@
+{
+  "name": "sist2",
+  "version-string": "3.5.0",
+  "builtin-baseline": "cfc7e5ec0383adbdac6595f29a5232049fe124df",
+  "dependencies": [
+    "openblas",
+    {
+      "name": "curl",
+      "default-features": false,
+      "features": ["openssl"]
+    },
+    {
+      "name": "sqlite3",
+      "default-features": false,
+      "features": ["fts5", "json1"]
+    },
+    "cpp-jwt",
+    "pcre",
+    "cjson",
+    "brotli",
+    {
+      "name": "libarchive",
+      "default-features": false,
+      "features": ["bzip2", "libxml2", "lz4", "lzma", "lzo"]
+    },
+    "pthread",
+    "tesseract",
+    "libxml2",
+    {
+      "name": "libmupdf",
+      "features": ["ocr"]
+    },
+    "mongoose",
+    "libmagic",
+    "libraw",
+    "gumbo",
+    {
+      "name": "ffmpeg",
+      "default-features": false,
+      "features": ["avcodec", "avformat", "swscale", "swresample", "webp", "opus", "mp3lame", "vpx", "zlib"]
+    },
+    {
+      "name": "libgit2",
+      "default-features": false,
+      "features": ["pcre"]
+    }
+  ],
+  "features": {
+    "tests": {
+      "description": "Build libscan tests",
+      "dependencies": ["gtest"]
+    }
+  }
+}

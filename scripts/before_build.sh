@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 (
-  cd ..
+  cd "$(dirname "$0")/.."
   rm -rf index.sist2
 
   python3 scripts/mime.py > src/parsing/mime_generated.c

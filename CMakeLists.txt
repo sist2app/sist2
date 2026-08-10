@@ -1,4 +1,8 @@
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.15)
+
+# Allow configuring bundled third-party projects that declare a pre-3.5 minimum
+# (e.g. third-party/argparse) with CMake 4.x
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 project(sist2)
 set(CMAKE_C_STANDARD 11)
@@ -68,13 +72,13 @@ add_executable(
 set_target_properties(sist2 PROPERTIES LINKER_LANGUAGE C)
 
 target_link_directories(sist2 PRIVATE BEFORE ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/)
-set(CMAKE_FIND_LIBRARY_SUFFIXES .a .lib)
 
 find_package(PkgConfig REQUIRED)
 
 find_package(cJSON CONFIG REQUIRED)
 find_package(unofficial-mongoose CONFIG REQUIRED)
 find_package(CURL CONFIG REQUIRED)
+find_package(ZLIB REQUIRED)
 find_library(MAGIC_LIB NAMES libmagic.a REQUIRED)
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
 find_package(OpenBLAS CONFIG REQUIRED)
@@ -150,8 +154,7 @@ add_dependencies(
 target_link_libraries(
         sist2
 
-#        m
-        z
+        ZLIB::ZLIB
         libgit2::libgit2package
         argparse
         unofficial::mongoose::mongoose

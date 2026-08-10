@@ -82,7 +82,6 @@ else()
     )
 endif()
 
-set(CMAKE_FIND_LIBRARY_SUFFIXES .a .lib .so)
 
 find_package(cJSON CONFIG REQUIRED)
 find_package(LibArchive REQUIRED)
@@ -173,6 +172,9 @@ target_link_libraries(
         scan
         PUBLIC
 
+        # --start-group/--end-group makes the link order of the static archives irrelevant
+        -Wl,--start-group
+
         cjson
         ${LibArchive_LIBRARIES}
         ZLIB::ZLIB
@@ -212,6 +214,8 @@ target_link_libraries(
         leptonica
         libraw::raw
         ${FFMPEG_LIBRARIES}
+
+        -Wl,--end-group
 )
 
 target_include_directories(
