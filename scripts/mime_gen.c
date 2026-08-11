@@ -223,11 +223,11 @@ static void emit(FILE *o) {
                "#define MIME_GENERATED_C\n"
                "#include <stdlib.h>\n\n");
 
-    fprintf(o, "enum mime {\n");
+    // #defines rather than an enum: ids with the no-parse bit (0x80000000) set
+    // do not fit in an int, which ISO C requires for enumerator values
     for (int i = 0; i < mime_count; i++) {
-        fprintf(o, "%s=%s,\n", sorted_mimes[i]->clean, sorted_mimes[i]->id);
+        fprintf(o, "#define %s (%s)\n", sorted_mimes[i]->clean, sorted_mimes[i]->id);
     }
-    fprintf(o, "};\n");
 
     fprintf(o, "char *mime_get_mime_text(unsigned int mime_id) {switch (mime_id) {\n");
     for (int i = 0; i < mime_count; i++) {

@@ -5,7 +5,7 @@ unsigned int mime_get_mime_by_ext(const char *ext) {
     unsigned char lower[16];
     unsigned char *p = lower;
     int cnt = 0;
-    while ((*ext) != '\0' && cnt + 1 < sizeof(lower)) {
+    while ((*ext) != '\0' && cnt + 1 < (int) sizeof(lower)) {
         *p++ = tolower(*ext++);
         cnt++;
     }

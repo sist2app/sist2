@@ -353,7 +353,7 @@ es_indexer_t *create_indexer(const char *url, const char *index) {
     return indexer;
 }
 
-void finish_indexer(int index_id) {
+void finish_indexer(UNUSED(int index_id)) {
 
     char url[4096];
 

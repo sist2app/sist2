@@ -85,89 +85,89 @@ public:
         }
     }
 
-    void definePageStyle(const WPXPropertyList &propList) override { /* noop */ }
+    void definePageStyle(const WPXPropertyList &) override { /* noop */ }
 
     void closePageSpan() override { /* noop */ }
 
-    void openHeader(const WPXPropertyList &propList) override { /* noop */ }
+    void openHeader(const WPXPropertyList &) override { /* noop */ }
 
     void closeHeader() override { /* noop */ }
 
-    void openFooter(const WPXPropertyList &propList) override { /* noop */ }
+    void openFooter(const WPXPropertyList &) override { /* noop */ }
 
     void closeFooter() override { /* noop */ }
 
     void
-    defineParagraphStyle(const WPXPropertyList &propList, const WPXPropertyListVector &tabStops) override { /* noop */ }
+    defineParagraphStyle(const WPXPropertyList &, const WPXPropertyListVector &) override { /* noop */ }
 
-    void openParagraph(const WPXPropertyList &propList, const WPXPropertyListVector &tabStops) override { /* noop */ }
+    void openParagraph(const WPXPropertyList &, const WPXPropertyListVector &) override { /* noop */ }
 
-    void defineCharacterStyle(const WPXPropertyList &propList) override { /* noop */ }
+    void defineCharacterStyle(const WPXPropertyList &) override { /* noop */ }
 
-    void openSpan(const WPXPropertyList &propList) override { /* noop */ }
+    void openSpan(const WPXPropertyList &) override { /* noop */ }
 
     void
-    defineSectionStyle(const WPXPropertyList &propList, const WPXPropertyListVector &columns) override { /* noop */ }
+    defineSectionStyle(const WPXPropertyList &, const WPXPropertyListVector &) override { /* noop */ }
 
-    void openSection(const WPXPropertyList &propList, const WPXPropertyListVector &columns) override { /* noop */ }
+    void openSection(const WPXPropertyList &, const WPXPropertyListVector &) override { /* noop */ }
 
-    void insertField(const WPXString &type, const WPXPropertyList &propList) override { /* noop */ }
+    void insertField(const WPXString &, const WPXPropertyList &) override { /* noop */ }
 
-    void defineOrderedListLevel(const WPXPropertyList &propList) override { /* noop */ }
+    void defineOrderedListLevel(const WPXPropertyList &) override { /* noop */ }
 
-    void defineUnorderedListLevel(const WPXPropertyList &propList) override { /* noop */ }
+    void defineUnorderedListLevel(const WPXPropertyList &) override { /* noop */ }
 
-    void openOrderedListLevel(const WPXPropertyList &propList) override { /* noop */ }
+    void openOrderedListLevel(const WPXPropertyList &) override { /* noop */ }
 
-    void openUnorderedListLevel(const WPXPropertyList &propList) override { /* noop */ }
+    void openUnorderedListLevel(const WPXPropertyList &) override { /* noop */ }
 
     void closeOrderedListLevel() override { /* noop */ }
 
     void closeUnorderedListLevel() override { /* noop */ }
 
-    void openListElement(const WPXPropertyList &propList, const WPXPropertyListVector &tabStops) override { /* noop */ }
+    void openListElement(const WPXPropertyList &, const WPXPropertyListVector &) override { /* noop */ }
 
     void closeListElement() override { /* noop */ }
 
-    void openFootnote(const WPXPropertyList &propList) override { /* noop */ }
+    void openFootnote(const WPXPropertyList &) override { /* noop */ }
 
     void closeFootnote() override { /* noop */ }
 
-    void openEndnote(const WPXPropertyList &propList) override { /* noop */ }
+    void openEndnote(const WPXPropertyList &) override { /* noop */ }
 
     void closeEndnote() override { /* noop */ }
 
-    void openComment(const WPXPropertyList &propList) override { /* noop */ }
+    void openComment(const WPXPropertyList &) override { /* noop */ }
 
     void closeComment() override { /* noop */ }
 
-    void openTextBox(const WPXPropertyList &propList) override { /* noop */ }
+    void openTextBox(const WPXPropertyList &) override { /* noop */ }
 
     void closeTextBox() override { /* noop */ }
 
-    void openTable(const WPXPropertyList &propList, const WPXPropertyListVector &columns) override { /* noop */ }
+    void openTable(const WPXPropertyList &, const WPXPropertyListVector &) override { /* noop */ }
 
-    void openTableRow(const WPXPropertyList &propList) override { /* noop */ }
+    void openTableRow(const WPXPropertyList &) override { /* noop */ }
 
     void closeTableRow() override { /* noop */ }
 
-    void openTableCell(const WPXPropertyList &propList) override { /* noop */ }
+    void openTableCell(const WPXPropertyList &) override { /* noop */ }
 
     void closeTableCell() override { /* noop */ }
 
-    void insertCoveredTableCell(const WPXPropertyList &propList) override { /* noop */ }
+    void insertCoveredTableCell(const WPXPropertyList &) override { /* noop */ }
 
     void closeTable() override { /* noop */ }
 
-    void openFrame(const WPXPropertyList &propList) override { /* noop */ }
+    void openFrame(const WPXPropertyList &) override { /* noop */ }
 
     void closeFrame() override { /* noop */ }
 
-    void insertBinaryObject(const WPXPropertyList &propList, const WPXBinaryData &data) override { /* noop */ }
+    void insertBinaryObject(const WPXPropertyList &, const WPXBinaryData &) override { /* noop */ }
 
-    void insertEquation(const WPXPropertyList &propList, const WPXString &data) override { /* noop */ }
+    void insertEquation(const WPXPropertyList &, const WPXString &) override { /* noop */ }
 
-    void openPageSpan(const WPXPropertyList &propList) override { /* noop */ }
+    void openPageSpan(const WPXPropertyList &) override { /* noop */ }
 
     void startDocument() override { /* noop */ };
 };

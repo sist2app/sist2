@@ -146,7 +146,7 @@ static void worker_proc_init(tpool_t *pool, int thread_id) {
     pthread_mutex_unlock(&pool->shm->mutex);
 }
 
-void worker_proc_cleanup(tpool_t *pool) {
+void worker_proc_cleanup(UNUSED(tpool_t *pool)) {
     if (ProcData.index_db != NULL) {
         database_close(ProcData.index_db, FALSE);
     }
@@ -288,7 +288,7 @@ void tpool_destroy(tpool_t *pool) {
     pthread_cond_broadcast(&pool->shm->ipc_ctx.has_work_cond);
     pthread_mutex_unlock(&pool->shm->mutex);
 
-    for (size_t i = 0; i < pool->num_threads; i++) {
+    for (int i = 0; i < pool->num_threads; i++) {
         pthread_t thread = pool->threads[i];
         if (thread != 0) {
             void *_;

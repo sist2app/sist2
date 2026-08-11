@@ -161,9 +161,9 @@ int database_delete_list_iter(database_iterator_t *iter);
     for (int (element) = database_delete_list_iter(iter); (element) != 0; (element) = database_delete_list_iter(iter))
 
 
-cJSON *database_incremental_scan_begin(database_t *db);
+void database_incremental_scan_begin(database_t *db);
 
-cJSON *database_incremental_scan_end(database_t *db);
+void database_incremental_scan_end(database_t *db);
 
 int database_mark_document(database_t *db, const char *id, int mtime);
 
@@ -229,7 +229,7 @@ void database_fts_detach(database_t *db);
 
 cJSON *database_fts_get_document(database_t *db, long sid);
 
-database_summary_stats_t database_fts_sync_tags(database_t *db);
+void database_fts_sync_tags(database_t *db);
 
 cJSON *database_fts_suggest_tag(database_t *db, char *prefix);
 

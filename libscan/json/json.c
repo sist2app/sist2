@@ -116,4 +116,6 @@ scan_code_t parse_ndjson(scan_json_ctx_t *ctx, vfile_t *f, document_t *doc) {
 
     free(buf);
     text_buffer_destroy(&tex);
+
+    return SCAN_OK;
 }

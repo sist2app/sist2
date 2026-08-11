@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <archive.h>
 
-static scan_arc_ctx_t arc_ctx = (scan_arc_ctx_t) {.passphrase = {0,}};
+static scan_arc_ctx_t arc_ctx = {.passphrase = {0,}};
 
 void parse_comic(scan_comic_ctx_t *ctx, vfile_t *f, document_t *doc) {
     struct archive *a = NULL;

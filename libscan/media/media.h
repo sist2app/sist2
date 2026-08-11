@@ -27,7 +27,7 @@ typedef struct {
 } scan_media_ctx_t;
 
 __always_inline
-static AVCodecContext *alloc_jpeg_encoder(int w, int h, int qscale) {
+static inline AVCodecContext *alloc_jpeg_encoder(int w, int h, int qscale) {
 
     const AVCodec *jpeg_codec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
     AVCodecContext *jpeg = avcodec_alloc_context3(jpeg_codec);
@@ -47,7 +47,7 @@ static AVCodecContext *alloc_jpeg_encoder(int w, int h, int qscale) {
     return jpeg;
 }
 
-static AVCodecContext *alloc_webp_encoder(int w, int h, int qscale) {
+static inline AVCodecContext *alloc_webp_encoder(int w, int h, int qscale) {
 
     const AVCodec *webp_codec = avcodec_find_encoder(AV_CODEC_ID_WEBP);
     AVCodecContext *webp = avcodec_alloc_context3(webp_codec);

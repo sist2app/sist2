@@ -36,7 +36,7 @@ static int should_read_part(const char *part) {
 
 int extract_text(scan_ooxml_ctx_t *ctx, xmlDoc *xml, xmlNode *node, text_buffer_t *buf) {
     //TODO: Check which nodes are likely to have a 't' child, and ignore nodes that aren't
-    xmlErrorPtr err = xmlGetLastError();
+    const xmlError *err = xmlGetLastError();
     if (err != NULL) {
         if (err->level == XML_ERR_FATAL) {
             CTX_LOG_ERRORF("ooxml.c", "Got fatal XML error while parsing document: %s", err->message);
@@ -180,7 +180,7 @@ static int read_doc_props(scan_ooxml_ctx_t *ctx, struct archive *a, document_t *
 
 #define MAX_TN_SIZE (1024 * 1024 * 15)
 
-void read_thumbnail(scan_ooxml_ctx_t *ctx, document_t *doc, struct archive *a, struct archive_entry *entry) {
+void read_thumbnail(UNUSED(scan_ooxml_ctx_t *ctx), document_t *doc, struct archive *a, struct archive_entry *entry) {
     size_t entry_size = archive_entry_size(entry);
 
     if (entry_size <= 0 || entry_size > MAX_TN_SIZE) {

@@ -246,7 +246,7 @@ fts_search_req_t *get_search_req(struct mg_http_message *hm) {
         cJSON_Delete(json);
         return NULL;
     }
-    if (req_model.val && !req_embedding.val || !req_model.val && req_embedding.val) {
+    if ((req_model.val && !req_embedding.val) || (!req_model.val && req_embedding.val)) {
         cJSON_Delete(json);
         return NULL;
     }
@@ -368,7 +368,7 @@ void fts_search_paths(struct mg_connection *nc, struct mg_http_message *hm) {
     cJSON_Delete(json);
 }
 
-void fts_search_mimetypes(struct mg_connection *nc, struct mg_http_message *hm) {
+void fts_search_mimetypes(struct mg_connection *nc, UNUSED(struct mg_http_message *hm)) {
 
     cJSON *json = database_fts_get_mimetypes(WebCtx.search_db);
 
@@ -452,7 +452,7 @@ void fts_suggest_tag(struct mg_connection *nc, struct mg_http_message *hm) {
     free(body);
 }
 
-void fts_get_tags(struct mg_connection *nc, struct mg_http_message *hm) {
+void fts_get_tags(struct mg_connection *nc, UNUSED(struct mg_http_message *hm)) {
     cJSON *json = database_fts_get_tags(WebCtx.search_db);
 
     mg_send_json(nc, json);

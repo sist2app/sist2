@@ -49,8 +49,6 @@ enum major_mime {
     MimeApplication = 10,
 };
 
-enum mime;
-
 unsigned int mime_name_lookup(unsigned long mime_crc32);
 
 unsigned int mime_extension_lookup(unsigned long extension_crc32);

@@ -103,7 +103,7 @@ typedef struct meta_line {
     enum metakey key;
     size_t size;
     union {
-        char str_val[0];
+        char str_val[1];
         unsigned long long_val;
     };
 } meta_line_t;

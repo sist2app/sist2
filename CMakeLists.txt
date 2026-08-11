@@ -33,7 +33,7 @@ endif ()
 #
 add_library(
         scan
-        libscan/util.c libscan/util.h
+        libscan/util.h
         libscan/scan.h
         libscan/macros.h
 
@@ -182,6 +182,17 @@ list(REMOVE_ITEM FFMPEG_LIBRARIES /usr/lib/aarch64-linux-gnu/libm.a)
 #
 # Per-configuration compile flags (shared by scan, sist2 and antiword)
 #
+# -Wmissing-field-initializers excluded: omitted fields are guaranteed zero-initialized,
+# and the vendored argparse OPT_*() variadic macros cannot pad trailing fields
+set(SIST_WARNING_OPTIONS
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Wno-missing-field-initializers
+)
+target_compile_options(scan PRIVATE ${SIST_WARNING_OPTIONS})
+target_compile_options(sist2 PRIVATE ${SIST_WARNING_OPTIONS})
+
 if (SIST_DEBUG)
     # antiword.h requires exactly one of DEBUG/NDEBUG
     target_compile_definitions(scan PRIVATE DEBUG)
@@ -221,7 +232,6 @@ else ()
             -Ofast
             -fno-stack-protector
             -fomit-frame-pointer
-            -w
     )
     target_compile_options(scan PRIVATE ${SIST_OPTIMIZE_OPTIONS})
     target_compile_options(sist2 PRIVATE ${SIST_OPTIMIZE_OPTIONS})

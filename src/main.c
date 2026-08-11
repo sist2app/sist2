@@ -205,10 +205,10 @@ void initialize_scan_context(scan_args_t *args) {
     ScanCtx.threads = args->threads;
     ScanCtx.depth = args->depth;
 
-    strncpy(ScanCtx.index.path, args->output, sizeof(ScanCtx.index.path));
-    strncpy(ScanCtx.index.desc.name, args->name, sizeof(ScanCtx.index.desc.name));
-    strncpy(ScanCtx.index.desc.root, args->path, sizeof(ScanCtx.index.desc.root));
-    strncpy(ScanCtx.index.desc.rewrite_url, args->rewrite_url, sizeof(ScanCtx.index.desc.rewrite_url));
+    strncpy(ScanCtx.index.path, args->output, sizeof(ScanCtx.index.path) - 1);
+    strncpy(ScanCtx.index.desc.name, args->name, sizeof(ScanCtx.index.desc.name) - 1);
+    strncpy(ScanCtx.index.desc.root, args->path, sizeof(ScanCtx.index.desc.root) - 1);
+    strncpy(ScanCtx.index.desc.rewrite_url, args->rewrite_url, sizeof(ScanCtx.index.desc.rewrite_url) - 1);
     ScanCtx.index.desc.root_len = (short) strlen(ScanCtx.index.desc.root);
     ScanCtx.fast = args->fast;
 
@@ -554,7 +554,7 @@ int main(int argc, const char *argv[]) {
             OPT_END(),
     };
 
-    struct argparse argparse = {};
+    struct argparse argparse = {0};
     argparse_init(&argparse, options, usage, 0);
     argparse_describe(
             &argparse,

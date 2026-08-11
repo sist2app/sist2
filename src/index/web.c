@@ -131,7 +131,7 @@ response_t *web_get(const char *url, int timeout, int insecure) {
     headers = curl_slist_append(headers, "Content-Type: application/json");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-    char err_buffer[CURL_ERROR_SIZE + 1] = {};
+    char err_buffer[CURL_ERROR_SIZE + 1] = {0};
     curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, err_buffer);
 
     curl_easy_perform(curl);
@@ -167,7 +167,7 @@ response_t *web_post(const char *url, const char *data, int insecure) {
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
     }
 
-    char err_buffer[CURL_ERROR_SIZE + 1] = {};
+    char err_buffer[CURL_ERROR_SIZE + 1] = {0};
     curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, err_buffer);
 
     struct curl_slist *headers = NULL;

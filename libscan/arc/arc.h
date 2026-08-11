@@ -30,7 +30,8 @@ typedef struct {
     char buf[ARC_BUF_SIZE];
 } arc_data_t;
 
-static int vfile_open_callback(struct archive *a, void *user_data) {
+static inline int vfile_open_callback(struct archive *a, void *user_data) {
+    (void) a;
     arc_data_t *data = (arc_data_t *) user_data;
 
     if (!data->f->is_fs_file) {
@@ -41,7 +42,8 @@ static int vfile_open_callback(struct archive *a, void *user_data) {
     return ARCHIVE_OK;
 }
 
-static long vfile_read_callback(struct archive *a, void *user_data, const void **buf) {
+static inline long vfile_read_callback(struct archive *a, void *user_data, const void **buf) {
+    (void) a;
     arc_data_t *data = (arc_data_t *) user_data;
 
     *buf = data->buf;
@@ -55,7 +57,8 @@ static long vfile_read_callback(struct archive *a, void *user_data, const void *
     return ret;
 }
 
-static int vfile_close_callback(struct archive *a, void *user_data) {
+static inline int vfile_close_callback(struct archive *a, void *user_data) {
+    (void) a;
     arc_data_t *data = (arc_data_t *) user_data;
 
     if (!data->f->is_fs_file) {

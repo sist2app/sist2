@@ -79,14 +79,13 @@ int store_thumbnail_rgb24(scan_raw_ctx_t *ctx, libraw_processed_image_t *img, do
     avcodec_send_frame(thumbnail_encoder, scaled_frame);
     avcodec_send_frame(thumbnail_encoder, NULL); // Send EOF
 
-    AVPacket thumbnail_packet;
-    av_init_packet(&thumbnail_packet);
-    avcodec_receive_packet(thumbnail_encoder, &thumbnail_packet);
+    AVPacket *thumbnail_packet = av_packet_alloc();
+    avcodec_receive_packet(thumbnail_encoder, thumbnail_packet);
 
     doc->thumbnail_count = 1;
-    APPEND_THUMBNAIL(doc, (char *) thumbnail_packet.data, thumbnail_packet.size);
+    APPEND_THUMBNAIL(doc, (char *) thumbnail_packet->data, thumbnail_packet->size);
 
-    av_packet_unref(&thumbnail_packet);
+    av_packet_free(&thumbnail_packet);
     av_free(*scaled_frame->data);
     av_frame_free(&scaled_frame);
     avcodec_free_context(&thumbnail_encoder);

@@ -374,7 +374,7 @@ char *index_ids_where_clause(int *index_ids) {
 
     strcpy(clause, "index_id IN (");
     for (int i = 0; i < param_count; i++) {
-        char param[10];
+        char param[16];
         snprintf(param, sizeof(param), "?%d%s",
                  INDEX_ID_PARAM_OFFSET + i, i == param_count - 1 ? "" : ",");
         strcat(clause, param);
@@ -395,7 +395,7 @@ char *mime_types_where_clause(char **mime_types) {
 
     strcpy(clause, "mime IN (");
     for (int i = 0; i < param_count; i++) {
-        char param[10];
+        char param[16];
         snprintf(param, sizeof(param), "?%d%s",
                  MIME_PARAM_OFFSET + i, i == param_count - 1 ? "" : ",");
         strcat(clause, param);
@@ -470,7 +470,7 @@ database_summary_stats_t database_fts_get_date_range(database_t *db) {
     return stats;
 }
 
-char *get_after_where(char **after, fts_sort_t sort, int sort_asc) {
+char *get_after_where(char **after, UNUSED(fts_sort_t sort), int sort_asc) {
     if (after == NULL) {
         return NULL;
     }
@@ -781,7 +781,7 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
     return json;
 }
 
-database_summary_stats_t database_fts_sync_tags(database_t *db) {
+void database_fts_sync_tags(database_t *db) {
 
     LOG_INFO("database_fts.c", "Syncing tags.");
 

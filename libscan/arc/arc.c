@@ -42,15 +42,15 @@ int arc_read(struct vfile *f, void *buf, size_t size) {
     int bytes_copied = 0;
 
     if (f->rewind_buffer_size != 0) {
-        if (size > f->rewind_buffer_size) {
-            memcpy(buf, f->rewind_buffer + f->rewind_buffer_cursor, f->rewind_buffer_size);
+        if (size > (size_t) f->rewind_buffer_size) {
+            memcpy(buf, (char *) f->rewind_buffer + f->rewind_buffer_cursor, f->rewind_buffer_size);
 
             bytes_copied = f->rewind_buffer_size;
             size -= f->rewind_buffer_size;
-            buf += f->rewind_buffer_size;
+            buf = (char *) buf + f->rewind_buffer_size;
             f->rewind_buffer_size = 0;
         } else {
-            memcpy(buf, f->rewind_buffer + f->rewind_buffer_cursor, size);
+            memcpy(buf, (char *) f->rewind_buffer + f->rewind_buffer_cursor, size);
             f->rewind_buffer_size -= (int) size;
             f->rewind_buffer_cursor += (int) size;
 
@@ -200,16 +200,18 @@ scan_code_t parse_archive(scan_arc_ctx_t *ctx, vfile_t *f, document_t *doc, pcre
 
             if (S_ISREG(entry_stat.st_mode)) {
 
-                const char *utf8_name = archive_entry_pathname_utf8(entry);
-
-                if (utf8_name == NULL) {
-                    snprintf(sub_job->filepath, sizeof(sub_job->filepath), "%s#/%s", f->filepath,
-                             archive_entry_pathname(entry));
-                    strcpy(sub_job->vfile.filepath, sub_job->filepath);
-                } else {
-                    snprintf(sub_job->filepath, sizeof(sub_job->filepath), "%s#/%s", f->filepath, utf8_name);
-                    strcpy(sub_job->vfile.filepath, sub_job->filepath);
+                const char *entry_name = archive_entry_pathname_utf8(entry);
+                if (entry_name == NULL) {
+                    entry_name = archive_entry_pathname(entry);
                 }
+
+                int filepath_len = snprintf(sub_job->filepath, sizeof(sub_job->filepath), "%s#/%s",
+                                            f->filepath, entry_name);
+                if (filepath_len < 0 || filepath_len >= (int) sizeof(sub_job->filepath)) {
+                    CTX_LOG_ERRORF("arc.c", "Skipped %s, path too long", f->filepath);
+                    continue;
+                }
+                strcpy(sub_job->vfile.filepath, sub_job->filepath);
                 sub_job->base = (int) (strrchr(sub_job->filepath, '/') - sub_job->filepath) + 1;
 
                 double decompressed_size_ratio = (double) sub_job->vfile.st_size / (double) f->st_size;
@@ -235,7 +237,7 @@ scan_code_t parse_archive(scan_arc_ctx_t *ctx, vfile_t *f, document_t *doc, pcre
                 }
 
                 char *p = strrchr(sub_job->filepath, '.');
-                if (p != NULL && (p - sub_job->filepath) > strlen(f->filepath)) {
+                if (p != NULL && (p - sub_job->filepath) > (long) strlen(f->filepath)) {
                     sub_job->ext = (int) (p - sub_job->filepath + 1);
                 } else {
                     sub_job->ext = (int) strlen(sub_job->filepath);

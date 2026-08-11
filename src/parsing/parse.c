@@ -67,6 +67,8 @@ file_type_t get_file_type(unsigned int mime, size_t size, const char *filepath) 
     } else if (is_ndjson(&ScanCtx.json_ctx, mime)) {
         return FILETYPE_NDJSON;
     }
+
+    return FILETYPE_DONT_PARSE;
 }
 
 #define GET_MIME_ERROR_FATAL (-1)
@@ -159,7 +161,7 @@ void parse(parse_job_t *job) {
     doc->thumbnail_count = 0;
     strcpy(doc->parent, job->parent);
 
-    if (doc->mime == GET_MIME_ERROR_FATAL) {
+    if (doc->mime == (unsigned int) GET_MIME_ERROR_FATAL) {
         CLOSE_FILE(job->vfile)
         free(doc);
         return;

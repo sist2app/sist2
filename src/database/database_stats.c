@@ -234,6 +234,8 @@ cJSON *database_get_stats(database_t *db, database_stat_type_d type) {
                 cJSON_AddNumberToObject(row, "size", (double) sqlite3_column_int64(stmt, 1));
                 cJSON_AddNumberToObject(row, "count", (double) sqlite3_column_int64(stmt, 2));
                 break;
+            case DATABASE_STAT_INVALID:
+                LOG_FATAL("database_stats.c", "Invalid stat type");
         }
 
         cJSON_AddItemToArray(json, row);

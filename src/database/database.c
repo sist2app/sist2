@@ -64,7 +64,7 @@ static int sep_rfind(const char *str) {
     return -1;
 }
 
-void path_parent_func(sqlite3_context *ctx, int argc, sqlite3_value **argv) {
+void path_parent_func(sqlite3_context *ctx, UNUSED(int argc), sqlite3_value **argv) {
 #ifdef SIST_DEBUG
     if (argc != 1 || sqlite3_value_type(argv[0]) != SQLITE_TEXT) {
         sqlite3_result_error(ctx, "Invalid parameters", -1);
@@ -84,7 +84,7 @@ void path_parent_func(sqlite3_context *ctx, int argc, sqlite3_value **argv) {
     sqlite3_result_text(ctx, parent, stop, SQLITE_TRANSIENT);
 }
 
-void random_func(sqlite3_context *ctx, int argc, UNUSED(sqlite3_value **argv)) {
+void random_func(sqlite3_context *ctx, UNUSED(int argc), UNUSED(sqlite3_value **argv)) {
 #ifdef SIST_DEBUG
     if (argc != 1 || sqlite3_value_type(argv[0]) != SQLITE_INTEGER) {
         sqlite3_result_error(ctx, "Invalid parameters", -1);
@@ -100,7 +100,7 @@ void random_func(sqlite3_context *ctx, int argc, UNUSED(sqlite3_value **argv)) {
 }
 
 
-void save_current_job_info(sqlite3_context *ctx, int argc, sqlite3_value **argv) {
+void save_current_job_info(sqlite3_context *ctx, UNUSED(int argc), sqlite3_value **argv) {
 #ifdef SIST_DEBUG
     if (argc != 1 || sqlite3_value_type(argv[0]) != SQLITE_TEXT) {
         sqlite3_result_error(ctx, "Invalid parameters", -1);
@@ -589,7 +589,7 @@ cJSON *database_document_iter(database_iterator_t *iter) {
     return NULL;
 }
 
-cJSON *database_incremental_scan_begin(database_t *db) {
+void database_incremental_scan_begin(database_t *db) {
     LOG_DEBUG("database.c", "Preparing database for incremental scan");
     CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, "DELETE FROM marked;", NULL, NULL, NULL));
     LOG_DEBUG("database.c", "Preparing database for incremental scan (create marked table)");
@@ -597,7 +597,7 @@ cJSON *database_incremental_scan_begin(database_t *db) {
             sqlite3_exec(db->db, "INSERT INTO marked SELECT id, 0, mtime FROM document;", NULL, NULL, NULL));
 }
 
-cJSON *database_incremental_scan_end(database_t *db) {
+void database_incremental_scan_end(database_t *db) {
     CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
             db->db,
             "DELETE FROM delete_list WHERE id IN (SELECT id FROM marked WHERE marked = 1);",
@@ -653,6 +653,7 @@ int database_mark_document(database_t *db, const char *path, int mtime) {
     pthread_mutex_unlock(&db->ipc_ctx->index_db_mutex);
 
     CRASH_IF_STMT_FAIL(ret);
+    return FALSE;
 }
 
 int database_write_document(database_t *db, document_t *doc, const char *json_data) {

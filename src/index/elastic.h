@@ -10,7 +10,7 @@ typedef struct es_bulk_line {
     struct es_bulk_line *next;
     char sid[SIST_SID_LEN];
     int type;
-    char line[0];
+    char line[];
 } es_bulk_line_t;
 
 typedef struct {

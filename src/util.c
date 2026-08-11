@@ -67,7 +67,7 @@ char *expandpath(const char *path) {
     }
 
     *tmp = '\0';
-    for (int i = 0; i < w.we_wordc; i++) {
+    for (size_t i = 0; i < w.we_wordc; i++) {
         strcat(tmp, w.we_wordv[i]);
         if (i != w.we_wordc - 1) {
             strcat(tmp, " ");
@@ -201,7 +201,7 @@ void str_escape(char *dst, const char *str) {
         oldPtr = ptr;
 
         if (!utf8_validchr2(tmp)) {
-            for (int i = 0; i < code_len; i++) {
+            for (size_t i = 0; i < code_len; i++) {
                 if (tmp[i] == 0) {
                     break;
                 }

@@ -233,7 +233,8 @@ void serve_file_from_url(cJSON *json, index_t *idx, struct mg_connection *nc) {
 
     const char *ext = cJSON_GetObjectItem(json, "extension")->valuestring;
 
-    char url[8192];
+    // rewrite_url[8192] + path_unescaped + '/' + name_unescaped + '.' + ext
+    char url[8192 + PATH_MAX * 6];
     snprintf(url, sizeof(url),
              "%s%s/%s%s%s",
              idx->desc.rewrite_url, path_unescaped, name_unescaped, strlen(ext) == 0 ? "" : ".", ext);
@@ -266,8 +267,9 @@ void serve_file_from_disk(cJSON *json, index_t *idx, struct mg_connection *nc, s
     char path_unescaped[PATH_MAX * 3];
     str_unescape(path_unescaped, path);
 
-    char full_path[PATH_MAX];
-    snprintf(full_path, PATH_MAX, "%s%s%s%s%s%s",
+    // root[PATH_MAX] + path_unescaped + '/' + name_unescaped + '.' + ext
+    char full_path[PATH_MAX * 7];
+    snprintf(full_path, sizeof(full_path), "%s%s%s%s%s%s",
              idx->desc.root, path_unescaped, strlen(path_unescaped) == 0 ? "" : "/",
              name_unescaped, strlen(ext) == 0 ? "" : ".", ext);
 
@@ -279,7 +281,7 @@ void serve_file_from_disk(cJSON *json, index_t *idx, struct mg_connection *nc, s
              "Accept-Ranges: bytes\r\nCache-Control: no-store\r\n",
              name, strlen(ext) == 0 ? "" : ".", ext);
 
-    char mime_mapping[8192];
+    char mime_mapping[sizeof(full_path) + 8192];
     if (strlen(ext) == 0) {
         snprintf(mime_mapping, sizeof(mime_mapping), "%s=%s%s",
                  full_path, mime, STR_STARTS_WITH_CONSTANT(mime, "text/") ? "; charset=utf8" : "");

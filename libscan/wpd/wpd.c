@@ -38,4 +38,6 @@ scan_code_t parse_wpd(scan_wpd_ctx_t *ctx, vfile_t *f, document_t *doc) {
     text_buffer_destroy(&tex);
     wpd_memory_stream_destroy(stream);
     free(buf);
+
+    return res == C_WPD_OK ? SCAN_OK : SCAN_ERR_READ;
 }

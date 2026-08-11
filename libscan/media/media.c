@@ -111,7 +111,7 @@ static void frame_and_packet_free(frame_and_packet_t *frame_and_packet) {
 }
 
 __always_inline
-static void read_subtitles(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, int stream_idx, document_t *doc) {
+static void read_subtitles(UNUSED(scan_media_ctx_t *ctx), AVFormatContext *pFormatCtx, int stream_idx, document_t *doc) {
 
     text_buffer_t tex = text_buffer_create(-1);
 
@@ -141,7 +141,7 @@ static void read_subtitles(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, i
         avcodec_decode_subtitle2(decoder, &subtitle, &got_sub, &packet);
 
         if (got_sub) {
-            for (int i = 0; i < subtitle.num_rects; i++) {
+            for (unsigned int i = 0; i < subtitle.num_rects; i++) {
                 const char *text = subtitle.rects[i]->ass;
 
                 if (text == NULL) {
@@ -244,7 +244,8 @@ void append_tag_meta_if_not_exists(scan_media_ctx_t *ctx, document_t *doc, AVDic
     APPEND_UTF8_META(doc, keyname, tag->value)
 
 #define STRCPY_TOLOWER(dst, str) \
-    strncpy(dst, str, sizeof(dst)); \
+    strncpy(dst, str, sizeof(dst) - 1); \
+    (dst)[sizeof(dst) - 1] = '\0'; \
     char *ptr = dst; \
     for (; *ptr; ++ptr) *ptr = (char) tolower(*ptr)
 
@@ -351,7 +352,7 @@ append_video_meta(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, AVFrame *f
     }
 }
 
-static void ocr_image_cb(const char *text, size_t len) {
+static void ocr_image_cb(const char *text, UNUSED(size_t len)) {
     APPEND_STR_META(thread_doc, MetaContent, text);
 }
 
@@ -704,7 +705,7 @@ int memfile_open(vfile_t *f, memfile_t *mem) {
         f->has_checksum = TRUE;
     }
 
-    return (ret == mem->size && mem->file != NULL) ? 0 : -1;
+    return ((size_t) ret == mem->size && mem->file != NULL) ? 0 : -1;
 }
 
 int memfile_open_buf(void *buf, size_t buf_len, memfile_t *mem) {
@@ -740,7 +741,7 @@ void parse_media_vfile(scan_media_ctx_t *ctx, struct vfile *f, document_t *doc, 
 
     const char *filepath = get_filepath_with_ext(doc, f->filepath, mime_str);
 
-    if (f->st_size <= ctx->max_media_buffer) {
+    if (f->st_size <= (size_t) ctx->max_media_buffer) {
         int ret = memfile_open(f, &memfile);
         if (ret == 0) {
             CTX_LOG_DEBUGF(f->filepath, "Loading media file in memory (%ldB)", f->st_size);

@@ -57,7 +57,7 @@ text_dimensions_t text_dimension(char *text, FT_Face face) {
 
     int num_chars = (int) strlen(text);
 
-    unsigned int max_ascent = 0;
+    int max_ascent = 0;
     int max_descent = 0;
 
     char pc = 0;
@@ -88,8 +88,8 @@ void draw_glyph(glyph_t *glyph, int x, int y, struct text_dimensions text_info, 
     unsigned int row_offset = text_info.width - glyph->width;
     unsigned int buf_len = text_info.width * text_info.height;
 
-    for (unsigned int sy = 0; sy < glyph->height; sy++) {
-        for (unsigned int sx = 0; sx < glyph->width; sx++) {
+    for (unsigned int sy = 0; sy < (unsigned int) glyph->height; sy++) {
+        for (unsigned int sx = 0; sx < (unsigned int) glyph->width; sx++) {
             if (dst < buf_len) {
                 bitmap[dst] |= glyph->pixmap[src];
             }
@@ -165,7 +165,8 @@ void parse_font(scan_font_ctx_t *ctx, vfile_t *f, document_t *doc) {
         if (face->family_name == NULL) {
             strcpy(font_name, "(null)");
         } else {
-            strncpy(font_name, face->family_name, sizeof(font_name));
+            strncpy(font_name, face->family_name, sizeof(font_name) - 1);
+            font_name[sizeof(font_name) - 1] = '\0';
         }
     } else {
         snprintf(font_name, sizeof(font_name), "%s %s", face->family_name, face->style_name);

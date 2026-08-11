@@ -13,7 +13,7 @@ pthread_mutex_t Mutex;
 
 __thread scan_ebook_ctx_t thread_ctx;
 
-static void my_fz_lock(UNUSED(void *user), int lock) {
+static void my_fz_lock(UNUSED(void *user), UNUSED(int lock)) {
 #if EBOOK_LOCKS
     if (lock == FZ_LOCK_FREETYPE) {
         pthread_mutex_lock(&Mutex);
@@ -21,7 +21,7 @@ static void my_fz_lock(UNUSED(void *user), int lock) {
 #endif
 }
 
-static void my_fz_unlock(UNUSED(void *user), int lock) {
+static void my_fz_unlock(UNUSED(void *user), UNUSED(int lock)) {
 #if EBOOK_LOCKS
     if (lock == FZ_LOCK_FREETYPE) {
         pthread_mutex_unlock(&Mutex);
@@ -156,15 +156,14 @@ int render_cover(scan_ebook_ctx_t *ctx, fz_context *fzctx, document_t *doc, fz_d
     avcodec_send_frame(thumbnail_encoder, scaled_frame);
     avcodec_send_frame(thumbnail_encoder, NULL); // Send EOF
 
-    AVPacket thumbnail_packet;
-    av_init_packet(&thumbnail_packet);
-    avcodec_receive_packet(thumbnail_encoder, &thumbnail_packet);
+    AVPacket *thumbnail_packet = av_packet_alloc();
+    avcodec_receive_packet(thumbnail_encoder, thumbnail_packet);
 
     doc->thumbnail_count = 1;
-    APPEND_THUMBNAIL(doc, (char *) thumbnail_packet.data, thumbnail_packet.size);
+    APPEND_THUMBNAIL(doc, (char *) thumbnail_packet->data, thumbnail_packet->size);
 
     free(samples);
-    av_packet_unref(&thumbnail_packet);
+    av_packet_free(&thumbnail_packet);
     av_free(*scaled_frame->data);
     av_frame_free(&scaled_frame);
     avcodec_free_context(&thumbnail_encoder);
@@ -316,6 +315,7 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
     }
 
     int page_count = -1;
+    fz_var(page_count);
     fz_var(err);
     fz_try(fzctx)page_count = fz_count_pages(fzctx, fzdoc);
     fz_catch(fzctx)err = fzctx->error.errcode;
@@ -348,7 +348,7 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
 
     char title[8192] = {'\0',};
     fz_try(fzctx)fz_lookup_metadata(fzctx, fzdoc, FZ_META_INFO_TITLE, title, sizeof(title));
-    fz_catch(fzctx);
+    fz_catch(fzctx) {}
 
     if (strlen(title) > 0) {
         APPEND_UTF8_META(doc, MetaTitle, title);
@@ -356,7 +356,7 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
 
     char author[4096] = {'\0',};
     fz_try(fzctx)fz_lookup_metadata(fzctx, fzdoc, FZ_META_INFO_AUTHOR, author, sizeof(author));
-    fz_catch(fzctx);
+    fz_catch(fzctx) {}
 
     if (strlen(author) > 0) {
         APPEND_UTF8_META(doc, MetaAuthor, author);
@@ -366,7 +366,9 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
     if (ctx->content_size > 0) {
         text_buffer_t tex = text_buffer_create(ctx->content_size);
 
-        for (int current_page = 0; current_page < page_count; current_page++) {
+        int current_page;
+        fz_var(current_page);
+        for (current_page = 0; current_page < page_count; current_page++) {
             fz_page *page = NULL;
             err = load_page(fzctx, fzdoc, current_page, &page);
 
@@ -385,6 +387,7 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
             fz_stext_page *stext = fz_new_stext_page(fzctx, page_mediabox);
             fz_device *stext_dev = new_stext_dev(fzctx, stext);
 
+            fz_var(stext);
             fz_var(err);
             fz_try(fzctx)fz_run_page(fzctx, page, stext_dev, fz_identity, NULL);
             fz_always(fzctx) {
@@ -407,7 +410,7 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
 
             fz_drop_stext_page(fzctx, stext);
 
-            if (tex.dyn_buffer.cur >= ctx->content_size) {
+            if (tex.dyn_buffer.cur >= (size_t) ctx->content_size) {
                 fz_drop_page(fzctx, page);
                 break;
             }
@@ -467,7 +470,7 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
     fz_drop_context(fzctx);
 }
 
-static scan_arc_ctx_t arc_ctx = (scan_arc_ctx_t) {.passphrase = {0,}};
+static scan_arc_ctx_t arc_ctx = {.passphrase = {0,}};
 
 void parse_epub_fast(scan_ebook_ctx_t *ctx, vfile_t *f, document_t *doc) {
     struct archive *a = NULL;
@@ -498,7 +501,7 @@ void parse_epub_fast(scan_ebook_ctx_t *ctx, vfile_t *f, document_t *doc) {
                 size_t entry_size = archive_entry_size(entry);
                 void *buf = malloc(entry_size + 1);
                 size_t read = archive_read_data(a, buf, entry_size);
-                *(char *) (buf + entry_size) = '\0';
+                *((char *) buf + entry_size) = '\0';
 
                 if (read != entry_size) {
                     const char *err_str = archive_error_string(a);

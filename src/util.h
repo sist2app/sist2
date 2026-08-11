@@ -30,7 +30,7 @@ void str_escape(char *dst, const char *str);
 
 void str_unescape(char *dst, const char *str);
 
-static int hex2buf(const char *str, int len, unsigned char *bytes) {
+static inline int hex2buf(const char *str, int len, unsigned char *bytes) {
     static const uint8_t hashmap[] = {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -75,7 +75,7 @@ static int hex2buf(const char *str, int len, unsigned char *bytes) {
 }
 
 __always_inline
-static void buf2hex(const unsigned char *buf, size_t buflen, char *hex_string) {
+static inline void buf2hex(const unsigned char *buf, size_t buflen, char *hex_string) {
     static const char hexdig[] = "0123456789abcdef";
 
     const unsigned char *p;
@@ -114,7 +114,7 @@ struct timespec timespec_add(struct timespec ts1, long usec);
 #define format_sid(out, index_id, doc_id) \
     sprintf((out), "%08x.%08x", (index_id), (doc_id))
 
-static int parse_sid(sist_id_t *sid, const char doc_sid_str[SIST_SID_LEN]) {
+static inline int parse_sid(sist_id_t *sid, const char doc_sid_str[SIST_SID_LEN]) {
     if (doc_sid_str[8] != '.') {
         return FALSE;
     }

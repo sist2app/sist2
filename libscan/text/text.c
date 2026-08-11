@@ -6,7 +6,7 @@ scan_code_t parse_text(scan_text_ctx_t *ctx, vfile_t *f, document_t *doc) {
         return SCAN_OK;
     }
 
-    int to_read = MIN(ctx->content_size, f->st_size);
+    int to_read = (int) MIN(ctx->content_size, (long) f->st_size);
 
     if (to_read <= 2) {
         return SCAN_OK;
