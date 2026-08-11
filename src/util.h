@@ -75,7 +75,7 @@ static inline int hex2buf(const char *str, int len, unsigned char *bytes) {
 }
 
 __always_inline
-static inline void buf2hex(const unsigned char *buf, size_t buflen, char *hex_string) {
+static void buf2hex(const unsigned char *buf, size_t buflen, char *hex_string) {
     static const char hexdig[] = "0123456789abcdef";
 
     const unsigned char *p;

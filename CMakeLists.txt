@@ -7,7 +7,8 @@ option(SIST_DEBUG "Build a debug executable" on)
 option(SIST_FAST "Enable more optimisation flags" off)
 option(SIST_DEBUG_INFO "Turn on debug information in web interface" on)
 option(SIST_STATIC "Produce a fully static executable (musl only)" off)
-option(BUILD_TESTS "Build libscan tests" on)
+option(BUILD_TESTS "Build the test binaries" on)
+option(SIST_COVERAGE "Instrument libscan and sist2_core for gcov coverage" off)
 
 add_compile_definitions(
         "SIST_PLATFORM=${SIST_PLATFORM}"
@@ -77,12 +78,14 @@ add_custom_target(
         BYPRODUCTS ${GENERATED_DIR}/git_hash.h
 )
 
-add_executable(
-        sist2
+#
+# Everything but main() lives in sist2_core, so the test binaries can link against it
+#
+add_library(
+        sist2_core STATIC
         # argparse
         third-party/argparse/argparse.h third-party/argparse/argparse.c
 
-        src/main.c
         src/sist.h
         src/io/walk.h src/io/walk.c
         src/tpool.h src/tpool.c
@@ -111,9 +114,12 @@ add_executable(
         src/database/database_embeddings.c
         src/ignorelist.c
         src/ignorelist.h)
+set_target_properties(sist2_core PROPERTIES LINKER_LANGUAGE C)
+
+add_executable(sist2 src/main.c)
 set_target_properties(sist2 PROPERTIES LINKER_LANGUAGE C)
 
-target_link_directories(sist2 PRIVATE BEFORE ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/)
+target_link_directories(sist2_core PUBLIC BEFORE ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/)
 
 find_package(PkgConfig REQUIRED)
 
@@ -192,6 +198,7 @@ set(SIST_WARNING_OPTIONS
         -Wno-missing-field-initializers
 )
 target_compile_options(scan PRIVATE ${SIST_WARNING_OPTIONS})
+target_compile_options(sist2_core PRIVATE ${SIST_WARNING_OPTIONS})
 target_compile_options(sist2 PRIVATE ${SIST_WARNING_OPTIONS})
 
 if (SIST_DEBUG)
@@ -204,11 +211,15 @@ if (SIST_DEBUG)
             -fsanitize=address
             -fno-inline
     )
+    target_compile_options(sist2_core PRIVATE ${SIST_SANITIZE_OPTIONS})
     target_compile_options(sist2 PRIVATE ${SIST_SANITIZE_OPTIONS})
+
+    # PUBLIC: sist2_core carries ASan-instrumented objects, so everything linking it — the test
+    # binaries included — has to link the runtime as well
+    target_link_options(sist2_core PUBLIC -fsanitize=address)
     target_link_options(
             sist2
             PRIVATE
-            -fsanitize=address
             -static-libasan
     )
     set_target_properties(
@@ -226,6 +237,7 @@ elseif (SIST_FAST)
             -freciprocal-math
     )
     target_compile_options(scan PRIVATE ${SIST_OPTIMIZE_OPTIONS})
+    target_compile_options(sist2_core PRIVATE ${SIST_OPTIMIZE_OPTIONS})
     target_compile_options(sist2 PRIVATE ${SIST_OPTIMIZE_OPTIONS})
 else ()
     target_compile_definitions(scan PRIVATE NDEBUG)
@@ -235,6 +247,7 @@ else ()
             -fomit-frame-pointer
     )
     target_compile_options(scan PRIVATE ${SIST_OPTIMIZE_OPTIONS})
+    target_compile_options(sist2_core PRIVATE ${SIST_OPTIMIZE_OPTIONS})
     target_compile_options(sist2 PRIVATE ${SIST_OPTIMIZE_OPTIONS})
 endif ()
 
@@ -345,13 +358,13 @@ target_include_directories(
 )
 
 target_include_directories(
-        sist2 PUBLIC
+        sist2_core PUBLIC
         ${CMAKE_SOURCE_DIR}/
         ${GENERATED_DIR}
 )
 
 add_dependencies(
-        sist2
+        sist2_core
         scan
         git_hash
 )
@@ -399,7 +412,7 @@ if (NOT MAGIC_MGC OR NOT EXISTS ${MAGIC_MGC})
 endif ()
 
 target_compile_definitions(
-        sist2 PRIVATE
+        sist2_core PRIVATE
         SIST2_ROOT="${CMAKE_SOURCE_DIR}"
         MAGIC_MGC_PATH="${MAGIC_MGC}"
 )
@@ -410,7 +423,8 @@ set_source_files_properties(src/index/elastic.c PROPERTIES OBJECT_DEPENDS "${SCH
 set_source_files_properties(src/parsing/magic_util.c PROPERTIES OBJECT_DEPENDS "${MAGIC_MGC}")
 
 target_link_libraries(
-        sist2
+        sist2_core
+        PUBLIC
 
         ZLIB::ZLIB
         libgit2::libgit2package
@@ -426,22 +440,34 @@ target_link_libraries(
         OpenBLAS::OpenBLAS
 )
 
+target_link_libraries(sist2 PRIVATE sist2_core)
+
 if (SIST_STATIC)
     target_link_options(sist2 PRIVATE -static)
 endif ()
 
 if (BUILD_TESTS)
-    find_package(GTest CONFIG REQUIRED)
+    enable_testing()
+    add_subdirectory(tests)
+endif ()
 
-    add_executable(scan_ub_test tests/libscan/main.cpp tests/libscan/test_util.cpp tests/libscan/test_util.h)
-    target_compile_options(scan_ub_test PRIVATE -g -fsanitize=undefined -fno-omit-frame-pointer)
-    target_link_libraries(scan_ub_test PRIVATE GTest::gtest GTest::gtest_main -fsanitize=undefined scan)
+#
+# Coverage: -DSIST_COVERAGE=on, then `make coverage` (needs gcovr)
+#
+if (SIST_COVERAGE)
+    target_compile_options(scan PRIVATE --coverage)
+    target_link_options(scan PUBLIC --coverage)
+    target_compile_options(sist2_core PRIVATE --coverage)
+    target_link_options(sist2_core PUBLIC --coverage)
 
-    add_executable(scan_a_test tests/libscan/main.cpp tests/libscan/test_util.cpp tests/libscan/test_util.h)
-    target_compile_options(scan_a_test PRIVATE -g -fsanitize=address -fno-omit-frame-pointer)
-    target_link_libraries(scan_a_test PRIVATE GTest::gtest GTest::gtest_main -fsanitize=address scan)
-
-    add_executable(scan_test tests/libscan/main.cpp tests/libscan/test_util.cpp tests/libscan/test_util.h)
-    target_compile_options(scan_test PRIVATE -g -fno-omit-frame-pointer)
-    target_link_libraries(scan_test PRIVATE GTest::gtest GTest::gtest_main scan)
+    add_custom_target(
+            coverage
+            COMMAND gcovr --root ${CMAKE_SOURCE_DIR}
+            --filter ${CMAKE_SOURCE_DIR}/libscan --filter ${CMAKE_SOURCE_DIR}/src
+            --exclude ".*\\.spec\\.cpp" --exclude ".*/tests/.*"
+            --html-details ${CMAKE_BINARY_DIR}/coverage/index.html
+            --print-summary
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMENT "Collecting coverage into ${CMAKE_BINARY_DIR}/coverage/index.html"
+    )
 endif ()
