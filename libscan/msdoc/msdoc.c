@@ -2,7 +2,7 @@
 #include <errno.h>
 
 #include <sys/mman.h>
-#include "../../third-party/antiword/src/antiword.h"
+#include <antiword/antiword.h>
 
 void parse_msdoc_text(scan_msdoc_ctx_t *ctx, document_t *doc, FILE *file_in, void *buf, size_t buf_len) {
 

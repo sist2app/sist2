@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
 
-# Allow configuring bundled third-party projects that declare a pre-3.5 minimum
-# (e.g. third-party/argparse) with CMake 4.x
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-
 project(sist2)
 set(CMAKE_C_STANDARD 11)
 
@@ -32,16 +28,6 @@ if (SIST_DEBUG_INFO)
     )
 endif ()
 
-set(ARGPARSE_SHARED off)
-add_subdirectory(third-party/argparse)
-
-add_subdirectory(third-party/antiword)
-
-set(USE_LIBXML2 OFF CACHE BOOL "" FORCE)
-set(USE_XMLWRITER OFF CACHE BOOL "" FORCE)
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-add_subdirectory(third-party/libmobi)
-
 #
 # libscan — file parsing library (text/metadata/thumbnail extraction)
 #
@@ -63,8 +49,6 @@ add_library(
         libscan/wpd/wpd.c libscan/wpd/wpd.h libscan/wpd/libwpd_c_api.h libscan/wpd/libwpd_c_api.cpp
         libscan/mobi/scan_mobi.c libscan/mobi/scan_mobi.h
         libscan/raw/raw.c libscan/raw/raw.h
-
-        third-party/utf8.h/utf8.h
 )
 set_target_properties(scan PROPERTIES LINKER_LANGUAGE C)
 
@@ -134,6 +118,11 @@ find_library(HARFBUZZ_LIB NAMES harfbuzz harfbuzzd)
 find_library(LZO2_LIB NAMES lzo2)
 
 find_library(MUPDF_LIB NAMES liblibmupdf.a)
+find_library(MOBI_LIB NAMES libmobi.a mobi REQUIRED)
+find_library(ANTIWORD_LIB NAMES libantiword.a antiword REQUIRED)
+find_path(MOBI_INCLUDE_DIR mobi.h REQUIRED)
+find_path(ANTIWORD_INCLUDE_DIR antiword/antiword.h REQUIRED)
+find_path(UTF8H_INCLUDE_DIR utf8h/utf8.h REQUIRED)
 find_library(CMS_LIB NAMES lcms2)
 find_library(JAS_LIB NAMES jasper)
 find_library(GUMBO_LIB NAMES gumbo)
@@ -178,7 +167,6 @@ if (SIST_DEBUG)
             -fsanitize=address
             -fno-inline
     )
-    target_compile_options(antiword PRIVATE ${SIST_SANITIZE_OPTIONS})
     target_compile_options(sist2 PRIVATE ${SIST_SANITIZE_OPTIONS})
     target_link_options(
             sist2
@@ -242,9 +230,7 @@ SET(WPD_INCLUDE_DIR ${CMAKE_BINARY_DIR}/third-party/ext_libwpd/src/libwpd/inc/)
 
 add_dependencies(
         scan
-        antiword
         libwpd
-        mobi
 )
 
 target_link_directories(scan PUBLIC ${FFMPEG_LIBRARY_DIRS})
@@ -288,8 +274,8 @@ target_link_libraries(
         ${JAS_LIB}
         ${GUMBO_LIB}
 
-        antiword
-        mobi
+        ${ANTIWORD_LIB}
+        ${MOBI_LIB}
         unofficial::pcre::pcre unofficial::pcre::pcre16 unofficial::pcre::pcre32 unofficial::pcre::pcrecpp
         leptonica
         libraw::raw
@@ -307,20 +293,20 @@ target_include_directories(
         ${LIBXML2_INCLUDE_DIR}
         ${FFMPEG_INCLUDE_DIR}
         ${MOBI_INCLUDE_DIR}
+        ${ANTIWORD_INCLUDE_DIR}
+        ${UTF8H_INCLUDE_DIR}
         ${WPD_INCLUDE_DIR}
         ${FFMPEG_INCLUDE_DIRS}
 )
 
 target_include_directories(
         sist2 PUBLIC
-        ${CMAKE_SOURCE_DIR}/third-party/utf8.h/
         ${CMAKE_SOURCE_DIR}/
 )
 
 add_dependencies(
         sist2
         scan
-        argparse
 )
 
 target_link_libraries(
@@ -328,7 +314,6 @@ target_link_libraries(
 
         ZLIB::ZLIB
         libgit2::libgit2package
-        argparse
         unofficial::mongoose::mongoose
         CURL::libcurl
 

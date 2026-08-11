@@ -1,0 +1,13 @@
+{
+  "name": "antiword",
+  "version-date": "2022-04-17",
+  "description": "MS Word .doc parser (sist2 fork of antiword, patched for library use)",
+  "homepage": "https://github.com/sist2app/antiword",
+  "license": "GPL-2.0-only",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    }
+  ]
+}

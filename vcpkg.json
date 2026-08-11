@@ -7,6 +7,9 @@
   },
   "dependencies": [
     "openblas",
+    "antiword",
+    "libmobi",
+    "utf8h",
     {
       "name": "curl",
       "default-features": false,

@@ -4,7 +4,7 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
-#include "../third-party/utf8.h/utf8.h"
+#include <utf8h/utf8.h>
 #include "macros.h"
 #include <openssl/evp.h>
 

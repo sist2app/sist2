@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "third-party/utf8.h/utf8.h"
+#include <utf8h/utf8.h>
 #include "libscan/scan.h"
 #include "types.h"
 #include <openssl/evp.h>
