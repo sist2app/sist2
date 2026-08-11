@@ -475,7 +475,7 @@ int decode_frame_and_save_thumbnail(scan_media_ctx_t *ctx, AVFormatContext *pFor
         AVPacket *thumbnail_packet = av_packet_alloc();
         avcodec_receive_packet(thumbnail_encoder, thumbnail_packet);
 
-        // Save thumbnail_count
+        // Save thumbnail
         if (thumbnail_index == 0) {
             APPEND_THUMBNAIL(doc, thumbnail_packet->data, thumbnail_packet->size);
             return_value = SAVE_THUMBNAIL_OK;
@@ -585,7 +585,7 @@ void parse_media_format_ctx(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, 
 
         int thumbnails_to_generate = (IS_VIDEO(pFormatCtx) && stream->codecpar->codec_id != AV_CODEC_ID_GIF &&
                                       video_duration_in_seconds >= 15)
-                                     // Limit to ~1 thumbnail_count every 7s
+                                     // Limit to ~1 thumbnail every 7s
                                      ? MAX(MIN(ctx->tn_count, video_duration_in_seconds / 7 + 1), 1) + 1
                                      : 1;
 
@@ -872,7 +872,7 @@ int store_image_thumbnail(scan_media_ctx_t *ctx, void *buf, size_t buf_len, docu
         AVPacket *jpeg_packet = av_packet_alloc();
         avcodec_receive_packet(jpeg_encoder, jpeg_packet);
 
-        // Save thumbnail_count
+        // Save thumbnail
         doc->thumbnail_count = 1;
         APPEND_THUMBNAIL(doc, jpeg_packet->data, jpeg_packet->size);
 

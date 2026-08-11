@@ -120,6 +120,7 @@ find_package(PkgConfig REQUIRED)
 find_package(cJSON CONFIG REQUIRED)
 find_package(unofficial-mongoose CONFIG REQUIRED)
 find_package(CURL CONFIG REQUIRED)
+find_package(OpenSSL REQUIRED)
 find_package(ZLIB REQUIRED)
 find_library(MAGIC_LIB NAMES libmagic.a REQUIRED)
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
@@ -273,6 +274,11 @@ target_link_libraries(
         scan
         PUBLIC
 
+        # libmobi bundles its own SHA1_* implementation, which collides with libcrypto's. Pulling
+        # libcrypto's sha1 object in first (by path, so CMake can't reorder it behind libmobi)
+        # means libmobi's is never extracted.
+        ${OPENSSL_CRYPTO_LIBRARY}
+
         # --start-group/--end-group makes the link order of the static archives irrelevant
         -Wl,--start-group
 
@@ -317,6 +323,10 @@ target_link_libraries(
         ${FFMPEG_LIBRARIES}
 
         -Wl,--end-group
+
+        # tesseract (inside the group) needs curl and BLAS, so they come after it
+        CURL::libcurl
+        OpenBLAS::OpenBLAS
 )
 
 target_include_directories(

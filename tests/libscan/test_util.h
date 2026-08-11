@@ -19,22 +19,15 @@ static void noop_log(const char *filepath, int level, char *str) {
     // noop
 }
 
-static size_t store_size = 0;
-
-static void counter_store(char* key, int num, void *value, size_t value_len) {
-    store_size += value_len;
-//    char id[37];
-//    char tmp[PATH_MAX];
-//    uuid_unparse(reinterpret_cast<const unsigned char *>(key), id);
-//    sprintf(tmp, "%s.jpeg", id);
-//    int fd = open(tmp, O_TRUNC|O_WRONLY|O_CREAT, 0777);
-//    write(fd, value, value_len);
-//    close(fd);
-}
-
 meta_line_t *get_meta(document_t *doc, metakey key);
 
 meta_line_t *get_meta_from(meta_line_t *meta, metakey key);
+
+/** Total byte size of all the thumbnails stored on the document */
+size_t get_thumbnail_size(document_t *doc);
+
+/** Number of MetaThumbnail meta lines stored on the document */
+int get_thumbnail_meta_count(document_t *doc);
 
 
 #define CLOSE_FILE(f) if (f.close != NULL) {f.close(&f);};

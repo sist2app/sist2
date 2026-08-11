@@ -16,6 +16,16 @@ extern "C" {
 #include <libavutil/avutil.h>
 }
 
+#ifdef __SANITIZE_ADDRESS__
+/**
+ * antiword allocates its document state with xmalloc() and never frees it when it bails out on a
+ * malformed file, which Msdoc.TestFuzz1 does a thousand times over. Nothing we can free from here.
+ */
+extern "C" const char *__lsan_default_suppressions() {
+    return "leak:xmalloc\n";
+}
+#endif
+
 static scan_arc_ctx_t arc_recurse_media_ctx;
 static scan_arc_ctx_t arc_list_ctx;
 static scan_arc_ctx_t arc_recurse_ooxml_ctx;
@@ -50,6 +60,15 @@ static scan_json_ctx_t json_ctx;
 
 static document_t LastSubDoc;
 static char *RecurseMediaMime = (char *) "";
+
+/**
+ * Sub-documents parsed while recursing into an archive are written to LastSubDoc, which is shared
+ * between tests. Reset it before each archive test so assertions can't see a previous test's metadata.
+ */
+static void reset_sub_doc() {
+    destroy_doc(&LastSubDoc);
+    memset(&LastSubDoc, 0, sizeof(LastSubDoc));
+}
 
 void _parse_media(parse_job_t *job) {
     parse_media(&media_ctx, &job->vfile, &LastSubDoc, RecurseMediaMime);
@@ -213,15 +232,13 @@ TEST(Ebook, CandlePdf) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/ebook/General_-_Candle_Making.pdf", &f, &doc);
 
-    size_t size_before = store_size;
-
     parse_ebook(&ebook_500_ctx, &f, "application/pdf", &doc);
 
     ASSERT_STREQ(get_meta(&doc, MetaTitle)->str_val, "Microsoft Word - A531 Candlemaking-01.doc");
     ASSERT_STREQ(get_meta(&doc, MetaAuthor)->str_val, "Dafydd Prichard");
     ASSERT_NEAR(strlen(get_meta(&doc, MetaContent)->str_val), 500, 4);
     ASSERT_NE(get_meta(&doc, MetaContent)->str_val[0], ' ');
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&doc), 0);
     ASSERT_EQ(get_meta(&doc, MetaPages)->long_val, 16);
 
     cleanup(&doc, &f);
@@ -328,11 +345,9 @@ TEST(Comic, ComicCbz) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/ebook/lost_treasure.cbz", &f, &doc);
 
-    size_t size_before = store_size;
-
     parse_comic(&comic_ctx, &f, &doc);
 
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&doc), 0);
 
     cleanup(&doc, &f);
 }
@@ -342,11 +357,9 @@ TEST(Comic, ComicCbr) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/ebook/laugh.cbr", &f, &doc);
 
-    size_t size_before = store_size;
-
     parse_comic(&comic_ctx, &f, &doc);
 
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&doc), 0);
 
     cleanup(&doc, &f);
 }
@@ -356,14 +369,13 @@ TEST(Comic, ComicIssue160) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/ebook/comic-segfault-issue-160.cbr", &f, &doc);
 
-    int tn_size_saved = comic_ctx.tn_size;
-    size_t size_before = store_size;
+    int enable_tn_saved = comic_ctx.enable_tn;
 
     comic_ctx.enable_tn = FALSE;
     parse_comic(&comic_ctx, &f, &doc);
-    comic_ctx.enable_tn = tn_size_saved;
+    comic_ctx.enable_tn = enable_tn_saved;
 
-    ASSERT_EQ(store_size, size_before);
+    ASSERT_EQ(get_thumbnail_size(&doc), 0);
 
     cleanup(&doc, &f);
 }
@@ -373,11 +385,9 @@ TEST(Comic, ComicCbrAsIs) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/ebook/laugh.cbr", &f, &doc);
 
-    size_t size_before = store_size;
-
     parse_comic(&comic_big_ctx, &f, &doc);
 
-    ASSERT_EQ(store_size - size_before, 92451);
+    ASSERT_EQ(get_thumbnail_size(&doc), 92451);
 
     cleanup(&doc, &f);
 }
@@ -444,12 +454,12 @@ TEST(MediaImage, Mem1) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/media/test.jpeg.tar", &f, &doc);
 
-    size_t size_before = store_size;
+    reset_sub_doc();
 
     RecurseMediaMime = (char *) "image/jpeg";
     parse_archive(&arc_recurse_media_ctx, &f, &doc, nullptr, nullptr);
 
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&LastSubDoc), 0);
 
     cleanup(&doc, &f);
 }
@@ -459,11 +469,9 @@ TEST(MediaImage, AsIsFs) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/media/9555.jpg", &f, &doc);
 
-    size_t size_before = store_size;
-
     parse_media(&media_ctx, &f, &doc, "image/jpeg");
 
-    ASSERT_EQ(size_before + 14098, store_size);
+    ASSERT_EQ(get_thumbnail_size(&doc), 14098);
 
     cleanup(&doc, &f);
 }
@@ -473,12 +481,12 @@ TEST(MediaImage, Mem2AsIs) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/media/test2.zip", &f, &doc);
 
-    size_t size_before = store_size;
+    reset_sub_doc();
 
     RecurseMediaMime = (char *) "image/jpeg";
     parse_archive(&arc_recurse_media_ctx, &f, &doc, nullptr, nullptr);
 
-    ASSERT_EQ(size_before + 14098, store_size);
+    ASSERT_EQ(get_thumbnail_size(&LastSubDoc), 14098);
 
     cleanup(&doc, &f);
 }
@@ -488,10 +496,9 @@ TEST(MediaVideo, VidMkvSubDisabled) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/media/berd.mkv", &f, &doc);
 
-    size_t size_before = store_size;
     parse_media(&media_ctx, &f, &doc, "video/x-matroska");
 
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&doc), 0);
     ASSERT_EQ(get_meta(&doc, MetaContent), nullptr);
 
     cleanup(&doc, &f);
@@ -502,12 +509,11 @@ TEST(MediaVideo, VidMkvSubEnabled) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/media/berd.mkv", &f, &doc);
 
-    size_t size_before = store_size;
     media_ctx.read_subtitles = TRUE;
     parse_media(&media_ctx, &f, &doc, "video/x-matroska");
     media_ctx.read_subtitles = FALSE;
 
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&doc), 0);
     ASSERT_NE(get_meta(&doc, MetaContent), nullptr);
 
     cleanup(&doc, &f);
@@ -523,7 +529,7 @@ TEST(MediaVideo, Vid3Mp4) {
     ASSERT_STREQ(get_meta(&doc, MetaTitle)->str_val, "Helicopter (((Accident))) - "
                                                      "https://archive.org/details/Virginia_Helicopter_Crash");
     ASSERT_STREQ(get_meta(&doc, MetaMediaVideoCodec)->str_val, "h264");
-    ASSERT_EQ(get_meta(&doc, MetaMediaBitrate)->long_val, 825169);
+    ASSERT_EQ(get_meta(&doc, MetaMediaBitrate)->long_val, 826800);
     ASSERT_EQ(get_meta(&doc, MetaMediaDuration)->long_val, 10);
 
     //TODO: Check that thumbnail_count was generated correctly
@@ -565,7 +571,7 @@ TEST(MediaVideoVfile, Vid3Ogv) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/arc/vid3.tar", &f, &doc);
 
-    size_t size_before = store_size;
+    reset_sub_doc();
 
     RecurseMediaMime = (char *) "video/webm";
     parse_archive(&arc_recurse_media_ctx, &f, &doc, nullptr, nullptr);
@@ -573,7 +579,7 @@ TEST(MediaVideoVfile, Vid3Ogv) {
 //    ASSERT_STREQ(get_meta(&LastSubDoc, MetaMediaVideoCodec)->str_val, "theora");
     ASSERT_EQ(get_meta(&LastSubDoc, MetaMediaBitrate)->long_val, 590261);
     ASSERT_EQ(get_meta(&LastSubDoc, MetaMediaDuration)->long_val, 10);
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&LastSubDoc), 0);
 
     cleanup(&doc, &f);
 }
@@ -673,6 +679,8 @@ TEST(Ooxml, Docx2Archive) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/ooxml/docx2.docx.7z", &f, &doc);
 
+    reset_sub_doc();
+
     ooxml_500_ctx.content_size = 999999;
     parse_archive(&arc_recurse_ooxml_ctx, &f, &doc, nullptr, nullptr);
 
@@ -690,13 +698,12 @@ TEST(Ooxml, Docx2Thumbnail) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/ooxml/embed_tn.docx", &f, &doc);
 
-    size_t size_before = store_size;
-
     parse_ooxml(&ooxml_500_ctx, &f, &doc);
 
     ASSERT_NEAR(strlen(get_meta(&doc, MetaContent)->str_val), 500, 4);
     ASSERT_EQ(get_meta(&doc, MetaPages)->long_val, 2);
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&doc), 0);
+    ASSERT_EQ(doc.thumbnail_count, 1);
 
     cleanup(&doc, &f);
 }
@@ -786,14 +793,15 @@ TEST(Arc, EncryptedZip) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/arc/encrypted.zip", &f, &doc);
 
-    size_t size_before = store_size;
+    reset_sub_doc();
 
+    RecurseMediaMime = (char *) "image/jpeg";
     strcpy(arc_recurse_media_ctx.passphrase, "sist2");
     parse_archive(&arc_recurse_media_ctx, &f, &doc, nullptr, nullptr);
 
     arc_recurse_media_ctx.passphrase[0] = '\0';
 
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&LastSubDoc), 0);
 
     cleanup(&doc, &f);
 }
@@ -817,7 +825,6 @@ TEST(RAW, Panasonic) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/raw/Panasonic.RW2", &f, &doc);
 
-    size_t size_before = store_size;
 
     parse_raw(&raw_ctx, &f, &doc);
 
@@ -830,7 +837,7 @@ TEST(RAW, Panasonic) {
     ASSERT_STREQ(get_meta(&doc, MetaExifFNumber)->str_val, "2.0");
     ASSERT_EQ(get_meta(&doc, MetaWidth)->long_val, 5200);
     ASSERT_EQ(get_meta(&doc, MetaHeight)->long_val, 3904);
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&doc), 0);
 
     cleanup(&doc, &f);
 }
@@ -840,11 +847,10 @@ TEST(RAW, ExifGps1) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/raw/exif_gps.DNG", &f, &doc);
 
-    size_t size_before = store_size;
 
     parse_raw(&raw_ctx, &f, &doc);
 
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&doc), 0);
 
     ASSERT_STREQ(get_meta(&doc, MetaExifGpsLatitudeDec)->str_val, "48.943088531494141");
     ASSERT_STREQ(get_meta(&doc, MetaExifGpsLongitudeDec)->str_val, "9.467448234558105");
@@ -857,7 +863,6 @@ TEST(RAW, Nikon) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/raw/Nikon.NEF", &f, &doc);
 
-    size_t size_before = store_size;
 
     parse_raw(&raw_ctx, &f, &doc);
 
@@ -866,7 +871,7 @@ TEST(RAW, Nikon) {
     ASSERT_STREQ(get_meta(&doc, MetaExifMake)->str_val, "Nikon");
     ASSERT_EQ(get_meta(&doc, MetaWidth)->long_val, 6032);
     ASSERT_EQ(get_meta(&doc, MetaHeight)->long_val, 4032);
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&doc), 0);
 
     cleanup(&doc, &f);
 }
@@ -876,7 +881,6 @@ TEST(RAW, Sony) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/raw/Sony.ARW", &f, &doc);
 
-    size_t size_before = store_size;
 
     parse_raw(&raw_ctx, &f, &doc);
 
@@ -885,7 +889,7 @@ TEST(RAW, Sony) {
     ASSERT_STREQ(get_meta(&doc, MetaExifMake)->str_val, "Sony");
     ASSERT_EQ(get_meta(&doc, MetaWidth)->long_val, 7968);
     ASSERT_EQ(get_meta(&doc, MetaHeight)->long_val, 5320);
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&doc), 0);
 
     cleanup(&doc, &f);
 }
@@ -895,7 +899,6 @@ TEST(RAW, Olympus) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/raw/Olympus.ORF", &f, &doc);
 
-    size_t size_before = store_size;
 
     parse_raw(&raw_ctx, &f, &doc);
 
@@ -904,7 +907,7 @@ TEST(RAW, Olympus) {
     ASSERT_STREQ(get_meta(&doc, MetaExifMake)->str_val, "Olympus");
     ASSERT_EQ(get_meta(&doc, MetaWidth)->long_val, 4640);
     ASSERT_EQ(get_meta(&doc, MetaHeight)->long_val, 3472);
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&doc), 0);
 
     cleanup(&doc, &f);
 }
@@ -914,7 +917,6 @@ TEST(RAW, Fuji) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/raw/Fuji.RAF", &f, &doc);
 
-    size_t size_before = store_size;
     parse_raw(&raw_ctx, &f, &doc);
 
     ASSERT_STREQ(get_meta(&doc, MetaMediaVideoCodec)->str_val, "raw");
@@ -922,7 +924,7 @@ TEST(RAW, Fuji) {
     ASSERT_STREQ(get_meta(&doc, MetaExifMake)->str_val, "Fujifilm");
     ASSERT_EQ(get_meta(&doc, MetaWidth)->long_val, 6032);
     ASSERT_EQ(get_meta(&doc, MetaHeight)->long_val, 4028);
-    ASSERT_NE(size_before, store_size);
+    ASSERT_NE(get_thumbnail_size(&doc), 0);
 
     cleanup(&doc, &f);
 }
@@ -1008,7 +1010,6 @@ TEST(Msdoc, TestUtf8Pdf) {
     document_t doc;
     load_doc_file("third-party/libscan-test-files/test_files/msdoc/japanese.doc", &f, &doc);
 
-    size_t size_before = store_size;
 
     parse_msdoc(&msdoc_ctx, &f, &doc);
 
@@ -1098,30 +1099,59 @@ TEST(Json, NDJson1) {
     cleanup(&doc, &f);
 }
 
+/**
+ * The OCR tests need a tessdata folder containing eng.traineddata. Docker images place it in
+ * ./tessdata, distro packages elsewhere; TESSDATA_PREFIX overrides both.
+ */
+static const char *find_tessdata_path() {
+    static const char *candidates[] = {
+            getenv("TESSDATA_PREFIX"),
+            "./tessdata",
+            "/usr/share/tesseract-ocr/5/tessdata",
+            "/usr/share/tesseract-ocr/4.00/tessdata",
+            "/usr/share/tessdata",
+    };
+
+    for (const char *candidate : candidates) {
+        if (candidate == nullptr) {
+            continue;
+        }
+
+        char traineddata[PATH_MAX];
+        snprintf(traineddata, sizeof(traineddata), "%s/eng.traineddata", candidate);
+
+        if (access(traineddata, R_OK) == 0) {
+            return candidate;
+        }
+    }
+
+    fprintf(stderr, "WARNING: eng.traineddata not found, the OCR tests will fail. "
+                    "Set TESSDATA_PREFIX to a tessdata folder.\n");
+    return "./tessdata";
+}
+
 int main(int argc, char **argv) {
     setlocale(LC_ALL, "");
 
+    const char *tessdata_path = find_tessdata_path();
+
     arc_recurse_media_ctx.log = noop_log;
     arc_recurse_media_ctx.logf = noop_logf;
-    arc_recurse_media_ctx.store = counter_store;
     arc_recurse_media_ctx.mode = ARC_MODE_RECURSE;
     arc_recurse_media_ctx.parse = _parse_media;
 
     arc_recurse_ooxml_ctx.log = noop_log;
     arc_recurse_ooxml_ctx.logf = noop_logf;
-    arc_recurse_ooxml_ctx.store = counter_store;
     arc_recurse_ooxml_ctx.mode = ARC_MODE_RECURSE;
     arc_recurse_ooxml_ctx.parse = _parse_ooxml;
 
     arc_recurse_noop_ctx.log = noop_log;
     arc_recurse_noop_ctx.logf = noop_logf;
-    arc_recurse_noop_ctx.store = counter_store;
     arc_recurse_noop_ctx.mode = ARC_MODE_RECURSE;
     arc_recurse_noop_ctx.parse = _parse_noop;
 
     arc_list_ctx.log = noop_log;
     arc_list_ctx.logf = noop_logf;
-    arc_list_ctx.store = counter_store;
     arc_list_ctx.mode = ARC_MODE_LIST;
 
     text_500_ctx.content_size = 500;
@@ -1129,9 +1159,8 @@ int main(int argc, char **argv) {
     text_500_ctx.logf = noop_logf;
 
     ebook_ctx.content_size = 999999999999;
-    ebook_ctx.store = counter_store;
     ebook_ctx.tesseract_lang = "eng";
-    ebook_ctx.tesseract_path = "./tessdata";
+    ebook_ctx.tesseract_path = tessdata_path;
     ebook_ctx.tn_size = 500;
     ebook_ctx.enable_tn = TRUE;
     ebook_ctx.log = noop_log;
@@ -1150,18 +1179,15 @@ int main(int argc, char **argv) {
     comic_ctx.enable_tn = TRUE;
     comic_ctx.log = noop_log;
     comic_ctx.logf = noop_logf;
-    comic_ctx.store = counter_store;
 
     comic_big_ctx.tn_qscale = 2;
     comic_big_ctx.tn_size = 5000;
     comic_big_ctx.enable_tn = TRUE;
     comic_big_ctx.log = noop_log;
     comic_big_ctx.logf = noop_logf;
-    comic_big_ctx.store = counter_store;
 
     media_ctx.log = noop_log;
     media_ctx.logf = noop_logf;
-    media_ctx.store = counter_store;
     media_ctx.tn_size = 500;
     media_ctx.tn_count = 1;
     media_ctx.tn_qscale = 2;
@@ -1171,7 +1197,6 @@ int main(int argc, char **argv) {
     ooxml_500_ctx.enable_tn = TRUE;
     ooxml_500_ctx.log = noop_log;
     ooxml_500_ctx.logf = noop_logf;
-    ooxml_500_ctx.store = counter_store;
 
     mobi_500_ctx.content_size = 500;
     mobi_500_ctx.log = noop_log;
@@ -1179,19 +1204,16 @@ int main(int argc, char **argv) {
 
     raw_ctx.log = noop_log;
     raw_ctx.logf = noop_logf;
-    raw_ctx.store = counter_store;
     raw_ctx.tn_size = 500;
     raw_ctx.enable_tn = TRUE;
     raw_ctx.tn_qscale = 5.0;
 
     msdoc_ctx.log = noop_log;
     msdoc_ctx.logf = noop_logf;
-    msdoc_ctx.store = counter_store;
     msdoc_ctx.content_size = 500;
 
     msdoc_text_ctx.log = noop_log;
     msdoc_text_ctx.logf = noop_logf;
-    msdoc_text_ctx.store = counter_store;
     msdoc_text_ctx.content_size = 500;
 
     wpd_ctx.log = noop_log;

@@ -33,14 +33,12 @@ void fs_close(vfile_t *f) {
 }
 
 void load_doc_file(const char *filepath, vfile_t *f, document_t *doc) {
-    doc->meta_head = nullptr;
-    doc->meta_tail = nullptr;
+    memset(doc, 0, sizeof(*doc));
     load_file(filepath, f);
 }
 
 void load_doc_mem(void *mem, size_t mem_len, vfile_t *f, document_t *doc) {
-    doc->meta_head = nullptr;
-    doc->meta_tail = nullptr;
+    memset(doc, 0, sizeof(*doc));
     load_mem(mem, mem_len, f);
 }
 
@@ -53,6 +51,8 @@ void load_file(const char *filepath, vfile_t *f) {
     struct stat info = {};
     stat(filepath, &info);
 
+    memset(f, 0, sizeof(*f));
+
     f->mtime = (int)info.st_mtim.tv_sec;
     f->st_size = info.st_size;
 
@@ -62,20 +62,26 @@ void load_file(const char *filepath, vfile_t *f) {
         FAIL() << FILE_NOT_FOUND_ERR;
     }
 
-    memcpy(f->filepath, filepath, sizeof(f->filepath));
+    strcpy(f->filepath, filepath);
     f->read = fs_read;
     f->close = fs_close;
+    f->log = noop_log;
+    f->logf = noop_logf;
     f->is_fs_file = TRUE;
     f->calculate_checksum = TRUE;
     f->has_checksum = FALSE;
 }
 
 void load_mem(void *mem, size_t size, vfile_t *f) {
-    memcpy(f->filepath, "_mem_", strlen("_mem_"));
+    memset(f, 0, sizeof(*f));
+
+    strcpy(f->filepath, "_mem_");
     f->_test_data = mem;
     f->st_size = size;
     f->read = mem_read;
     f->close = nullptr;
+    f->log = noop_log;
+    f->logf = noop_logf;
     f->is_fs_file = TRUE;
 }
 
@@ -91,6 +97,30 @@ meta_line_t *get_meta_from(meta_line_t *meta, metakey key) {
         meta = meta->next;
     }
     return nullptr;
+}
+
+size_t get_thumbnail_size(document_t *doc) {
+    size_t size = 0;
+
+    for (meta_line_t *meta = doc->meta_head; meta != nullptr; meta = meta->next) {
+        if (meta->key == MetaThumbnail) {
+            size += meta->size;
+        }
+    }
+
+    return size;
+}
+
+int get_thumbnail_meta_count(document_t *doc) {
+    int count = 0;
+
+    for (meta_line_t *meta = doc->meta_head; meta != nullptr; meta = meta->next) {
+        if (meta->key == MetaThumbnail) {
+            count += 1;
+        }
+    }
+
+    return count;
 }
 
 void destroy_doc(document_t *doc) {

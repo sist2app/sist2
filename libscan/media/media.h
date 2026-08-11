@@ -26,7 +26,6 @@ typedef struct {
     const char *tesseract_path;
 } scan_media_ctx_t;
 
-__always_inline
 static inline AVCodecContext *alloc_jpeg_encoder(int w, int h, int qscale) {
 
     const AVCodec *jpeg_codec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
