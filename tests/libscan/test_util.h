@@ -1,7 +1,7 @@
 #ifndef SCAN_TEST_UTIL_H
 #define SCAN_TEST_UTIL_H
 
-#include "../libscan/scan.h"
+#include "libscan/scan.h"
 #include <fcntl.h>
 #include <unistd.h>
 

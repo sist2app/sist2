@@ -32,6 +32,10 @@ node_modules/
 i_inc/
 state.db
 *.pyc
+third-party/ext_*
+scan_test
+scan_*_test
+libscan.so
 !sist2-admin/frontend/dist
 *.js.map
 sist2-vue/dist

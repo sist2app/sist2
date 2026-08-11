@@ -2,7 +2,7 @@
 #define SIST2_TPOOL_H
 
 #include "sist.h"
-#include "third-party/libscan/libscan/scan.h"
+#include "libscan/scan.h"
 #include "index/elastic.h"
 #include "src/database/database.h"
 

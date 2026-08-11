@@ -2,17 +2,17 @@
 #include "test_util.h"
 
 extern "C" {
-#include "../libscan/arc/arc.h"
-#include "../libscan/text/text.h"
-#include "../libscan/ebook/ebook.h"
-#include "../libscan/comic/comic.h"
-#include "../libscan/media/media.h"
-#include "../libscan/ooxml/ooxml.h"
-#include "../libscan/mobi/scan_mobi.h"
-#include "../libscan/raw/raw.h"
-#include "../libscan/msdoc/msdoc.h"
-#include "../libscan/wpd/wpd.h"
-#include "../libscan/json/json.h"
+#include "libscan/arc/arc.h"
+#include "libscan/text/text.h"
+#include "libscan/ebook/ebook.h"
+#include "libscan/comic/comic.h"
+#include "libscan/media/media.h"
+#include "libscan/ooxml/ooxml.h"
+#include "libscan/mobi/scan_mobi.h"
+#include "libscan/raw/raw.h"
+#include "libscan/msdoc/msdoc.h"
+#include "libscan/wpd/wpd.h"
+#include "libscan/json/json.h"
 #include <libavutil/avutil.h>
 }
 
@@ -71,7 +71,7 @@ void _parse_noop(parse_job_t *job) {
 TEST(Text, BookCsvContentLen) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/text/books.csv", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/text/books.csv", &f, &doc);
 
     parse_text(&text_500_ctx, &f, &doc);
 
@@ -143,7 +143,7 @@ TEST(Text, Utf16LE) {
 
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/text/pain_is_beauty.log", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/text/pain_is_beauty.log", &f, &doc);
     parse_text(&text_500_ctx, &f, &doc);
 
     ASSERT_GE(strlen(get_meta(&doc, MetaContent)->str_val), 200);
@@ -197,7 +197,7 @@ TEST(TextMarkup, Mem2) {
 TEST(TextMarkup, Xml1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/text/utf8-example.xml", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/text/utf8-example.xml", &f, &doc);
 
     parse_markup(&text_500_ctx, &f, &doc);
 
@@ -211,7 +211,7 @@ TEST(TextMarkup, Xml1) {
 TEST(Ebook, CandlePdf) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/General_-_Candle_Making.pdf", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/General_-_Candle_Making.pdf", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -230,7 +230,7 @@ TEST(Ebook, CandlePdf) {
 TEST(Ebook, Utf8Pdf) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/utf8.pdf", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/utf8.pdf", &f, &doc);
 
     parse_ebook(&ebook_500_ctx, &f, "application/pdf", &doc);
 
@@ -241,7 +241,7 @@ TEST(Ebook, Utf8Pdf) {
 TEST(Ebook, Utf8PdfInvalidChars) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/invalid_chars.pdf", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/invalid_chars.pdf", &f, &doc);
 
     ebook_ctx.tesseract_lang = nullptr;
 
@@ -259,7 +259,7 @@ TEST(Ebook, Utf8PdfInvalidChars) {
 TEST(Ebook, Pdf2) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/pdf2.pdf", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/pdf2.pdf", &f, &doc);
 
     parse_ebook(&ebook_500_ctx, &f, "application/pdf", &doc);
 
@@ -269,7 +269,7 @@ TEST(Ebook, Pdf2) {
 TEST(Ebook, PdfBlank) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/blank.pdf", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/blank.pdf", &f, &doc);
 
     parse_ebook(&ebook_500_ctx, &f, "application/pdf", &doc);
 
@@ -279,7 +279,7 @@ TEST(Ebook, PdfBlank) {
 TEST(Ebook, Epub1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/epub1.epub", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/epub1.epub", &f, &doc);
 
     parse_ebook(&ebook_500_ctx, &f, "application/epub+zip", &doc);
 
@@ -291,7 +291,7 @@ TEST(Ebook, Epub1) {
 TEST(Ebook, EpubFastMupdfError) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/mupdf-issue-129.epub", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/mupdf-issue-129.epub", &f, &doc);
 
     parse_ebook(&ebook_fast_ctx, &f, "application/epub+zip", &doc);
 
@@ -302,7 +302,7 @@ TEST(Ebook, EpubFastMupdfError) {
 TEST(Ebook, Epub1Fast) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/epub1.epub", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/epub1.epub", &f, &doc);
 
     parse_ebook(&ebook_fast_ctx, &f, "application/epub+zip", &doc);
 
@@ -313,7 +313,7 @@ TEST(Ebook, Epub1Fast) {
 TEST(Ebook, EpubBlankFirstPage) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/EpubBlankFirstPage.epub", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/EpubBlankFirstPage.epub", &f, &doc);
 
     parse_ebook(&ebook_500_ctx, &f, "application/epub+zip", &doc);
 
@@ -326,7 +326,7 @@ TEST(Ebook, EpubBlankFirstPage) {
 TEST(Comic, ComicCbz) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/lost_treasure.cbz", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/lost_treasure.cbz", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -340,7 +340,7 @@ TEST(Comic, ComicCbz) {
 TEST(Comic, ComicCbr) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/laugh.cbr", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/laugh.cbr", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -354,7 +354,7 @@ TEST(Comic, ComicCbr) {
 TEST(Comic, ComicIssue160) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/comic-segfault-issue-160.cbr", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/comic-segfault-issue-160.cbr", &f, &doc);
 
     int tn_size_saved = comic_ctx.tn_size;
     size_t size_before = store_size;
@@ -371,7 +371,7 @@ TEST(Comic, ComicIssue160) {
 TEST(Comic, ComicCbrAsIs) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/laugh.cbr", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/laugh.cbr", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -386,7 +386,7 @@ TEST(Comic, ComicCbrAsIs) {
 TEST(Comic, ComicCbrFilters) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ebook/cannot_parse_filters.cbr", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ebook/cannot_parse_filters.cbr", &f, &doc);
 
     parse_comic(&comic_ctx, &f, &doc);
 
@@ -399,7 +399,7 @@ TEST(Comic, ComicCbrFilters) {
 TEST(MediaImage, ExifGps1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/media/exif_GPS.jpg", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/media/exif_GPS.jpg", &f, &doc);
 
     parse_media(&media_ctx, &f, &doc, "image/jpeg");
 
@@ -415,7 +415,7 @@ TEST(MediaImage, ExifGps1) {
 TEST(MediaImage, Exif1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/media/exiftest1.jpg", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/media/exiftest1.jpg", &f, &doc);
 
     parse_media(&media_ctx, &f, &doc, "image/jpeg");
 
@@ -442,7 +442,7 @@ TEST(MediaImage, Exif1) {
 TEST(MediaImage, Mem1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/media/test.jpeg.tar", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/media/test.jpeg.tar", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -457,7 +457,7 @@ TEST(MediaImage, Mem1) {
 TEST(MediaImage, AsIsFs) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/media/9555.jpg", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/media/9555.jpg", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -471,7 +471,7 @@ TEST(MediaImage, AsIsFs) {
 TEST(MediaImage, Mem2AsIs) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/media/test2.zip", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/media/test2.zip", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -486,7 +486,7 @@ TEST(MediaImage, Mem2AsIs) {
 TEST(MediaVideo, VidMkvSubDisabled) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/media/berd.mkv", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/media/berd.mkv", &f, &doc);
 
     size_t size_before = store_size;
     parse_media(&media_ctx, &f, &doc, "video/x-matroska");
@@ -500,7 +500,7 @@ TEST(MediaVideo, VidMkvSubDisabled) {
 TEST(MediaVideo, VidMkvSubEnabled) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/media/berd.mkv", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/media/berd.mkv", &f, &doc);
 
     size_t size_before = store_size;
     media_ctx.read_subtitles = TRUE;
@@ -516,7 +516,7 @@ TEST(MediaVideo, VidMkvSubEnabled) {
 TEST(MediaVideo, Vid3Mp4) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/media/vid3.mp4", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/media/vid3.mp4", &f, &doc);
 
     parse_media(&media_ctx, &f, &doc, "video/mp4");
 
@@ -533,7 +533,7 @@ TEST(MediaVideo, Vid3Mp4) {
 TEST(MediaVideo, Vid3Ogv) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/media/vid3.ogv", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/media/vid3.ogv", &f, &doc);
 
     parse_media(&media_ctx, &f, &doc, "application/ogg");
 
@@ -548,7 +548,7 @@ TEST(MediaVideo, Vid3Ogv) {
 TEST(MediaVideo, Vid3Webm) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/media/vid3.webm", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/media/vid3.webm", &f, &doc);
 
     parse_media(&media_ctx, &f, &doc, "video/webm");
 
@@ -563,7 +563,7 @@ TEST(MediaVideo, Vid3Webm) {
 TEST(MediaVideoVfile, Vid3Ogv) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/arc/vid3.tar", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/arc/vid3.tar", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -581,7 +581,7 @@ TEST(MediaVideoVfile, Vid3Ogv) {
 TEST(MediaVideo, VidDuplicateTags) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/media/vid_tags.mkv", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/media/vid_tags.mkv", &f, &doc);
 
     parse_media(&media_ctx, &f, &doc, "video/x-matroska");
 
@@ -605,7 +605,7 @@ TEST(MediaVideo, VidDuplicateTags) {
 TEST(MediaAudio, MusicMp3) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/media/02-The Watchmaker-Barry James_spoken.mp3", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/media/02-The Watchmaker-Barry James_spoken.mp3", &f, &doc);
 
     parse_media(&media_ctx, &f, &doc, "audio/x-mpeg-3");
 
@@ -624,7 +624,7 @@ TEST(MediaAudio, MusicMp3) {
 TEST(Ooxml, Pptx1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ooxml/Catalist Presentation.pptx", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ooxml/Catalist Presentation.pptx", &f, &doc);
 
     parse_ooxml(&ooxml_500_ctx, &f, &doc);
 
@@ -639,7 +639,7 @@ TEST(Ooxml, Pptx1) {
 TEST(Ooxml, Docx1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ooxml/How To Play A DVD On Windows 8.docx", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ooxml/How To Play A DVD On Windows 8.docx", &f, &doc);
 
     parse_ooxml(&ooxml_500_ctx, &f, &doc);
 
@@ -654,7 +654,7 @@ TEST(Ooxml, Docx1) {
 TEST(Ooxml, Docx2) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ooxml/docx2.docx", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ooxml/docx2.docx", &f, &doc);
 
     ooxml_500_ctx.content_size = 999999;
     parse_ooxml(&ooxml_500_ctx, &f, &doc);
@@ -671,7 +671,7 @@ TEST(Ooxml, Docx2) {
 TEST(Ooxml, Docx2Archive) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ooxml/docx2.docx.7z", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ooxml/docx2.docx.7z", &f, &doc);
 
     ooxml_500_ctx.content_size = 999999;
     parse_archive(&arc_recurse_ooxml_ctx, &f, &doc, nullptr, nullptr);
@@ -688,7 +688,7 @@ TEST(Ooxml, Docx2Archive) {
 TEST(Ooxml, Docx2Thumbnail) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ooxml/embed_tn.docx", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ooxml/embed_tn.docx", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -704,7 +704,7 @@ TEST(Ooxml, Docx2Thumbnail) {
 TEST(Ooxml, Xlsx1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/ooxml/xlsx1.xlsx", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/ooxml/xlsx1.xlsx", &f, &doc);
 
     parse_ooxml(&ooxml_500_ctx, &f, &doc);
 
@@ -719,7 +719,7 @@ TEST(Ooxml, Xlsx1) {
 TEST(Mobi, Mobi1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/mobi/Norse Mythology - Neil Gaiman.mobi", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/mobi/Norse Mythology - Neil Gaiman.mobi", &f, &doc);
 
     parse_mobi(&mobi_500_ctx, &f, &doc);
 
@@ -733,7 +733,7 @@ TEST(Mobi, Mobi1) {
 TEST(Mobi, Azw) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/mobi/sample.azw", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/mobi/sample.azw", &f, &doc);
 
     parse_mobi(&mobi_500_ctx, &f, &doc);
 
@@ -747,7 +747,7 @@ TEST(Mobi, Azw) {
 TEST(Mobi, Azw3) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/mobi/sample.azw3", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/mobi/sample.azw3", &f, &doc);
 
     parse_mobi(&mobi_500_ctx, &f, &doc);
 
@@ -762,7 +762,7 @@ TEST(Mobi, Azw3) {
 TEST(Arc, ZipBomp) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/arc/bomb.zip", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/arc/bomb.zip", &f, &doc);
 
     parse_archive(&arc_recurse_noop_ctx, &f, &doc, nullptr, nullptr);
 
@@ -772,7 +772,7 @@ TEST(Arc, ZipBomp) {
 TEST(Arc, Utf8) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/arc/test1.zip", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/arc/test1.zip", &f, &doc);
 
     parse_archive(&arc_list_ctx, &f, &doc, nullptr, nullptr);
 
@@ -784,7 +784,7 @@ TEST(Arc, Utf8) {
 TEST(Arc, EncryptedZip) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/arc/encrypted.zip", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/arc/encrypted.zip", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -802,7 +802,7 @@ TEST(Arc, EncryptedZip) {
 TEST(RAW, Segfault1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/raw/segfault1.dng", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/raw/segfault1.dng", &f, &doc);
 
     parse_raw(&raw_ctx, &f, &doc);
 
@@ -815,7 +815,7 @@ TEST(RAW, Segfault1) {
 TEST(RAW, Panasonic) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/raw/Panasonic.RW2", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/raw/Panasonic.RW2", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -838,7 +838,7 @@ TEST(RAW, Panasonic) {
 TEST(RAW, ExifGps1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/raw/exif_gps.DNG", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/raw/exif_gps.DNG", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -855,7 +855,7 @@ TEST(RAW, ExifGps1) {
 TEST(RAW, Nikon) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/raw/Nikon.NEF", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/raw/Nikon.NEF", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -874,7 +874,7 @@ TEST(RAW, Nikon) {
 TEST(RAW, Sony) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/raw/Sony.ARW", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/raw/Sony.ARW", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -893,7 +893,7 @@ TEST(RAW, Sony) {
 TEST(RAW, Olympus) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/raw/Olympus.ORF", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/raw/Olympus.ORF", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -912,7 +912,7 @@ TEST(RAW, Olympus) {
 TEST(RAW, Fuji) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/raw/Fuji.RAF", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/raw/Fuji.RAF", &f, &doc);
 
     size_t size_before = store_size;
     parse_raw(&raw_ctx, &f, &doc);
@@ -931,7 +931,7 @@ TEST(RAW, Fuji) {
 TEST(Msdoc, Test1Pdf) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/msdoc/test1.doc", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/msdoc/test1.doc", &f, &doc);
 
     parse_msdoc(&msdoc_ctx, &f, &doc);
 
@@ -946,7 +946,7 @@ TEST(Msdoc, Test1Pdf) {
 TEST(Msdoc, Test1Text) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/msdoc/test1.doc", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/msdoc/test1.doc", &f, &doc);
 
     parse_msdoc(&msdoc_text_ctx, &f, &doc);
 
@@ -961,7 +961,7 @@ TEST(Msdoc, Test1Text) {
 TEST(Msdoc, Test2Pdf) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/msdoc/test2.doc", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/msdoc/test2.doc", &f, &doc);
 
     parse_msdoc(&msdoc_ctx, &f, &doc);
 
@@ -976,7 +976,7 @@ TEST(Msdoc, Test2Pdf) {
 TEST(Msdoc, Test3Pdf) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/msdoc/test3.doc", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/msdoc/test3.doc", &f, &doc);
 
     parse_msdoc(&msdoc_ctx, &f, &doc);
 
@@ -991,7 +991,7 @@ TEST(Msdoc, Test3Pdf) {
 TEST(Msdoc, Test4Pdf) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/msdoc/test4.doc", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/msdoc/test4.doc", &f, &doc);
 
     parse_msdoc(&msdoc_ctx, &f, &doc);
 
@@ -1006,7 +1006,7 @@ TEST(Msdoc, Test4Pdf) {
 TEST(Msdoc, TestUtf8Pdf) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/msdoc/japanese.doc", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/msdoc/japanese.doc", &f, &doc);
 
     size_t size_before = store_size;
 
@@ -1021,7 +1021,7 @@ TEST(Msdoc, TestUtf8Pdf) {
 TEST(Msdoc, TestUtf8Text) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/msdoc/japanese.doc", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/msdoc/japanese.doc", &f, &doc);
 
     parse_msdoc(&msdoc_text_ctx, &f, &doc);
 
@@ -1033,7 +1033,7 @@ TEST(Msdoc, TestUtf8Text) {
 TEST(Msdoc, Test5Pdf) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/msdoc/test5.doc", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/msdoc/test5.doc", &f, &doc);
 
     parse_msdoc(&msdoc_ctx, &f, &doc);
 
@@ -1047,7 +1047,7 @@ TEST(Msdoc, Test5Pdf) {
 TEST(Msdoc, TestFuzz1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/msdoc/fuzz_ole.doc", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/msdoc/fuzz_ole.doc", &f, &doc);
 
     size_t buf_len;
     char *buf = (char *) read_all(&f, &buf_len);
@@ -1068,7 +1068,7 @@ TEST(Msdoc, TestFuzz1) {
 TEST(Wpd, Wpd51_1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/wpd/test51_1.wpd", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/wpd/test51_1.wpd", &f, &doc);
 
     parse_wpd(&wpd_ctx, &f, &doc);
 
@@ -1081,7 +1081,7 @@ TEST(Wpd, Wpd51_1) {
 TEST(Json, Json1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/json/json1.json", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/json/json1.json", &f, &doc);
 
     parse_json(&json_ctx, &f, &doc);
 
@@ -1091,7 +1091,7 @@ TEST(Json, Json1) {
 TEST(Json, NDJson1) {
     vfile_t f;
     document_t doc;
-    load_doc_file("libscan-test-files/test_files/json/ndjson1.jsonl", &f, &doc);
+    load_doc_file("third-party/libscan-test-files/test_files/json/ndjson1.jsonl", &f, &doc);
 
     parse_ndjson(&json_ctx, &f, &doc);
 
