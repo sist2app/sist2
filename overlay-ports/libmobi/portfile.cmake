@@ -4,7 +4,7 @@ vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO bfabiszewski/libmobi
     REF "v${VERSION}"
-    SHA512 414f1afbdf65158df12476955b48df605015af94a7a9c5e40d286ede5266329c9073bc107c0ae62d3e5399252cd574ae63ece6a5550ea4b2326b64ed808026aa
+    SHA512 dc155fddc0ef8f293fdcd5b488fe3591b9668ca04a6c11a11a218ca71288559e760233b8c54abc8d9c224b38be3877eaf72bdacfdc8044b2f6ac0a2ad60af5ab
     HEAD_REF public
 )
 

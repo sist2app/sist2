@@ -1,5 +1,5 @@
 # Replacement build for the vcpkg port: static library + install rules only.
-# Option/definition handling mirrors upstream CMakeLists.txt (v0.11), with
+# Option/definition handling mirrors upstream CMakeLists.txt (v0.12), with
 # sist2's configuration as the defaults (no xmlwriter/libxml2).
 cmake_minimum_required(VERSION 3.12)
 
@@ -11,7 +11,7 @@ option(USE_ENCRYPTION "Enable encryption" ON)
 option(USE_LIBXML2 "Use libxml2 instead of internal xmlwriter" OFF)
 option(USE_XMLWRITER "Enable xmlwriter (for opf support)" OFF)
 
-set(PACKAGE_VERSION "0.11" CACHE STRING "libmobi version")
+set(PACKAGE_VERSION "0.12" CACHE STRING "libmobi version")
 add_definitions(-DPACKAGE_VERSION="${PACKAGE_VERSION}")
 
 if(USE_ENCRYPTION)

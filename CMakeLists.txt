@@ -149,7 +149,7 @@ find_library(JBIG2DEC_LIB NAMES jbig2decd jbig2dec)
 find_library(HARFBUZZ_LIB NAMES harfbuzz harfbuzzd)
 find_library(LZO2_LIB NAMES lzo2)
 
-find_library(MUPDF_LIB NAMES liblibmupdf.a)
+find_library(MUPDF_LIB NAMES libmupdf.a REQUIRED)
 find_library(MOBI_LIB NAMES libmobi.a mobi REQUIRED)
 find_library(ANTIWORD_LIB NAMES libantiword.a antiword REQUIRED)
 find_path(MOBI_INCLUDE_DIR mobi.h REQUIRED)

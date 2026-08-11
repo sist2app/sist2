@@ -1,9 +1,12 @@
+# Overlay of the upstream port: the codeberg archive is regenerated with different
+# gzip settings than when the upstream port was written, so its SHA512 no longer
+# matches. Identical otherwise.
 vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
 
 vcpkg_download_distfile(ARCHIVE
     URLS "https://codeberg.org/gumbo-parser/gumbo-parser/archive/${VERSION}.tar.gz"
     FILENAME "gumbo-${VERSION}.tar.gz"
-    SHA512  4e0bc0e8c387bad18cde5f9998930afedbe4e38d2e984dd14c87486f4b86e5eda6089b8c11ceda0827be0a18a075bfeeafedb068694f30fe3f2b3a8be0238b07
+    SHA512  9f59965e68ba2e4f5884d52c4126b62cdbefee158816334e317a0d07f10ba927be653490c69fc5b0f52eed1decf0a51715bb726aa84546a2d04cde5805e4a399
 )
 
 vcpkg_extract_source_archive(

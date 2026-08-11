@@ -12,7 +12,7 @@ FROM alpine:3.22 AS build
 
 RUN apk add --no-cache \
     build-base cmake ninja-build git curl zip unzip tar pkgconf linux-headers bash \
-    python3 autoconf automake libtool nasm yasm gettext-dev perl bison flex \
+    python3 autoconf autoconf-archive automake libtool nasm yasm gettext-dev perl bison flex \
     texinfo gfortran nodejs npm \
     coreutils diffutils findutils grep gawk sed bc zlib-dev \
     && ln -sf /usr/lib/ninja-build/bin/ninja /usr/local/bin/ninja
@@ -21,7 +21,7 @@ RUN apk add --no-cache \
 ENV VCPKG_FORCE_SYSTEM_BINARIES=1
 
 RUN git clone https://github.com/microsoft/vcpkg /vcpkg \
-    && git -C /vcpkg checkout ce613c41372b23b1f51333815feb3edd87ef8a8b \
+    && git -C /vcpkg checkout 9e593bb18ea69cc5095e012465dcd675a822ed0d \
     && /vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
 WORKDIR /build

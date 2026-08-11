@@ -1,7 +1,7 @@
 {
   "name": "sist2",
   "version-string": "4.0.0",
-  "builtin-baseline": "ce613c41372b23b1f51333815feb3edd87ef8a8b",
+  "builtin-baseline": "9e593bb18ea69cc5095e012465dcd675a822ed0d",
   "vcpkg-configuration": {
     "overlay-ports": ["./overlay-ports"]
   },
@@ -28,7 +28,7 @@
     {
       "name": "libarchive",
       "default-features": false,
-      "features": ["bzip2", "libxml2", "lz4", "lzma", "lzo"]
+      "features": ["bzip2", "lz4", "lzma", "lzo", "xar"]
     },
     "pthread",
     "tesseract",

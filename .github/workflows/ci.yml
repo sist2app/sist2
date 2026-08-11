@@ -28,7 +28,7 @@ jobs:
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build pkg-config git curl zip unzip tar \
-            autoconf automake libtool libtool-bin nasm yasm bison flex gperf gettext \
+            autoconf autoconf-archive automake libtool libtool-bin nasm yasm bison flex gperf gettext \
             texinfo gfortran python3 zlib1g-dev tesseract-ocr-eng
 
       - uses: actions/setup-node@v4

@@ -274,6 +274,42 @@ static void append_audio_meta(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx
     }
 }
 
+/**
+ * ffmpeg qualifies the tags of the EXIF and GPS sub-IFDs with the IFD name ("ExifIFD/FNumber") and pads
+ * numeric values to fixed column widths ("      1:160    "); undo both so that the tag names and values
+ * are the same regardless of which IFD a tag comes from.
+ */
+static AVDictionary *exif_metadata(const AVDictionary *frame_metadata) {
+
+    AVDictionary *metadata = NULL;
+    const AVDictionaryEntry *tag = NULL;
+
+    while ((tag = av_dict_iterate(frame_metadata, tag))) {
+        const char *name = strrchr(tag->key, '/');
+        name = (name == NULL) ? tag->key : name + 1;
+
+        char value[4096];
+        char *ptr = value;
+        for (const char *c = tag->value; *c != '\0' && ptr < value + sizeof(value) - 1; c++) {
+            if (isspace((unsigned char) *c)) {
+                if (ptr != value && *(ptr - 1) != ' ') {
+                    *ptr++ = ' ';
+                }
+            } else {
+                *ptr++ = *c;
+            }
+        }
+        while (ptr != value && *(ptr - 1) == ' ') {
+            ptr -= 1;
+        }
+        *ptr = '\0';
+
+        av_dict_set(&metadata, name, value, AV_DICT_DONT_OVERWRITE);
+    }
+
+    return metadata;
+}
+
 __always_inline
 static void
 append_video_meta(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, AVFrame *frame, document_t *doc, int is_video) {
@@ -313,7 +349,9 @@ append_video_meta(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, AVFrame *f
         }
     } else {
         // EXIF metadata
-        while ((tag = av_dict_get(frame->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
+        AVDictionary *metadata = exif_metadata(frame->metadata);
+
+        while ((tag = av_dict_get(metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
             char key[256];
             STRCPY_TOLOWER(key, tag->key);
 
@@ -349,6 +387,8 @@ append_video_meta(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, AVFrame *f
                 APPEND_TAG_META(MetaExifGpsLongitudeRef);
             }
         }
+
+        av_dict_free(&metadata);
     }
 }
 
