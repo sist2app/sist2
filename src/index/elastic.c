@@ -3,7 +3,12 @@
 
 #include "web.h"
 
-#include "static_generated.c"
+#include "src/embed.h"
+
+EMBED_FILE(mappings_json, SIST2_ROOT "/schema/mappings.json");
+EMBED_FILE(settings_json, SIST2_ROOT "/schema/settings.json");
+EMBED_FILE(settings_legacy_json, SIST2_ROOT "/schema/settings_legacy.json");
+EMBED_FILE(pipeline_json, SIST2_ROOT "/schema/pipeline.json");
 
 
 typedef struct es_indexer {
@@ -429,7 +434,7 @@ void elastic_init(int force_reset, const char *user_mappings, const char *user_s
         LOG_FATAL("elastic.c", "This elasticsearch version is not supported!");
     }
 
-    char *settings = NULL;
+    const char *settings = NULL;
     if (IS_LEGACY_VERSION(es_version)) {
         settings = settings_legacy_json;
     } else {

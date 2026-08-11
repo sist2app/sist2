@@ -51,7 +51,6 @@ application/vnd.fdf, fdf
 application/vnd.font-fontforge-sfd, sfd
 application/vnd.hp-hpgl, hgl|hpg|hpgl
 application/vnd.iccprofile, icm
-application/vnd.iccprofile, icm
 application/vnd.lotus-1-2-3,
 application/vnd.ms-cab-compressed, cab
 application/vnd.ms-excel, xlb|xlc|xll|xlm|xls|xlw

@@ -21,7 +21,6 @@ vgcore.*
 build/
 *.idx/
 VERSION
-git_hash.h
 Testing/
 test_i
 test_i_inc

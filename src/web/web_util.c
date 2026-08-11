@@ -1,40 +1,47 @@
 #include "web_util.h"
-#include "static_generated.c"
+#include "src/embed.h"
+
+EMBED_FILE(favicon_ico, SIST2_ROOT "/sist2-vue/src/assets/favicon.ico");
+EMBED_FILE(index_html, SIST2_ROOT "/sist2-vue/dist/index.html");
+EMBED_FILE(index_js, SIST2_ROOT "/sist2-vue/dist/js/index.js");
+EMBED_FILE(chunk_vendors_js, SIST2_ROOT "/sist2-vue/dist/js/chunk-vendors.js");
+EMBED_FILE(index_css, SIST2_ROOT "/sist2-vue/dist/css/index.css");
+EMBED_FILE(chunk_vendors_css, SIST2_ROOT "/sist2-vue/dist/css/chunk-vendors.css");
 
 
 void web_serve_asset_index_html(struct mg_connection *nc) {
-    web_send_headers(nc, 200, sizeof(index_html), HTTP_CROSS_ORIGIN_HEADERS "Content-Type: text/html");
-    mg_send(nc, index_html, sizeof(index_html));
+    web_send_headers(nc, 200, index_html_size, HTTP_CROSS_ORIGIN_HEADERS "Content-Type: text/html");
+    mg_send(nc, index_html, index_html_size);
     nc->is_resp = 0;
 }
 
 void web_serve_asset_index_js(struct mg_connection *nc) {
-    web_send_headers(nc, 200, sizeof(index_js), "Content-Type: application/javascript");
-    mg_send(nc, index_js, sizeof(index_js));
+    web_send_headers(nc, 200, index_js_size, "Content-Type: application/javascript");
+    mg_send(nc, index_js, index_js_size);
     nc->is_resp = 0;
 }
 
 void web_serve_asset_chunk_vendors_js(struct mg_connection *nc) {
-    web_send_headers(nc, 200, sizeof(chunk_vendors_js), "Content-Type: application/javascript");
-    mg_send(nc, chunk_vendors_js, sizeof(chunk_vendors_js));
+    web_send_headers(nc, 200, chunk_vendors_js_size, "Content-Type: application/javascript");
+    mg_send(nc, chunk_vendors_js, chunk_vendors_js_size);
     nc->is_resp = 0;
 }
 
 void web_serve_asset_favicon_ico(struct mg_connection *nc) {
-    web_send_headers(nc, 200, sizeof(favicon_ico), "Content-Type: image/x-icon");
-    mg_send(nc, favicon_ico, sizeof(favicon_ico));
+    web_send_headers(nc, 200, favicon_ico_size, "Content-Type: image/x-icon");
+    mg_send(nc, favicon_ico, favicon_ico_size);
     nc->is_resp = 0;
 }
 
 void web_serve_asset_style_css(struct mg_connection *nc) {
-    web_send_headers(nc, 200, sizeof(index_css), "Content-Type: text/css");
-    mg_send(nc, index_css, sizeof(index_css));
+    web_send_headers(nc, 200, index_css_size, "Content-Type: text/css");
+    mg_send(nc, index_css, index_css_size);
     nc->is_resp = 0;
 }
 
 void web_serve_asset_chunk_vendors_css(struct mg_connection *nc) {
-    web_send_headers(nc, 200, sizeof(chunk_vendors_css), "Content-Type: text/css");
-    mg_send(nc, chunk_vendors_css, sizeof(chunk_vendors_css));
+    web_send_headers(nc, 200, chunk_vendors_css_size, "Content-Type: text/css");
+    mg_send(nc, chunk_vendors_css, chunk_vendors_css_size);
     nc->is_resp = 0;
 }
 

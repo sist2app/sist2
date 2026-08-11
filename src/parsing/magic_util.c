@@ -2,7 +2,9 @@
 #include "src/log.h"
 #include "mime.h"
 #include <magic.h>
-#include "src/magic_generated.c"
+#include "src/embed.h"
+
+EMBED_FILE(magic_database_buffer, MAGIC_MGC_PATH);
 
 
 char *magic_buffer_embedded(void *buffer, size_t buffer_size) {
@@ -10,7 +12,7 @@ char *magic_buffer_embedded(void *buffer, size_t buffer_size) {
     magic_t magic = magic_open(MAGIC_MIME_TYPE);
 
     const char *magic_buffers[1] = {magic_database_buffer,};
-    size_t sizes[1] = {sizeof(magic_database_buffer),};
+    size_t sizes[1] = {magic_database_buffer_size,};
 
     // TODO optimisation: check if we can reuse the magic instance
     int load_ret = magic_load_buffers(magic, (void **) &magic_buffers, sizes, 1);

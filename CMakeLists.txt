@@ -52,6 +52,31 @@ add_library(
 )
 set_target_properties(scan PROPERTIES LINKER_LANGUAGE C)
 
+#
+# Generated sources — written to the build tree only, never into the source tree
+#
+set(GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
+file(MAKE_DIRECTORY ${GENERATED_DIR})
+
+add_executable(mime_gen scripts/mime_gen.c)
+
+add_custom_command(
+        OUTPUT ${GENERATED_DIR}/mime_generated.c
+        COMMAND mime_gen ${CMAKE_SOURCE_DIR}/scripts/mime.csv ${GENERATED_DIR}/mime_generated.c
+        DEPENDS mime_gen ${CMAKE_SOURCE_DIR}/scripts/mime.csv
+        COMMENT "Generating mime_generated.c"
+)
+
+# Runs every build; git_hash.cmake only touches the header when the hash changed
+add_custom_target(
+        git_hash
+        COMMAND ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DOUTPUT_FILE=${GENERATED_DIR}/git_hash.h
+        -P ${CMAKE_SOURCE_DIR}/scripts/git_hash.cmake
+        BYPRODUCTS ${GENERATED_DIR}/git_hash.h
+)
+
 add_executable(
         sist2
         # argparse
@@ -64,7 +89,7 @@ add_executable(
         src/parsing/parse.h src/parsing/parse.c
         src/parsing/magic_util.c src/parsing/magic_util.h
         src/io/serialize.h src/io/serialize.c
-        src/parsing/mime.h src/parsing/mime.c src/parsing/mime_generated.c
+        src/parsing/mime.h src/parsing/mime.c ${GENERATED_DIR}/mime_generated.c
         src/index/web.c src/index/web.h
         src/web/serve.c src/web/serve.h
         src/web/web_util.c src/web/web_util.h
@@ -302,12 +327,67 @@ target_include_directories(
 target_include_directories(
         sist2 PUBLIC
         ${CMAKE_SOURCE_DIR}/
+        ${GENERATED_DIR}
 )
 
 add_dependencies(
         sist2
         scan
+        git_hash
 )
+
+#
+# Embedded assets (src/embed.h .incbin — absolute paths passed as macros)
+#
+set(WEB_ASSETS
+        sist2-vue/src/assets/favicon.ico
+        sist2-vue/dist/index.html
+        sist2-vue/dist/js/index.js
+        sist2-vue/dist/js/chunk-vendors.js
+        sist2-vue/dist/css/index.css
+        sist2-vue/dist/css/chunk-vendors.css
+)
+foreach (ASSET ${WEB_ASSETS})
+    if (NOT EXISTS ${CMAKE_SOURCE_DIR}/${ASSET})
+        message(FATAL_ERROR "${ASSET} not found. Build the web frontend first: (cd sist2-vue && npm install && npm run build)")
+    endif ()
+endforeach ()
+list(TRANSFORM WEB_ASSETS PREPEND ${CMAKE_SOURCE_DIR}/)
+
+set(SCHEMA_ASSETS
+        ${CMAKE_SOURCE_DIR}/schema/mappings.json
+        ${CMAKE_SOURCE_DIR}/schema/settings.json
+        ${CMAKE_SOURCE_DIR}/schema/settings_legacy.json
+        ${CMAKE_SOURCE_DIR}/schema/pipeline.json
+)
+
+if (NOT MAGIC_MGC AND DEFINED ENV{MAGIC_MGC})
+    set(MAGIC_MGC $ENV{MAGIC_MGC})
+endif ()
+if (NOT MAGIC_MGC)
+    find_file(
+            MAGIC_MGC magic.mgc
+            PATHS
+            ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/libmagic/misc
+            /vcpkg/installed/x64-linux/share/libmagic/misc
+            /work/vcpkg/installed/x64-linux/share/libmagic/misc
+            /usr/lib/file
+    )
+endif ()
+if (NOT MAGIC_MGC OR NOT EXISTS ${MAGIC_MGC})
+    message(FATAL_ERROR "magic.mgc not found; pass -DMAGIC_MGC=/path/to/magic.mgc or set the MAGIC_MGC environment variable")
+endif ()
+
+target_compile_definitions(
+        sist2 PRIVATE
+        SIST2_ROOT="${CMAKE_SOURCE_DIR}"
+        MAGIC_MGC_PATH="${MAGIC_MGC}"
+)
+
+# The compiler emits no depfile entries for .incbin'd files — declare them here
+set_source_files_properties(src/web/web_util.c PROPERTIES OBJECT_DEPENDS "${WEB_ASSETS}")
+set_source_files_properties(src/index/elastic.c PROPERTIES OBJECT_DEPENDS "${SCHEMA_ASSETS}")
+set_source_files_properties(src/parsing/magic_util.c PROPERTIES OBJECT_DEPENDS "${MAGIC_MGC}")
 
 target_link_libraries(
         sist2
@@ -345,10 +425,3 @@ if (BUILD_TESTS)
     target_compile_options(scan_test PRIVATE -g -fno-omit-frame-pointer)
     target_link_libraries(scan_test PRIVATE GTest::gtest GTest::gtest_main scan)
 endif ()
-
-add_custom_target(
-        before_sist2
-        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/scripts/before_build.sh
-)
-
-add_dependencies(sist2 before_sist2)
