@@ -27,6 +27,7 @@ jobs:
             runner: ubuntu-24.04
           - arch: arm64
             runner: ubuntu-24.04-arm
+    name: binary + image (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     # A cold vcpkg build (ffmpeg, mupdf, tesseract, openblas from source) is the worst case
     timeout-minutes: 350
@@ -87,6 +88,7 @@ jobs:
   # sist2app/sist2:<version> resolves to the right image on both architectures.
   #
   manifest:
+    name: multi-arch manifest
     needs: build
     runs-on: ubuntu-24.04
     steps:
@@ -128,6 +130,7 @@ jobs:
           done
 
   release:
+    name: github release
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04

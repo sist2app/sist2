@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   test:
+    name: build + test (x64)
     runs-on: ubuntu-24.04
     # A cold vcpkg build (ffmpeg, mupdf, tesseract, openblas from source) is the worst case
     timeout-minutes: 350
