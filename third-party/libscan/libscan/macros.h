@@ -1,3 +1,8 @@
+// glibc defines __always_inline in sys/cdefs.h; musl does not
+#ifndef __always_inline
+#define __always_inline inline __attribute__((__always_inline__))
+#endif
+
 #ifndef FALSE
 #define FALSE (0)
 #define BOOL int

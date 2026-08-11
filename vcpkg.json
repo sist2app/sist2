@@ -2,6 +2,9 @@
   "name": "sist2",
   "version-string": "3.5.0",
   "builtin-baseline": "cfc7e5ec0383adbdac6595f29a5232049fe124df",
+  "vcpkg-configuration": {
+    "overlay-ports": ["./overlay-ports"]
+  },
   "dependencies": [
     "openblas",
     {

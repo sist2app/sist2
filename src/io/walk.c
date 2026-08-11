@@ -2,7 +2,7 @@
 #include "src/ctx.h"
 #include "src/parsing/fs_util.h"
 
-#include <ftw.h>
+#include <dirent.h>
 #include <pthread.h>
 
 #define STR_STARTS_WITH(x, y) (strncmp(y, x, strlen(y) - 1) == 0)
@@ -11,52 +11,92 @@
 int sub_strings[30];
 #define EXCLUDED(str) (pcre_exec(ScanCtx.exclude, ScanCtx.exclude_extra, str, strlen(str), 0, 0, sub_strings, sizeof(sub_strings)) >= 0)
 
-int handle_entry(const char *filepath, const struct stat *info, int typeflag, struct FTW *ftw) {
+static void queue_parse_job(const char *filepath, const struct stat *info) {
+    parse_job_t *job = create_parse_job(filepath, (int) info->st_mtim.tv_sec, info->st_size);
 
-    if (ftw->level > ScanCtx.depth) {
-        if (typeflag == FTW_D) {
-            return FTW_SKIP_SUBTREE;
-        }
-        return FTW_CONTINUE;
-    }
-
-    if (ScanCtx.exclude != NULL && EXCLUDED(filepath)) {
-        LOG_DEBUGF("walk.c", "Excluded: %s", filepath);
-
-        if (typeflag == FTW_D) {
-            return FTW_SKIP_SUBTREE;
-        }
-
-        return FTW_CONTINUE;
-    }
-
-    if (ignorelist_is_ignored(ScanCtx.ignorelist, filepath)) {
-        LOG_DEBUGF("walk.c", "Ignored: %s", filepath);
-
-        if (typeflag == FTW_D) {
-            return FTW_SKIP_SUBTREE;
-        }
-
-        return FTW_CONTINUE;
-    }
-
-    if (typeflag == FTW_F && S_ISREG(info->st_mode)) {
-        parse_job_t *job = create_parse_job(filepath, (int) info->st_mtim.tv_sec, info->st_size);
-
-        tpool_add_work(ScanCtx.pool, &(job_t) {
-                .type = JOB_PARSE_JOB,
-                .parse_job = job
-        });
-        free(job);
-    }
-
-    return FTW_CONTINUE;
+    tpool_add_work(ScanCtx.pool, &(job_t) {
+            .type = JOB_PARSE_JOB,
+            .parse_job = job
+    });
+    free(job);
 }
 
-#define MAX_FILE_DESCRIPTORS 64
+// Skip an entry (and its subtree, for directories) when it is beyond the
+// depth limit, matches the exclude regex, or is on the ignore list
+static int is_pruned(const char *path, int level) {
+    if (level > ScanCtx.depth) {
+        return TRUE;
+    }
+
+    if (ScanCtx.exclude != NULL && EXCLUDED(path)) {
+        LOG_DEBUGF("walk.c", "Excluded: %s", path);
+        return TRUE;
+    }
+
+    if (ignorelist_is_ignored(ScanCtx.ignorelist, path)) {
+        LOG_DEBUGF("walk.c", "Ignored: %s", path);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+static int walk_recurse(const char *dirpath, int level) {
+    DIR *dir = opendir(dirpath);
+    if (dir == NULL) {
+        LOG_ERRORF("walk.c", "Could not open directory %s (%s)", dirpath, strerror(errno));
+        return 0;
+    }
+
+    char *path = malloc(PATH_MAX);
+    struct stat info;
+    struct dirent *entry;
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        snprintf(path, PATH_MAX, "%s/%s", dirpath, entry->d_name);
+
+        // Do not follow symlinks (equivalent to nftw() FTW_PHYS)
+        if (lstat(path, &info) != 0) {
+            LOG_ERRORF("walk.c", "Could not stat %s (%s)", path, strerror(errno));
+            continue;
+        }
+
+        if (is_pruned(path, level)) {
+            continue;
+        }
+
+        if (S_ISREG(info.st_mode)) {
+            queue_parse_job(path, &info);
+        } else if (S_ISDIR(info.st_mode)) {
+            walk_recurse(path, level + 1);
+        }
+    }
+
+    free(path);
+    closedir(dir);
+    return 0;
+}
 
 int walk_directory_tree(const char *dirpath) {
-    return nftw(dirpath, handle_entry, MAX_FILE_DESCRIPTORS, FTW_PHYS | FTW_ACTIONRETVAL);
+    char root[PATH_MAX];
+    strncpy(root, dirpath, sizeof(root) - 1);
+    root[sizeof(root) - 1] = '\0';
+
+    // Strip trailing slashes so constructed paths match nftw() output
+    size_t len = strlen(root);
+    while (len > 1 && root[len - 1] == '/') {
+        root[--len] = '\0';
+    }
+
+    if (is_pruned(root, 0)) {
+        return 0;
+    }
+
+    return walk_recurse(root, 1);
 }
 
 int iterate_file_list(void *input_file) {
@@ -81,7 +121,7 @@ int iterate_file_list(void *input_file) {
             continue;
         }
 
-        char *absolute_path = canonicalize_file_name(buf);
+        char *absolute_path = realpath(buf, NULL);
 
         if (absolute_path == NULL) {
             LOG_FATALF("walk.c", "FIXME: Could not get absolute path of %s", buf);

@@ -1,0 +1,45 @@
+FROM alpine:3.20 AS build
+
+RUN apk add --no-cache \
+    build-base cmake ninja-build git curl zip unzip tar pkgconf linux-headers bash \
+    python3 autoconf automake libtool nasm yasm gettext-dev perl bison flex \
+    texinfo gfortran nodejs npm \
+    coreutils diffutils findutils grep gawk sed bc zlib-dev \
+    && ln -sf /usr/lib/ninja-build/bin/ninja /usr/local/bin/ninja
+
+# vcpkg on musl requires system binaries (the prebuilt vcpkg tool is glibc-only)
+ENV VCPKG_FORCE_SYSTEM_BINARIES=1
+
+RUN git clone https://github.com/sist2app/vcpkg /vcpkg \
+    && git -C /vcpkg checkout cfc7e5ec0383adbdac6595f29a5232049fe124df \
+    && /vcpkg/bootstrap-vcpkg.sh -disableMetrics
+
+WORKDIR /build
+
+# Install dependencies first
+COPY vcpkg.json .
+COPY overlay-ports overlay-ports
+RUN --mount=type=cache,target=/root/.cache/vcpkg \
+    /vcpkg/vcpkg install --x-manifest-root=/build --x-install-root=/build/vcpkg_installed
+
+COPY . .
+
+# webpack 4 uses md4; node >= 17 needs the legacy provider to allow it
+ENV NODE_OPTIONS=--openssl-legacy-provider
+RUN cd sist2-vue && npm install && npm run build
+RUN cd sist2-admin/frontend && npm install && npm run build
+
+ARG TARGETARCH=amd64
+RUN cmake -B build \
+        "-DSIST_PLATFORM=${TARGETARCH}_linux_musl" \
+        -DSIST_DEBUG=off \
+        -DSIST_DEBUG_INFO=on \
+        -DBUILD_TESTS=off \
+        -DSIST_STATIC=on \
+        -DVCPKG_INSTALLED_DIR=/build/vcpkg_installed \
+        -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake \
+    && cmake --build build -j "$(nproc)" \
+    && strip build/sist2
+
+FROM scratch AS artifact
+COPY --from=build /build/build/sist2 /sist2

@@ -10,6 +10,7 @@ set(CMAKE_C_STANDARD 11)
 option(SIST_DEBUG "Build a debug executable" on)
 option(SIST_FAST "Enable more optimisation flags" off)
 option(SIST_DEBUG_INFO "Turn on debug information in web interface" on)
+option(SIST_STATIC "Produce a fully static executable (musl only)" off)
 
 add_compile_definitions(
         "SIST_PLATFORM=${SIST_PLATFORM}"
@@ -168,6 +169,10 @@ target_link_libraries(
         unofficial::sqlite3::sqlite3
         OpenBLAS::OpenBLAS
 )
+
+if (SIST_STATIC)
+    target_link_options(sist2 PRIVATE -static)
+endif ()
 
 add_custom_target(
         before_sist2

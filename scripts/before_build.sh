@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 (
   cd "$(dirname "$0")/.."
@@ -9,5 +10,6 @@
   python3 scripts/index_static.py > src/index/static_generated.c
   python3 scripts/magic_static.py > src/magic_generated.c
 
-  printf "static const char *const Sist2CommitHash = \"%s\";\n" $(git rev-parse HEAD) > src/git_hash.h
+  commit_hash=$(git rev-parse HEAD 2>/dev/null || echo unknown)
+  printf "static const char *const Sist2CommitHash = \"%s\";\n" "$commit_hash" > src/git_hash.h
 )
