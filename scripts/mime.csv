@@ -211,7 +211,8 @@ application/x-shar, shar
 application/x-shockwave-flash, swf
 application/x-snappy-framed,
 application/x-sprite, spr|sprite
-application/x-sqlite3,
+application/x-sqlite3, sqlite
+application/vnd.sqlite3,
 application/x-stargallery-thm,
 application/x-stuffit, sit
 application/x-sv4cpio, sv4cpio

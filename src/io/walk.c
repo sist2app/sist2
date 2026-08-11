@@ -45,19 +45,23 @@ static int walk_recurse(const char *dirpath, int level) {
     DIR *dir = opendir(dirpath);
     if (dir == NULL) {
         LOG_ERRORF("walk.c", "Could not open directory %s (%s)", dirpath, strerror(errno));
-        return 0;
+        // Match nftw(): failing to open the root is fatal, unreadable subdirectories are skipped
+        return level == 1 ? -1 : 0;
     }
 
     char *path = malloc(PATH_MAX);
     struct stat info;
     struct dirent *entry;
 
+    // dirpath only ends with '/' when scanning the filesystem root
+    const char *sep = dirpath[strlen(dirpath) - 1] == '/' ? "" : "/";
+
     while ((entry = readdir(dir)) != NULL) {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }
 
-        snprintf(path, PATH_MAX, "%s/%s", dirpath, entry->d_name);
+        snprintf(path, PATH_MAX, "%s%s%s", dirpath, sep, entry->d_name);
 
         // Do not follow symlinks (equivalent to nftw() FTW_PHYS)
         if (lstat(path, &info) != 0) {
