@@ -6,7 +6,6 @@ EMBED_FILE(index_html, SIST2_ROOT "/sist2-vue/dist/index.html");
 EMBED_FILE(index_js, SIST2_ROOT "/sist2-vue/dist/js/index.js");
 EMBED_FILE(chunk_vendors_js, SIST2_ROOT "/sist2-vue/dist/js/chunk-vendors.js");
 EMBED_FILE(index_css, SIST2_ROOT "/sist2-vue/dist/css/index.css");
-EMBED_FILE(chunk_vendors_css, SIST2_ROOT "/sist2-vue/dist/css/chunk-vendors.css");
 
 
 void web_serve_asset_index_html(struct mg_connection *nc) {
@@ -36,12 +35,6 @@ void web_serve_asset_favicon_ico(struct mg_connection *nc) {
 void web_serve_asset_style_css(struct mg_connection *nc) {
     web_send_headers(nc, 200, index_css_size, "Content-Type: text/css");
     mg_send(nc, index_css, index_css_size);
-    nc->is_resp = 0;
-}
-
-void web_serve_asset_chunk_vendors_css(struct mg_connection *nc) {
-    web_send_headers(nc, 200, chunk_vendors_css_size, "Content-Type: text/css");
-    mg_send(nc, chunk_vendors_css, chunk_vendors_css_size);
     nc->is_resp = 0;
 }
 

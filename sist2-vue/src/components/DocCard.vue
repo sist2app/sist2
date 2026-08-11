@@ -48,8 +48,8 @@ import TagContainer from "@/components/TagContainer.vue";
 import DocFileTitle from "@/components/DocFileTitle.vue";
 import DocInfoModal from "@/components/DocInfoModal.vue";
 import ContentDiv from "@/components/ContentDiv.vue";
-import FullThumbnail from "@/components/FullThumbnail";
-import FeaturedFieldsLine from "@/components/FeaturedFieldsLine";
+import FullThumbnail from "@/components/FullThumbnail.vue";
+import FeaturedFieldsLine from "@/components/FeaturedFieldsLine.vue";
 import MLIcon from "@/components/icons/MlIcon.vue";
 import Sist2Api from "@/Sist2Api";
 

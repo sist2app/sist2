@@ -1,5 +1,5 @@
 import Vue from "vue"
-import VueRouter, {RouteConfig} from "vue-router"
+import VueRouter from "vue-router"
 import StatsPage from "../views/StatsPage.vue"
 import Configuration from "../views/Configuration.vue"
 import SearchPage from "@/views/SearchPage.vue";
@@ -47,7 +47,7 @@ const routes = [
 
 const router = new VueRouter({
     mode: "hash",
-    base: process.env.BASE_URL,
+    base: import.meta.env.BASE_URL,
     routes,
     scrollBehavior(to, from, savedPosition) {
         // return desired position

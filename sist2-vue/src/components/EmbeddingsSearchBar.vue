@@ -39,7 +39,7 @@
 <script>
 import {mapGetters, mapMutations} from "vuex";
 import {CLIPTransformerModel} from "@/ml/CLIPTransformerModel"
-import _debounce from "lodash/debounce";
+import {debounce as _debounce} from "@/util";
 import MLIcon from "@/components/icons/MlIcon.vue";
 import Sist2AdminApi from "@/Sist2Api";
 
@@ -71,7 +71,7 @@ export default {
         this.modelName = Sist2AdminApi.models()[0].name;
         this.onModelChange(this.modelName);
 
-        this.onInput = _debounce(this._onInput, 450, {leading: false});
+        this.onInput = _debounce(this._onInput, 450);
     },
     methods: {
         ...mapMutations({
@@ -134,6 +134,10 @@ export default {
 }
 </script>
 <style>
+.progress-bar {
+    transition: none;
+}
+
 .overlay-badge {
     position: absolute;
     z-index: 1;

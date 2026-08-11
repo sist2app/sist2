@@ -12,7 +12,7 @@
 <script>
 import {sid} from "@/util";
 import Vue from "vue";
-import DocCard from "@/components/DocCard";
+import DocCard from "@/components/DocCard.vue";
 
 import VueInfiniteGrid from "@egjs/vue-infinitegrid";
 

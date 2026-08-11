@@ -99,14 +99,13 @@ function cascadeTreemap(data, svg, width, height, tilingMode, treemapColor) {
 
     const node = svg.selectAll("g")
         .data(
-            d3.nest()
-                .key(d => d.depth).sortKeys(d3.ascending)
-                .entries(root.descendants())
+            d3.groups(root.descendants(), d => d.depth)
+                .sort(([depthA], [depthB]) => d3.ascending(depthA, depthB))
         )
         .join("g")
         .attr("filter", "url(#shadow)")
         .selectAll("g")
-        .data(d => d.values)
+        .data(([, nodes]) => nodes)
         .join("g")
         .attr("transform", d => `translate(${d.x0},${d.y0})`);
 

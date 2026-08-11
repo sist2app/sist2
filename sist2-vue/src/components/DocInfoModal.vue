@@ -18,8 +18,8 @@
 
 <script>
 import {ext, sid} from "@/util";
-import InfoTable from "@/components/InfoTable";
-import LazyContentDiv from "@/components/LazyContentDiv";
+import InfoTable from "@/components/InfoTable.vue";
+import LazyContentDiv from "@/components/LazyContentDiv.vue";
 
 export default {
     name: "DocInfoModal",

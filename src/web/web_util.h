@@ -45,7 +45,6 @@ void web_serve_asset_index_js(struct mg_connection *nc);
 void web_serve_asset_chunk_vendors_js(struct mg_connection *nc);
 void web_serve_asset_favicon_ico(struct mg_connection *nc);
 void web_serve_asset_style_css(struct mg_connection *nc);
-void web_serve_asset_chunk_vendors_css(struct mg_connection *nc);
 
 cJSON *web_get_json_body(struct mg_http_message *hm);
 char *web_get_string_body(struct mg_http_message *hm);

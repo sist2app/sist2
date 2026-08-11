@@ -34,7 +34,7 @@ import InfoTable from "@/components/InfoTable.vue";
 import Sist2Api from "@/Sist2Api";
 import {ext, sid} from "@/util";
 import Vue from "vue";
-import FullThumbnail from "@/components/FullThumbnail";
+import FullThumbnail from "@/components/FullThumbnail.vue";
 
 export default Vue.extend({
     name: "FilePage",

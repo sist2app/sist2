@@ -378,7 +378,6 @@ set(WEB_ASSETS
         sist2-vue/dist/js/index.js
         sist2-vue/dist/js/chunk-vendors.js
         sist2-vue/dist/css/index.css
-        sist2-vue/dist/css/chunk-vendors.css
 )
 foreach (ASSET ${WEB_ASSETS})
     if (NOT EXISTS ${CMAKE_SOURCE_DIR}/${ASSET})

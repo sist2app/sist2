@@ -18,8 +18,8 @@
 </template>
 
 <script>
-import IndexDebugInfo from "@/components/IndexDebugInfo";
-import DebugIcon from "@/components/icons/DebugIcon";
+import IndexDebugInfo from "@/components/IndexDebugInfo.vue";
+import DebugIcon from "@/components/icons/DebugIcon.vue";
 import {mapGetters} from "vuex";
 
 export default {

@@ -36,9 +36,6 @@ jobs:
           node-version: 22
 
       - name: Build sist2-vue
-        # webpack 4 uses md4; node >= 17 needs the legacy provider to allow it
-        env:
-          NODE_OPTIONS: --openssl-legacy-provider
         run: cd sist2-vue && npm install && npm run build
 
       - name: Read vcpkg baseline

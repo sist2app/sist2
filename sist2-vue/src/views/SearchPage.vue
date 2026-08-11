@@ -60,14 +60,13 @@
 </template>
 
 <script>
-import {sid} from "@/util";
+import {debounce as _debounce, sid} from "@/util";
 import Preloader from "@/components/Preloader.vue";
 import {mapActions, mapGetters, mapMutations} from "vuex";
 import SearchBar from "@/components/SearchBar.vue";
 import IndexPicker from "@/components/IndexPicker.vue";
 import Vue from "vue";
 import Sist2Query from "@/Sist2ElasticsearchQuery";
-import {debounce as _debounce} from "underscore";
 import DocCardWall from "@/components/DocCardWall.vue";
 import Lightbox from "@/components/Lightbox.vue";
 import LightboxCaption from "@/components/LightboxCaption.vue";
@@ -121,7 +120,7 @@ export default Vue.extend({
 
             await this.searchNow();
 
-        }, 350, false);
+        }, 350);
 
         this.$store.dispatch("loadFromArgs", this.$route).then(() => {
             this.$store.subscribe(() => this.$store.dispatch("updateArgs", this.$router));

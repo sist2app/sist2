@@ -33,13 +33,13 @@
     </b-container>
 </template>
 <script>
-import D3Treemap from "@/components/D3Treemap";
+import D3Treemap from "@/components/D3Treemap.vue";
 import Sist2Api from "@/Sist2Api";
 import Preloader from "@/components/Preloader.vue";
-import D3MimeBarCount from "@/components/D3MimeBarCount";
-import D3MimeBarSize from "@/components/D3MimeBarSize";
-import D3DateHistogram from "@/components/D3DateHistogram";
-import D3SizeHistogram from "@/components/D3SizeHistogram";
+import D3MimeBarCount from "@/components/D3MimeBarCount.vue";
+import D3MimeBarSize from "@/components/D3MimeBarSize.vue";
+import D3DateHistogram from "@/components/D3DateHistogram.vue";
+import D3SizeHistogram from "@/components/D3SizeHistogram.vue";
 
 export default {
     components: {D3SizeHistogram, D3DateHistogram, D3MimeBarSize, D3MimeBarCount, D3Treemap, Preloader},

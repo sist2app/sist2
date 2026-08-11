@@ -490,20 +490,25 @@ class Sist2Api {
         }
     }
 
+    // The server expects the index id as exactly 8 hexadecimal characters (see stats_files() in serve.c)
+    getStatUrl(indexId, mnemonic) {
+        return `${this.baseUrl}s/${(indexId >>> 0).toString(16).padStart(8, "0")}/${mnemonic}`;
+    }
+
     getTreemapStat(indexId) {
-        return `${this.baseUrl}s/${indexId}/TMAP`;
+        return this.getStatUrl(indexId, "TMAP");
     }
 
     getMimeStat(indexId) {
-        return `${this.baseUrl}s/${indexId}/MAGG`;
+        return this.getStatUrl(indexId, "MAGG");
     }
 
     getSizeStat(indexId) {
-        return `${this.baseUrl}s/${indexId}/SAGG`;
+        return this.getStatUrl(indexId, "SAGG");
     }
 
     getDateStat(indexId) {
-        return `${this.baseUrl}s/${indexId}/DAGG`;
+        return this.getStatUrl(indexId, "DAGG");
     }
 
     getDocumentEs(sid, highlight, fuzzy) {

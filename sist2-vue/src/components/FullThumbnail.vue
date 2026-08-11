@@ -41,7 +41,7 @@
 
 <script>
 import {humanTime, sid} from "@/util";
-import ThumbnailProgressBar from "@/components/ThumbnailProgressBar";
+import ThumbnailProgressBar from "@/components/ThumbnailProgressBar.vue";
 
 export default {
     name: "FullThumbnail",

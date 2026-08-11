@@ -172,17 +172,6 @@
                                   @input="setOptVidPreviewInterval"></b-form-input>
                 </b-card>
 
-                <h4 class="mt-3">{{ $t("mlOptions") }}</h4>
-                <b-card>
-                    <label>{{ $t("opt.mlRepositories") }}</label>
-                    <b-textarea rows="3" :value="optMlRepositories" @input="setOptMlRepositories"></b-textarea>
-                    <br>
-                    <b-form-checkbox :checked="optAutoAnalyze" @input="setOptAutoAnalyze">{{
-                        $t("opt.autoAnalyze")
-                        }}
-                    </b-form-checkbox>
-                </b-card>
-
                 <h4 class="mt-3">{{ $t("treemapOptions") }}</h4>
                 <b-card>
                     <label>{{ $t("opt.treemapType") }}</label>
@@ -229,7 +218,7 @@ import DebugInfo from "@/components/DebugInfo.vue";
 import Preloader from "@/components/Preloader.vue";
 import sist2 from "@/Sist2Api";
 import GearIcon from "@/components/icons/GearIcon.vue";
-import LanguageIcon from "@/components/icons/LanguageIcon";
+import LanguageIcon from "@/components/icons/LanguageIcon.vue";
 
 export default {
     components: {LanguageIcon, GearIcon, DebugInfo, Preloader},
@@ -338,8 +327,6 @@ export default {
             "optSimpleLightbox",
             "optShowTagPickerFilter",
             "optFeaturedFields",
-            "optMlRepositories",
-            "optAutoAnalyze",
         ]),
         clientWidth() {
             return window.innerWidth;
@@ -385,8 +372,6 @@ export default {
             "setOptSimpleLightbox",
             "setOptShowTagPickerFilter",
             "setOptFeaturedFields",
-            "setOptMlRepositories",
-            "setOptAutoAnalyze",
         ]),
         onResetClick() {
             localStorage.removeItem("sist2_configuration");

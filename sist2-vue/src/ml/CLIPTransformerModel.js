@@ -1,7 +1,7 @@
-import * as ort from "onnxruntime-web";
+import * as ort from "onnxruntime-web/wasm";
 import {BPETokenizer} from "@/ml/BPETokenizer";
 import axios from "axios";
-import {downloadToBuffer, ORT_WASM_PATHS} from "@/ml/mlUtils";
+import {downloadToBuffer, ORT_WASM_PATH_PREFIX} from "@/ml/mlUtils";
 import ModelStore from "@/ml/ModelStore";
 
 export class CLIPTransformerModel {
@@ -21,7 +21,7 @@ export class CLIPTransformerModel {
     }
 
     async loadModel(onProgress) {
-        ort.env.wasm.wasmPaths = ORT_WASM_PATHS;
+        ort.env.wasm.wasmPaths = ORT_WASM_PATH_PREFIX;
         if (window.crossOriginIsolated) {
             ort.env.wasm.numThreads = 2;
         }

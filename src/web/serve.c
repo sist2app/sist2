@@ -78,7 +78,9 @@ void get_embedding(struct mg_connection *nc, struct mg_http_message *hm) {
 
 void stats_files(struct mg_connection *nc, struct mg_http_message *hm) {
 
-    if (hm->uri.len != 17) {
+    // /s/<index id: 8 hex chars>/<stat type mnemonic: 4 chars>
+    if (hm->uri.len != 3 + 8 + 1 + 4 || *(hm->uri.buf + 11) != '/') {
+        LOG_DEBUGF("serve.c", "Invalid stats path: %.*s", (int) hm->uri.len, hm->uri.buf);
         HTTP_REPLY_NOT_FOUND
         return;
     }
@@ -141,10 +143,6 @@ void serve_favicon_ico(struct mg_connection *nc, UNUSED(struct mg_http_message *
 
 void serve_style_css(struct mg_connection *nc, UNUSED(struct mg_http_message *hm)) {
     web_serve_asset_style_css(nc);
-}
-
-void serve_chunk_vendors_css(struct mg_connection *nc, UNUSED(struct mg_http_message *hm)) {
-    web_serve_asset_chunk_vendors_css(nc);
 }
 
 void serve_thumbnail(struct mg_connection *nc, UNUSED(struct mg_http_message *hm), int index_id,
@@ -661,9 +659,6 @@ static void ev_router(struct mg_connection *nc, int ev, void *ev_data) {
             return;
         } else if (mg_http_match_uri(hm, "/css/index.css")) {
             serve_style_css(nc, hm);
-            return;
-        } else if (mg_http_match_uri(hm, "/css/chunk-vendors.css")) {
-            serve_chunk_vendors_css(nc, hm);
             return;
         } else if (mg_http_match_uri(hm, "/js/index.js")) {
             serve_index_js(nc, hm);

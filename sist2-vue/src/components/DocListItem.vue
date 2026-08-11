@@ -62,12 +62,12 @@
 </template>
 
 <script>
-import TagContainer from "@/components/TagContainer";
-import DocFileTitle from "@/components/DocFileTitle";
-import DocInfoModal from "@/components/DocInfoModal";
-import ContentDiv from "@/components/ContentDiv";
-import FileIcon from "@/components/icons/FileIcon";
-import FeaturedFieldsLine from "@/components/FeaturedFieldsLine";
+import TagContainer from "@/components/TagContainer.vue";
+import DocFileTitle from "@/components/DocFileTitle.vue";
+import DocInfoModal from "@/components/DocInfoModal.vue";
+import ContentDiv from "@/components/ContentDiv.vue";
+import FileIcon from "@/components/icons/FileIcon.vue";
+import FeaturedFieldsLine from "@/components/FeaturedFieldsLine.vue";
 import MLIcon from "@/components/icons/MlIcon.vue";
 import Sist2Api from "@/Sist2Api";
 import {sid} from "@/util";

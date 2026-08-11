@@ -26,12 +26,10 @@ sist2 (Simple incremental search tool)
 * Recursive scan inside archive files \*\*
 * OCR support with tesseract \*\*\*
 * Stats page & disk utilisation visualization
-* Named-entity recognition (client-side) \*\*\*\*
 
 \* See [format support](#format-support)    
 \*\* See [Archive files](#archive-files)    
-\*\*\* See [OCR](#ocr)    
-\*\*\*\* See [Named-Entity Recognition](#NER)
+\*\*\* See [OCR](#ocr)
 
 ## Getting Started
 
@@ -166,28 +164,6 @@ indices, but it uses much less memory and is easier to set up.
 | User scripts                                 |                          ✓                          |                                                                   ✓                                                                   |
 | Media Type breakdown for search results      |                                                     |                                                                   ✓                                                                   |
 | Embeddings search                            |                      ✓ *O(n)*                       |                                                              ✓ *O(logn)*                                                              |
-
-### NER
-
-sist2 v3.0.4+ supports named-entity recognition (NER). Simply add a supported repository URL to
-**Configuration** > **Machine learning options** > **Model repositories**
-to enable it.
-
-The text processing is done in your browser, no data is sent to any third-party services.
-See [sist2app/sist2-ner-models](https://github.com/sist2app/sist2-ner-models) for more details.
-
-#### List of available repositories:
-
-| URL                                                                                                     | Maintainer                              | Purpose |
-|---------------------------------------------------------------------------------------------------------|-----------------------------------------|---------|
-| [sist2app/sist2-ner-models](https://raw.githubusercontent.com/sist2app/sist2-ner-models/main/repo.json) | [sist2app](https://github.com/sist2app) | General |
-
-<details>
-  <summary>Screenshot</summary>
-
-![ner](docs/ner.png)
-
-</details>
 
 ## Build from source
 

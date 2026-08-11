@@ -50,7 +50,6 @@ export default {
         configReset: "Reset configuration",
         searchOptions: "Search options",
         treemapOptions: "Treemap options",
-        mlOptions: "Machine learning options",
         displayOptions: "Display options",
         opt: {
             lang: "Language",
@@ -82,9 +81,6 @@ export default {
             showTagPickerFilter: "Display the tag filter bar",
             featuredFields: "Featured fields Javascript template string. Will appear in the search results.",
             featuredFieldsList: "Available variables",
-            autoAnalyze: "Automatically analyze text",
-            defaultModel: "Default model",
-            mlRepositories: "Model repositories (one per line)"
         },
         queryMode: {
             simple: "Simple",
@@ -177,12 +173,6 @@ export default {
             selectAll: "Select All",
             selectedIndex: "selected index",
             selectedIndices: "selected indices",
-        },
-        ml: {
-            analyzeText: "Analyze",
-            auto: "Auto",
-            repoFetchError: "Failed to get list of models. Check browser console for more details.",
-            repoFetchErrorTitle: "Could not fetch model repositories",
         }
     },
     de: {
@@ -762,7 +752,6 @@ export default {
         configReset: "Zresetuj ustawienia",
         searchOptions: "Opcje szukania",
         treemapOptions: "Opcje mapy",
-        mlOptions: "Opcje uczenia maszynowego",
         displayOptions: "Opcje wyświetlania",
         opt: {
             lang: "Język",
@@ -794,9 +783,6 @@ export default {
             showTagPickerFilter: "Pokazuj pole filtrowania tagów",
             featuredFields: "Wybrane pola szablonu Javascript. Będą pojawiać się przy wynikach wyszukiwania.",
             featuredFieldsList: "Dostępne zmienne",
-            autoAnalyze: "Automatycznie analizuj tekst",
-            defaultModel: "Domyślny model",
-            mlRepositories: "Repozytoria modeli (każde w osobnej linii)"
         },
         queryMode: {
             simple: "Proste",
@@ -889,12 +875,6 @@ export default {
             selectAll: "Zaznacz wszystko",
             selectedIndex: "wybrany indeks",
             selectedIndices: "wybrane indeksy",
-        },
-        ml: {
-            analyzeText: "Analizuj",
-            auto: "Automatycznie",
-            repoFetchError: "Nie udało się uzyskać listy modeli. Zobacz konsolę przeglądarki, aby uzyskać więcej informacji.",
-            repoFetchErrorTitle: "Nie udało się pobrać repozytoriów modeli",
         }
     }
 }

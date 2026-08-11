@@ -28,19 +28,6 @@ export async function downloadToBuffer(url, onProgress) {
     return buf;
 }
 
-export function argMax(array) {
-    return array
-        .map((x, i) => [x, i])
-        .reduce((r, a) => (a[0] > r[0] ? a : r))[1];
-}
-
-export function toInt64(array) {
-    return new BigInt64Array(array.map(BigInt));
-}
-
-export const ORT_WASM_PATHS = {
-    "ort-wasm-simd.wasm": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.15.1/dist/ort-wasm-simd.wasm",
-    "ort-wasm.wasm": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.15.1/dist/ort-wasm.wasm",
-    "ort-wasm-simd-threaded.wasm": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.15.1/dist/ort-wasm-simd-threaded.wasm",
-    "ort-wasm-threaded.wasm": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.15.1/dist/ort-wasm-threaded.wasm",
-}
+// The .wasm/.mjs runtime files are not embedded in the sist2 binary, they are fetched from a CDN.
+// Must match the onnxruntime-web version in package.json.
+export const ORT_WASM_PATH_PREFIX = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/";

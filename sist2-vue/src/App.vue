@@ -16,10 +16,9 @@
 </template>
 
 <script>
-import NavBar from "@/components/NavBar";
+import NavBar from "@/components/NavBar.vue";
 import {mapActions, mapGetters, mapMutations} from "vuex";
 import Sist2Api from "@/Sist2Api";
-import ModelsRepo from "@/ml/modelsRepo";
 import {setupAuth0} from "@/main";
 import Sist2ElasticsearchQuery from "@/Sist2ElasticsearchQuery";
 import Sist2SqliteQuery from "@/Sist2SqliteQuery";
@@ -39,17 +38,6 @@ export default {
     mounted() {
         this.$store.dispatch("loadConfiguration").then(() => {
             this.$root.$i18n.locale = this.$store.state.optLang;
-            ModelsRepo.init(this.$store.getters.mlRepositoryList).catch(err => {
-                this.$bvToast.toast(
-                    this.$t("ml.repoFetchError"),
-                    {
-                        title: this.$t("ml.repoFetchErrorTitle"),
-                        noAutoHide: true,
-                        toaster: "b-toaster-bottom-right",
-                        headerClass: "toast-header-warning",
-                        bodyClass: "toast-body-warning",
-                    });
-            });
         });
 
         this.$store.subscribe((mutation) => {

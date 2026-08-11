@@ -34,8 +34,7 @@ RUN --mount=type=cache,target=/root/.cache/vcpkg \
 
 COPY . .
 
-# sist2-vue uses webpack 4, which uses md4; node >= 17 needs the legacy provider to allow it
-RUN cd sist2-vue && npm install && NODE_OPTIONS=--openssl-legacy-provider npm run build
+RUN cd sist2-vue && npm install && npm run build
 RUN cd sist2-admin && npm install && npm run build
 
 ARG TARGETARCH

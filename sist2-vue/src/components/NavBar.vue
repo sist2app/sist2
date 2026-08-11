@@ -22,7 +22,7 @@
 </template>
 
 <script>
-import Sist2Icon from "@/components/icons/Sist2Icon";
+import Sist2Icon from "@/components/icons/Sist2Icon.vue";
 
 export default {
   name: "NavBar",

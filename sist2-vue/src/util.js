@@ -311,6 +311,15 @@ export function decompressMime(mime) {
         .replace("X", "x-")
 }
 
+export function debounce(fn, wait) {
+    let timeout = null;
+
+    return function (...args) {
+        window.clearTimeout(timeout);
+        timeout = window.setTimeout(() => fn.apply(this, args), wait);
+    };
+}
+
 export function randomSeed() {
     return Math.round(Math.random() * 100000);
 }
