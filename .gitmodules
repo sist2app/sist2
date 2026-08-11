@@ -10,6 +10,3 @@
 [submodule "third-party/libmobi"]
 	path = third-party/libmobi
 	url = https://github.com/bfabiszewski/libmobi
-[submodule "third-party/libscan-test-files"]
-	path = third-party/libscan-test-files
-	url = https://github.com/simon987/libscan-test-files

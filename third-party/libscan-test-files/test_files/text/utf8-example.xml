@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ Licensed to the Apache Software Foundation (ASF) under one or more
+ contributor license agreements.  See the NOTICE file distributed with
+ this work for additional information regarding copyright ownership.
+ The ASF licenses this file to You under the Apache License, Version 2.0
+ (the "License"); you may not use this file except in compliance with
+ the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<!-- 
+  After posting this to Solr with bin/post, searching for "êâîôû" from
+  the solr/admin/ search page must return this document.
+ -->
+
+<add>
+  <doc>
+    <field name="id">UTF8TEST</field>
+    <field name="name">Test with some UTF-8 encoded characters</field>
+    <field name="manu">Apache Software Foundation</field>
+    <field name="cat">software</field>
+    <field name="cat">search</field>
+    <field name="features">No accents here</field>
+    <field name="features">This is an e acute: é</field>
+    <field name="features">eaiou with circumflexes: êâîôû</field>
+    <field name="features">eaiou with umlauts: ëäïöü</field>
+    <field name="features">tag with escaped chars: &lt;nicetag/&gt;</field>
+    <field name="features">escaped ampersand: Bonnie &amp; Clyde</field>
+    <field name="features">Outside the BMP:𐌈 codepoint=10308, a circle with an x inside. UTF8=f0908c88 UTF16=d800 df08</field>
+    <field name="price">0.0</field>
+    <field name="inStock">true</field>
+    <field name="lorem">
+      宮様辺氏図類海記献楽伝経阪録。点得列歳際下索件聞寅狭池江代区。稿滝沼岡報満週投者聞訟実世作目底設日頑。然長止供年政北属解持澤擦同文首禁王。示力棋布気一事過吾政決芸総薄負。世雑川活初提必民輪発陳政区能件。偶在各樹季掲址区食面子皇著店文史報右。禁来昇昭獲判状化断期億俊年名近佐棋否活質。天到歳満土評雪道発森読栗動谷速結。
+      政菌高角由郎並名然幸引画説刊活樹士。割銃再思自批球感教喫会護弁。優渡寿売如以常企索集去立的万賞世怒。遊癒突検演毎購開目高済電分白。績私名先指改織側銃票記丸属文。謙用路井側紙員緊共教天間。温外観企辺禁試就択森末査癒品聞始読特記。様生治者組投今更年会有南南軍勝注。渡入字側見春東対村合康時。然合授迫確挙未代査竹報考。
+      制認保選機群供求止仕提権容写賀氏術庁制頭。転人展済戦現三代世状各絵全食。権樹表寿経索飲索目始老河通月。談別特英目惑格分読北証著。主齢国環次同健重多転案詐述物由影。索断長募監著掲転板馬定時問平力応。市真天考告覧館必吉主掲根面委。外医王区林話家際条膨楽風般防。成富際部業真標相却日両社加首権。医問発史暮連際今助学重安。
+    </field>
+  </doc>
+</add>
+
