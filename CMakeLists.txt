@@ -258,6 +258,8 @@ target_compile_options(
 )
 
 include(ExternalProject)
+SET(WPD_LIB_DIR ${CMAKE_BINARY_DIR}/third-party/ext_libwpd/src/libwpd/src/lib/.libs/)
+SET(WPD_INCLUDE_DIR ${CMAKE_BINARY_DIR}/third-party/ext_libwpd/src/libwpd/inc/)
 ExternalProject_Add(
         libwpd
         URL http://prdownloads.sourceforge.net/libwpd/libwpd-0.9.9.tar.gz
@@ -273,9 +275,13 @@ ExternalProject_Add(
         BINARY_DIR "third-party/ext_libwpd/src/libwpd"
 
         BUILD_COMMAND make -j33
+
+        # Ninja refuses to link archives that no rule produces, so the ExternalProject
+        # outputs have to be declared explicitly (the Makefile generator tolerates it)
+        BUILD_BYPRODUCTS
+        "${WPD_LIB_DIR}/libwpd-0.9.a"
+        "${WPD_LIB_DIR}/libwpd-stream-0.9.a"
 )
-SET(WPD_LIB_DIR ${CMAKE_BINARY_DIR}/third-party/ext_libwpd/src/libwpd/src/lib/.libs/)
-SET(WPD_INCLUDE_DIR ${CMAKE_BINARY_DIR}/third-party/ext_libwpd/src/libwpd/inc/)
 
 add_dependencies(
         scan
