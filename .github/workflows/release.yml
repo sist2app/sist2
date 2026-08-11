@@ -1,0 +1,167 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (without the leading v). Images are pushed, no GitHub release is created."
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  DOCKERHUB_IMAGE: sist2app/sist2
+  GHCR_IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    # A cold vcpkg build (ffmpeg, mupdf, tesseract, openblas from source) is the worst case
+    timeout-minutes: 350
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        env:
+          REF: ${{ inputs.version || github.ref_name }}
+        run: echo "version=${REF#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Populates the shared dependency cache; the runtime image below reuses these layers
+      - name: Build static binary
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: artifact
+          outputs: type=local,dest=./dist-static
+          cache-from: type=registry,ref=${{ env.GHCR_IMAGE }}-buildcache:${{ matrix.arch }}
+          cache-to: type=registry,ref=${{ env.GHCR_IMAGE }}-buildcache:${{ matrix.arch }},mode=max
+
+      - name: Name the binary
+        run: mv dist-static/sist2 "sist2-${{ matrix.arch }}-linux-static"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sist2-${{ matrix.arch }}-linux-static
+          path: sist2-${{ matrix.arch }}-linux-static
+          if-no-files-found: error
+
+      - name: Build and push runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_IMAGE }}:${{ steps.version.outputs.version }}-${{ matrix.arch }}-linux
+            ${{ env.GHCR_IMAGE }}:${{ steps.version.outputs.version }}-${{ matrix.arch }}-linux
+          cache-from: type=registry,ref=${{ env.GHCR_IMAGE }}-buildcache:${{ matrix.arch }}
+
+  #
+  # Merges the two per-arch tags into a multi-arch manifest list, so that
+  # sist2app/sist2:<version> resolves to the right image on both architectures.
+  #
+  manifest:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Resolve version
+        id: version
+        env:
+          REF: ${{ inputs.version || github.ref_name }}
+        run: echo "version=${REF#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Create manifest lists
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          for image in "$DOCKERHUB_IMAGE" "$GHCR_IMAGE"; do
+            args=(--tag "${image}:${VERSION}")
+
+            # Pre-release versions (1.2.3-rc1, 1.2.3-beta) do not move :latest
+            case "$VERSION" in
+              *-*) ;;
+              *) args+=(--tag "${image}:latest") ;;
+            esac
+
+            docker buildx imagetools create "${args[@]}" \
+              "${image}:${VERSION}-x64-linux" \
+              "${image}:${VERSION}-arm64-linux"
+          done
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Resolve version
+        id: version
+        env:
+          REF: ${{ github.ref_name }}
+        run: echo "version=${REF#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd artifacts
+          sha256sum sist2-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          body: |
+            Docker images:
+
+            ```
+            docker pull sist2app/sist2:${{ steps.version.outputs.version }}
+            docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+            ```
+
+            The Linux binaries are fully static (musl) and run on any glibc or musl distribution.
+
+# TODO: windows job — mingw-w64 cross build on ubuntu-24.04 with the vcpkg x64-mingw-static
+# triplet. Blocked on the fork()/shared-mmap worker pool in src/tpool.c.

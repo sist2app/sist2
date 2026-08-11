@@ -1,7 +1,7 @@
 {
   "name": "sist2",
-  "version-string": "3.5.0",
-  "builtin-baseline": "cfc7e5ec0383adbdac6595f29a5232049fe124df",
+  "version-string": "4.0.0",
+  "builtin-baseline": "ce613c41372b23b1f51333815feb3edd87ef8a8b",
   "vcpkg-configuration": {
     "overlay-ports": ["./overlay-ports"]
   },

@@ -1,0 +1,74 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+  # Keeps the vcpkg cache entry alive (GitHub evicts caches untouched for 7 days)
+  schedule:
+    - cron: "0 5 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    # A cold vcpkg build (ffmpeg, mupdf, tesseract, openblas from source) is the worst case
+    timeout-minutes: 350
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config git curl zip unzip tar \
+            autoconf automake libtool libtool-bin nasm yasm bison flex gperf gettext \
+            texinfo gfortran python3 zlib1g-dev tesseract-ocr-eng
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build sist2-vue
+        # webpack 4 uses md4; node >= 17 needs the legacy provider to allow it
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+        run: cd sist2-vue && npm install && npm run build
+
+      - name: Read vcpkg baseline
+        id: vcpkg
+        run: echo "baseline=$(jq -r .\"builtin-baseline\" vcpkg.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        with:
+          path: build/vcpkg_installed
+          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ steps.vcpkg.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'overlay-ports/**') }}
+
+      - name: Set up vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg "$RUNNER_TEMP/vcpkg"
+          git -C "$RUNNER_TEMP/vcpkg" checkout "${{ steps.vcpkg.outputs.baseline }}"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja \
+            -DSIST_PLATFORM=x64_linux_ci \
+            -DSIST_DEBUG=off \
+            -DBUILD_TESTS=on \
+            -DVCPKG_MANIFEST_FEATURES=tests \
+            -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/vcpkg/scripts/buildsystems/vcpkg.cmake"
+
+      - name: Build
+        run: cmake --build build -j "$(nproc)"
+
+      - name: Test
+        env:
+          TESSDATA_PREFIX: /usr/share/tesseract-ocr/5/tessdata
+        run: ctest --test-dir build --output-on-failure -j "$(nproc)"

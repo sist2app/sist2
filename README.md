@@ -1,6 +1,6 @@
 ![GitHub](https://img.shields.io/github/license/sist2app/sist2.svg)
 [![CodeFactor](https://www.codefactor.io/repository/github/sist2app/sist2/badge?s=05daa325188aac4eae32c786f3d9cf4e0593f822)](https://www.codefactor.io/repository/github/sist2app/sist2)
-[![Development snapshots](https://ci.simon987.net/api/badges/simon987/sist2/status.svg)](https://files.simon987.net/.gate/sist2/simon987_sist2/)
+[![ci](https://github.com/sist2app/sist2/actions/workflows/ci.yml/badge.svg)](https://github.com/sist2app/sist2/actions/workflows/ci.yml)
 
 **Demo**: [sist2.simon987.net](https://sist2.simon987.net/)
 
@@ -51,7 +51,7 @@ services:
       - "PUID=1000"
       - "PGID=1000"
   sist2-admin:
-    image: sist2app/sist2:x64-linux
+    image: sist2app/sist2:latest
     restart: unless-stopped
     volumes:
       - /data/sist2-admin-data/:/sist2-admin/
@@ -196,11 +196,12 @@ You can compile **sist2** by yourself if you don't want to use the pre-compiled 
 ### Using docker
 
 ```bash
-git clone --recursive https://github.com/sist2app/sist2/
+git clone https://github.com/sist2app/sist2/
 cd sist2
-docker build . -t my-sist2-image
-# Copy sist2 executable from docker image
-docker run --rm --entrypoint cat my-sist2-image /root/sist2 > sist2-x64-linux
+# Static binary for the current architecture
+scripts/make_static.sh
+# ...or the full runtime image
+docker buildx build . -t my-sist2-image
 ```
 
 ### Using a linux computer
@@ -211,18 +212,15 @@ docker run --rm --entrypoint cat my-sist2-image /root/sist2 > sist2-x64-linux
    apt install gcc g++ python3 yasm ragel automake autotools-dev wget libtool libssl-dev curl zip unzip tar xorg-dev libglu1-mesa-dev libxcursor-dev libxml2-dev libxinerama-dev gettext nasm git nodejs
    ```
 
-2. Install vcpkg using my fork: https://github.com/sist2app/vcpkg
-3. Install vcpkg dependencies
+2. Install [vcpkg](https://github.com/microsoft/vcpkg)
+3. Build (the frontends must be built **before** the C binary: their `dist/` output is
+   embedded into the executable)
 
     ```bash
-    vcpkg install openblas curl[core,openssl] sqlite3[core,fts5,json1] cpp-jwt pcre cjson brotli libarchive[core,bzip2,libxml2,lz4,lzma,lzo] pthread tesseract libxml2 libmupdf[ocr] gtest mongoose libmagic libraw gumbo ffmpeg[core,avcodec,avformat,swscale,swresample,webp,opus,mp3lame,vpx,zlib] libgit2[core,pcre]
-    ```
-
-4. Build
-    ```bash
-    git clone --recursive https://github.com/sist2app/sist2/
+    git clone https://github.com/sist2app/sist2/
+    cd sist2
     (cd sist2-vue; npm install; npm run build)
     (cd sist2-admin; npm install; npm run build)
-    cmake -DSIST_DEBUG=off -G "Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE=<VCPKG_ROOT>/scripts/buildsystems/vcpkg.cmake .
-    make
+    cmake -B build -DSIST_DEBUG=off -DCMAKE_TOOLCHAIN_FILE=<VCPKG_ROOT>/scripts/buildsystems/vcpkg.cmake
+    cmake --build build -j $(nproc)
     ```
