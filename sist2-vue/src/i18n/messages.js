@@ -37,7 +37,7 @@ export default {
                 "phrase <i>fried eggs</i> and either <i>eggplant</i> or <i>potato</i>, but will ignore results " +
                 "containing <i>frittata</i>.",
             defaultOperator:
-                "When neither <code>+</code> or <code>|</code> is specified, the default operator is " +
+                "When neither <code>+</code> nor <code>|</code> is specified, the default operator is " +
                 "<code>+</code> (and).",
             fuzzy:
                 "When the <b>Fuzzy</b> option is checked, partial matches based on 3-grams are also returned.",
@@ -146,6 +146,8 @@ export default {
                 "See server logs for more information.",
             dupeTagTitle: "Duplicate tag",
             dupeTag: "This tag already exists for this document.",
+            invalidTagTitle: "Invalid tag",
+            invalidTag: "Tag names cannot contain the '#' character.",
             copiedToClipboard: "Copied to clipboard"
         },
         saveTagModalTitle: "Add tag",
@@ -194,6 +196,7 @@ export default {
         tags: "Tags",
         tagFilter: "Tags filtern",
         forExample: "Zum Beispiel:",
+        embeddingsSearchPlaceholder: "Embeddings-Suche",
         help: {
             simpleSearch: "Einfache Suche",
             advancedSearch: "Erweiterte Suche",
@@ -206,17 +209,17 @@ export default {
             prefix: "liefert Treffer, wenn die Abfolge einen solchen Präfix hat",
             parens: "gruppiert Ausdrücke",
             tildeTerm: "liefert Treffer, im gegebenen 'Editierabstand'",
-            tildePhrase: "liefert Treffer, mit dem Ausdruck. Erfolgt die gegebene Anzahl zwischenstehnde Nicht-Treffer-Wörter.",
+            tildePhrase: "liefert Treffer, mit dem Ausdruck. Erfolgt die gegebene Anzahl zwischenstehende Nicht-Treffer-Wörter.",
             example1:
                 "Zum Beispiel: <code>\"fried eggs\" +(eggplant | potato) -frittata</code> wird " +
                 "<i>fried eggs</i> und <i>eggplant</i> oder <i>potato</i> finden, aber keine Ergebnisse, " +
                 "die <i>frittata</i> enthalten.",
             defaultOperator:
                 "Wenn weder <code>+</code> noch <code>|</code> angegeben sind, ist " +
-                "<code>+</code> (and) der Standard.",
+                "<code>+</code> (und) der Standard.",
             fuzzy:
                 "Wenn <b>Fuzzy</b> aktiviert ist, werden Teil-Treffer (3-grams) ebenfalls akzeptiert.",
-            moreInfoSimple: "Für weitere Informationen s.<a target=\"_blank\" " +
+            moreInfoSimple: "Für weitere Informationen s. <a target=\"_blank\" " +
                 "rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html\">Elasticsearch Dokumentation</a>",
             moreInfoAdvanced: "Für die Dokumentation der erweiterten Suche s. <a target=\"_blank\" rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax\">Elasticsearch Dokumentation</a>"
         },
@@ -237,16 +240,16 @@ export default {
             queryMode: "Such-Modus",
             displayMode: "Ansicht",
             columns: "Anzahl Spalten",
-            treemapType: "Kacheldiagramme Typ",
+            treemapType: "Kacheldiagramm Typ",
             treemapTiling: "Kacheldiagramm Tiling",
-            treemapColorGroupingDepth: "Kacheldiagramme Gruppierungsfarbe Tiefe (flach)",
-            treemapColor: "Kacheldiagramme Farbe (kaskadiert)",
+            treemapColorGroupingDepth: "Kacheldiagramm Farbgruppierungstiefe (flach)",
+            treemapColor: "Kacheldiagramm Farbe (kaskadiert)",
             treemapSize: "Kacheldiagramm Größe",
             theme: "Theme",
-            lightboxLoadOnlyCurrent: "keine Bilder in voller Größe für benachbachte Slides im Image-Viewer vorab laden.",
+            lightboxLoadOnlyCurrent: "keine Bilder in voller Größe für benachbarte Slides im Image-Viewer vorab laden.",
             slideDuration: "Slide Dauer",
             resultSize: "Anzahl Treffer pro Seite",
-            tagOrOperator: "Verwende ODER Operator bei der Angabe mehrere Tags.",
+            tagOrOperator: "Verwende ODER Operator bei der Angabe mehrerer Tags.",
             hideDuplicates: "Verstecke Duplikate basierend auf der Prüfsumme",
             hideLegacy: "Verstecke die 'legacyES' Elasticsearch Notiz",
             updateMimeMap: "Aktualisiere Medientyp-Baum in Echtzeit",
@@ -321,6 +324,8 @@ export default {
                 "Schau in die Server-Logs für weitere Informationen.",
             dupeTagTitle: "Tag Duplikat",
             dupeTag: "Dieser Tag existiert bereits für das Dokument.",
+            invalidTagTitle: "Ungültiger Tag",
+            invalidTag: "Tag-Namen dürfen kein '#'-Zeichen enthalten.",
             copiedToClipboard: "In die Zwischenablage kopiert."
         },
         saveTagModalTitle: "Tag hinzufügen",
@@ -352,7 +357,7 @@ export default {
     },
     fr: {
         filePage: {
-            notFound: "Ficher introuvable"
+            notFound: "Fichier introuvable"
         },
         searchBar: {
             simple: "Recherche",
@@ -369,13 +374,14 @@ export default {
         tags: "Tags",
         tagFilter: "Filtrer les tags",
         forExample: "Par exemple:",
+        embeddingsSearchPlaceholder: "Recherche par embeddings",
         help: {
             simpleSearch: "Recherche simple",
             advancedSearch: "Recherche avancée",
             help: "Aide",
             term: "<TERME>",
-            and: "opérator ET",
-            or: "opérator OU",
+            and: "opérateur ET",
+            or: "opérateur OU",
             not: "exclut un terme",
             quotes: "recherche la séquence de termes dans cet ordre spécifique.",
             prefix: "lorsqu'utilisé à la fin d'un mot, recherche tous les termes avec le préfixe donné.",
@@ -384,10 +390,10 @@ export default {
             tildePhrase: "recherche une phrase avec un nombre donné de mots intermédiaires tolérés",
             example1:
                 "Par exemple: <code>\"fried eggs\" +(eggplant | potato) -frittata</code> va rechercher la " +
-                "phrase <i>fried eggs</i> et soit <i>eggplant</i> ou <i>potato</i>, mais vas exlure les résultats " +
+                "phrase <i>fried eggs</i> et soit <i>eggplant</i> ou <i>potato</i>, mais va exclure les résultats " +
                 "qui contiennent <i>frittata</i>.",
             defaultOperator:
-                "Lorsqu'aucun des opérateurs <code>+</code> ou <code>|</code> sont spécifiés, l'opérateur par défaut " +
+                "Lorsqu'aucun des opérateurs <code>+</code> ou <code>|</code> n'est spécifié, l'opérateur par défaut " +
                 "est <code>+</code> (ET).",
             fuzzy:
                 "Lorsque l'option <b>Approximatif</b> est activée, les résultats partiels basés sur les trigrammes sont" +
@@ -427,7 +433,7 @@ export default {
             hideLegacy: "Masquer la notice 'legacyES' Elasticsearch",
             updateMimeMap: "Mettre à jour l'arbre de Types de médias en temps réel",
             useDatePicker: "Afficher un composant « Date Picker » plutôt qu'un slider",
-            vidPreviewInterval: "Durée des images d'aperçu video en millisecondes",
+            vidPreviewInterval: "Durée des images d'aperçu vidéo en millisecondes",
             simpleLightbox: "Désactiver les animations du visualiseur d'images",
             showTagPickerFilter: "Afficher le filtre dans l'onglet Tags",
             featuredFields: "Expression Javascript pour les variables mises en évidence. Sera affiché dans les résultats de recherche.",
@@ -492,12 +498,14 @@ export default {
         toast: {
             esConnErrTitle: "Erreur de connexion Elasticsearch",
             esConnErr: "Le module web a rencontré une erreur lors de la connexion à Elasticsearch." +
-                " Consultez les journaux du serveur pour plus d'informations..",
+                " Consultez les journaux du serveur pour plus d'informations.",
             esQueryErrTitle: "Erreur de requête",
             esQueryErr: "Impossible d'analyser ou d'exécuter la requête, veuillez consulter la documentation sur la " +
                 "recherche avancée. Voir les journaux du serveur pour plus d'informations.",
             dupeTagTitle: "Tag en double",
             dupeTag: "Ce tag existe déjà pour ce document.",
+            invalidTagTitle: "Tag invalide",
+            invalidTag: "Les noms de tags ne peuvent pas contenir le caractère '#'.",
             copiedToClipboard: "Copié dans le presse-papier"
         },
         saveTagModalTitle: "Ajouter un tag",
@@ -506,7 +514,7 @@ export default {
         indexPickerPlaceholder: "Sélectionner un index",
         sort: {
             relevance: "Pertinence",
-            dateAsc: "Date (Plus ancient)",
+            dateAsc: "Date (Plus ancien)",
             dateDesc: "Date (Plus récent)",
             sizeAsc: "Taille (Plus petit)",
             sizeDesc: "Taille (Plus grand)",
@@ -521,7 +529,7 @@ export default {
             sizeHistogram: "Distribution des tailles de fichier",
         },
         indexPicker: {
-            selectNone: "Sélectionner aucun",
+            selectNone: "Ne rien sélectionner",
             selectAll: "Sélectionner tout",
             selectedIndex: "index sélectionné",
             selectedIndices: "index sélectionnés",
@@ -545,7 +553,8 @@ export default {
         mimeTypes: "文件类型",
         tags: "标签",
         tagFilter: "筛选标签",
-        forExample: "例如:",
+        forExample: "例如：",
+        embeddingsSearchPlaceholder: "向量搜索",
         help: {
             simpleSearch: "简易搜索",
             advancedSearch: "高级搜索",
@@ -560,14 +569,14 @@ export default {
             tildeTerm: "匹配编辑距离以内的关键词",
             tildePhrase: "匹配短语，容忍一些非匹配词",
             example1:
-                "例如: <code>\"番茄\" +(炒蛋 | 牛腩) -饭</code> 将匹配" +
+                "例如：<code>\"番茄\" +(炒蛋 | 牛腩) -饭</code> 将匹配" +
                 "短语 <i>番茄炒蛋</i>、<i>炒蛋</i> 或者 <i>牛腩</i>，而忽略任何带有" +
-                "<i>饭</i>的关键词.",
+                "<i>饭</i>的关键词。",
             defaultOperator:
                 "表达式中无<code>+</code>或者<code>|</code>时，默认使用" +
                 "<code>+</code>（与操作）。",
             fuzzy:
-                "选中<b>模糊搜索</b>选项时，返回部分匹配的结果（3-grams)。",
+                "选中<b>模糊搜索</b>选项时，返回部分匹配的结果（3-grams）。",
             moreInfoSimple: "详细信息：<a target=\"_blank\" " +
                 "rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html\">Elasticsearch文档</a>",
             moreInfoAdvanced: "高级搜索模式文档：<a target=\"_blank\" rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax\">Elasticsearch文档</a>"
@@ -589,7 +598,7 @@ export default {
             queryMode: "搜索模式",
             displayMode: "显示",
             columns: "列数",
-            treemapType: "树状图类属性",
+            treemapType: "树状图类型",
             treemapTiling: "树状图平铺",
             treemapColorGroupingDepth: "树状图颜色编组深度（展开）",
             treemapColor: "树状图颜色（折叠）",
@@ -600,7 +609,7 @@ export default {
             resultSize: "每页结果数",
             tagOrOperator: "使用或操作（OR）匹配多个标签。",
             hideDuplicates: "使用校验码隐藏重复结果",
-            hideLegacy: "隐藏'legacyES' Elasticsearch 通知",
+            hideLegacy: "隐藏 'legacyES' Elasticsearch 通知",
             updateMimeMap: "媒体类型树的实时更新",
             useDatePicker: "使用日期选择器组件而不是滑块",
             vidPreviewInterval: "视频预览帧的持续时间，以毫秒为单位",
@@ -662,7 +671,7 @@ export default {
         },
         debug: "调试信息",
         debugDescription: "对调试除错有用的信息。 若您遇到bug或者想建议新功能，请提交新Issue到" +
-            "<a href='https://github.com/sist2app/sist2/issues/new/choose'>这里</a>.",
+            "<a href='https://github.com/sist2app/sist2/issues/new/choose'>这里</a>。",
         tagline: "标签栏",
         toast: {
             esConnErrTitle: "Elasticsearch连接错误",
@@ -673,6 +682,8 @@ export default {
                 "查看服务日志以获取更多信息。",
             dupeTagTitle: "重复标签",
             dupeTag: "该标签已存在于此文档。",
+            invalidTagTitle: "无效标签",
+            invalidTag: "标签名不能包含 '#' 字符。",
             copiedToClipboard: "复制到剪贴板"
         },
         saveTagModalTitle: "增加标签",
@@ -721,6 +732,7 @@ export default {
         tags: "Tagi",
         tagFilter: "Filtruj tagi",
         forExample: "Na przykład:",
+        embeddingsSearchPlaceholder: "Szukanie wektorowe",
         help: {
             simpleSearch: "Proste szukanie",
             advancedSearch: "Zaawansowane szukanie",
@@ -825,7 +837,7 @@ export default {
             light: "Jasny",
             black: "Czarny"
         },
-        hit: "traf",
+        hit: "trafienie",
         hits: "trafień",
         details: "Szczegóły",
         stats: "Statystyki",
@@ -848,6 +860,8 @@ export default {
                 "Zobacz logi serwera, aby uzyskać więcej informacji.",
             dupeTagTitle: "Zduplikowany tag",
             dupeTag: "Ten dokument już ma taki tag.",
+            invalidTagTitle: "Nieprawidłowy tag",
+            invalidTag: "Nazwa tagu nie może zawierać znaku '#'.",
             copiedToClipboard: "Skopiowano do schowka"
         },
         saveTagModalTitle: "Dodaj tag",
@@ -871,7 +885,7 @@ export default {
             sizeHistogram: "Dystrybucja wielkości plików",
         },
         indexPicker: {
-            selectNone: "Zaznacz nic",
+            selectNone: "Odznacz wszystko",
             selectAll: "Zaznacz wszystko",
             selectedIndex: "wybrany indeks",
             selectedIndices: "wybrane indeksy",
