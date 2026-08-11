@@ -310,6 +310,54 @@ static AVDictionary *exif_metadata(const AVDictionary *frame_metadata) {
     return metadata;
 }
 
+/**
+ * The EXIF UserComment tag has an undefined type, so ffmpeg renders it as a list of decimal bytes. Its
+ * first 8 bytes are a character code ("ASCII\0\0\0", "UNICODE\0", "JIS\0\0\0\0\0", or all-zero when the
+ * encoding is undefined); decode the ASCII flavor (and the undefined one, which is ASCII in practice).
+ */
+static int exif_decode_user_comment(const char *value, char *buf, size_t size) {
+
+    static const char ascii_code[8] = {'A', 'S', 'C', 'I', 'I', 0, 0, 0};
+    static const char undefined_code[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+    char bytes[4096];
+    size_t count = 0;
+
+    for (const char *ptr = value; *ptr != '\0'; ptr += strspn(ptr, ", ")) {
+        char *end;
+        long byte = strtol(ptr, &end, 10);
+
+        if (end == ptr || byte < 0 || byte > UINT8_MAX || count == sizeof(bytes)) {
+            return FALSE;
+        }
+
+        bytes[count++] = (char) byte;
+        ptr = end;
+    }
+
+    if (count <= sizeof(ascii_code)
+        || (memcmp(bytes, ascii_code, sizeof(ascii_code)) != 0
+            && memcmp(bytes, undefined_code, sizeof(undefined_code)) != 0)) {
+        return FALSE;
+    }
+
+    const char *text = bytes + sizeof(ascii_code);
+    size_t len = count - sizeof(ascii_code);
+
+    while (len > 0 && (text[len - 1] == '\0' || text[len - 1] == ' ')) {
+        len -= 1;
+    }
+
+    if (len == 0 || len >= size) {
+        return FALSE;
+    }
+
+    memcpy(buf, text, len);
+    buf[len] = '\0';
+
+    return TRUE;
+}
+
 __always_inline
 static void
 append_video_meta(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, AVFrame *frame, document_t *doc, int is_video) {
@@ -370,7 +418,13 @@ append_video_meta(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, AVFrame *f
             } else if (strcmp(key, "focallength") == 0) {
                 APPEND_TAG_META(MetaExifFocalLength);
             } else if (strcmp(key, "usercomment") == 0) {
-                APPEND_TAG_META(MetaExifUserComment);
+                char comment[4096];
+
+                if (exif_decode_user_comment(tag->value, comment, sizeof(comment))) {
+                    APPEND_UTF8_META(doc, MetaExifUserComment, comment);
+                } else {
+                    APPEND_TAG_META(MetaExifUserComment);
+                }
             } else if (strcmp(key, "isospeedratings") == 0) {
                 APPEND_TAG_META(MetaExifIsoSpeedRatings);
             } else if (strcmp(key, "exposuretime") == 0) {

@@ -38,6 +38,8 @@ TEST_F(MediaTest, ImageExif1) {
     ASSERT_STREQ(meta(MetaExifFNumber)->str_val, "53:10");
     ASSERT_STREQ(meta(MetaExifFocalLength)->str_val, "900:10");
     ASSERT_STREQ(meta(MetaExifIsoSpeedRatings)->str_val, "400");
+    // The ASCII character code prefix is stripped, '@' is dropped by the text normalization
+    ASSERT_STREQ(meta(MetaExifUserComment)->str_val, "If found:Nathaniel.Moseley gmail.com");
 }
 
 /** A thumbnail bigger than the source image is stored as-is instead of being scaled up */

@@ -11,14 +11,16 @@
 FROM alpine:3.22 AS build
 
 RUN apk add --no-cache \
-    build-base cmake ninja-build git curl zip unzip tar pkgconf linux-headers bash \
-    python3 autoconf autoconf-archive automake libtool nasm yasm gettext-dev perl bison flex \
+    build-base ninja-build git curl zip unzip tar pkgconf linux-headers bash \
+    python3 py3-pip autoconf autoconf-archive automake libtool nasm yasm gettext-dev perl bison flex \
     texinfo gfortran nodejs npm \
     coreutils diffutils findutils grep gawk sed bc zlib-dev \
     && ln -sf /usr/lib/ninja-build/bin/ninja /usr/local/bin/ninja
 
-# vcpkg on musl requires system binaries (the prebuilt vcpkg tool is glibc-only)
+# vcpkg on musl requires system binaries (the prebuilt vcpkg tool is glibc-only), and its
+# port scripts need a newer cmake than Alpine packages, so take the musl wheel from PyPI
 ENV VCPKG_FORCE_SYSTEM_BINARIES=1
+RUN pip install --break-system-packages --no-cache-dir cmake==4.4.2
 
 RUN git clone https://github.com/microsoft/vcpkg /vcpkg \
     && git -C /vcpkg checkout 9e593bb18ea69cc5095e012465dcd675a822ed0d \
