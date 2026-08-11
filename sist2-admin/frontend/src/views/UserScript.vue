@@ -1,117 +1,117 @@
 <template>
-    <b-progress v-if="loading" striped animated value="100"></b-progress>
-    <b-card v-else>
-        <b-card-title>
-            {{ $route.params.name }}
-            {{ $t("script") }}
-        </b-card-title>
-
-        <div class="mb-3">
-            <b-button variant="danger" @click="deleteScript()">{{ $t("delete") }}</b-button>
+    <div v-if="script !== null">
+        <BackButton to="/1"/>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0">[{{ script.name }}] User Script</h4>
+            <button class="btn btn-danger" @click="deleteScript()">Delete</button>
         </div>
 
-        <b-card>
-            <h5>{{ $t("testScript") }}</h5>
+        <div class="alert alert-danger" v-if="error">{{ error }}</div>
+        <div class="alert alert-success" v-if="taskQueued">Task queued. Check the Tasks page to monitor the
+            status.</div>
 
-            <b-row>
-                <b-col cols="11">
-                    <JobSelect @change="onJobSelect($event)"></JobSelect>
-                </b-col>
-                <b-col cols="1">
-                    <b-button :disabled="!selectedTestJob" variant="primary" @click="testScript()">{{ $t("test") }}
-                    </b-button>
-                </b-col>
-            </b-row>
+        <div class="card mb-3">
+            <div class="card-header">User Script</div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="form-label">Script type</label>
+                    <select class="form-select" v-model="script.type">
+                        <option value="simple">simple</option>
+                        <option value="git">git</option>
+                    </select>
+                </div>
 
-        </b-card>
-        <br/>
+                <template v-if="script.type === 'git'">
+                    <div class="mb-2">
+                        <label class="form-label">Git repository URL</label>
+                        <input class="form-control" v-model="script.git_repository">
+                    </div>
+                </template>
+                <template v-else>
+                    <div class="mb-2">
+                        <label class="form-label">Script code (Python)</label>
+                        <textarea class="form-control font-monospace" rows="12" v-model="script.script"></textarea>
+                    </div>
+                </template>
 
-        <label>{{ $t("scriptType") }}</label>
-        <b-form-select :options="['git', 'simple']" v-model="script.type" @change="update()"></b-form-select>
+                <div class="mb-2">
+                    <label class="form-label">Extra command line arguments</label>
+                    <input class="form-control" v-model="script.extra_args">
+                </div>
+            </div>
+        </div>
 
-        <template v-if="script.type === 'git'">
-            <label>{{ $t("gitRepository") }}</label>
-            <b-form-input v-model="script.git_repository" placeholder="https://github.com/example/example.git"
-                          @change="update()"></b-form-input>
-
-            <label>{{ $t("extraArgs") }}</label>
-            <b-form-input v-model="script.extra_args" @change="update()" class="text-monospace"></b-form-input>
-        </template>
-
-        <template v-if="script.type === 'simple'">
-
-            <label>{{ $t("scriptCode") }}</label>
-            <p>Find sist2-python documentation <a href="https://sist2-python.readthedocs.io/" target="_blank">here</a></p>
-            <b-textarea rows="15" class="text-monospace" v-model="script.script" @change="update()" spellcheck="false"></b-textarea>
-        </template>
-
-        <template v-if="script.type === 'local'">
-            <!-- TODO-->
-        </template>
-
-
-    </b-card>
+        <div class="card mb-3">
+            <div class="card-header">Test/debug User Script</div>
+            <div class="card-body">
+                <label class="form-label">Select a job</label>
+                <div class="input-group">
+                    <JobSelect v-model="testJob"/>
+                    <button class="btn btn-primary" :disabled="testJob === null" @click="testRun()">Test</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </template>
 
-<script>
+<script setup>
+import { onMounted, ref, watch } from "vue";
 
-import Sist2AdminApi from "@/Sist2AdminApi";
-import JobOptions from "@/components/JobOptions.vue";
-import JobCheckboxGroup from "@/components/JobCheckboxGroup.vue";
-import JobSelect from "@/components/JobSelect.vue";
+import BackButton from "../components/BackButton.vue";
+import JobSelect from "../components/JobSelect.vue";
+import { api } from "../api.js";
+import { navigate, route } from "../router.js";
 
-export default {
-    name: "UserScript",
-    components: {JobSelect, JobCheckboxGroup, JobOptions},
-    data() {
-        return {
-            loading: true,
-            script: null,
-            selectedTestJob: null
-        }
-    },
-    methods: {
-        update() {
-            Sist2AdminApi.updateUserScript(this.name, this.script);
-        },
-        onJobSelect(job) {
-            this.selectedTestJob = job;
-        },
-        deleteScript() {
-            Sist2AdminApi.deleteUserScript(this.name)
-                .then(() => {
-                    this.$router.push("/");
-                })
-                .catch(err => {
-                    this.$bvToast.toast("Cannot delete user script " +
-                        "because it is referenced by a job", {
-                        title: "Error",
-                        variant: "danger",
-                        toaster: "b-toaster-bottom-right"
-                    });
-                })
-        },
-        testScript() {
-            Sist2AdminApi.testUserScript(this.name, this.selectedTestJob)
-                .then(() => {
-                    this.$bvToast.toast(this.$t("runJobConfirmation"), {
-                        title: this.$t("runJobConfirmationTitle"),
-                        variant: "success",
-                        toaster: "b-toaster-bottom-right"
-                    });
-                })
-        }
-    },
-    mounted() {
-        Sist2AdminApi.getUserScript(this.name).then(resp => {
-            this.script = resp.data;
-            this.loading = false;
-        });
-    },
-    computed: {
-        name() {
-            return this.$route.params.name;
-        },
-    },
+const SAVE_DEBOUNCE = 500;
+
+const script = ref(null);
+const error = ref(null);
+const taskQueued = ref(false);
+const testJob = ref(null);
+
+let saveTimeout = null;
+
+async function save() {
+    try {
+        await api.put(`/api/user_script/${encodeURIComponent(script.value.name)}`, script.value);
+        error.value = null;
+    } catch (e) {
+        error.value = e.message;
+    }
 }
+
+async function testRun() {
+    try {
+        const job = encodeURIComponent(testJob.value);
+        await api.post(`/api/user_script/${encodeURIComponent(script.value.name)}/run?job=${job}`);
+        taskQueued.value = true;
+    } catch (e) {
+        error.value = e.message;
+    }
+}
+
+async function deleteScript() {
+    if (!window.confirm(`Delete user script ${script.value.name}?`)) {
+        return;
+    }
+    try {
+        await api.delete(`/api/user_script/${encodeURIComponent(script.value.name)}`);
+        navigate("/1");
+    } catch (e) {
+        error.value = e.message;
+    }
+}
+
+onMounted(async () => {
+    script.value = await api.get(`/api/user_script/${encodeURIComponent(route.params.name)}`);
+
+    watch(
+        script,
+        () => {
+            window.clearTimeout(saveTimeout);
+            saveTimeout = window.setTimeout(save, SAVE_DEBOUNCE);
+        },
+        { deep: true }
+    );
+});
 </script>

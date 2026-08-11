@@ -1,129 +1,136 @@
 <template>
-
-    <b-card>
-        <b-card-title>
-            <span class="text-monospace">{{ getName() }}</span>
-            {{ $t("searchBackendTitle") }}
-        </b-card-title>
-
-        <div class="mb-3">
-            <b-button variant="danger" @click="deleteBackend()">{{ $t("delete") }}</b-button>
+    <div v-if="backend !== null">
+        <BackButton to="/0"/>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0">[{{ backend.name }}] search backend configuration</h4>
+            <button class="btn btn-danger" @click="deleteBackend()">Delete</button>
         </div>
 
-        <b-progress v-if="loading" striped animated value="100"></b-progress>
-        <b-card-body v-else>
+        <div class="alert alert-danger" v-if="error">{{ error }}</div>
 
-            <label>{{ $t("backendOptions.type") }}</label>
-            <b-select :options="backendTypeOptions" v-model="backend.backend_type" @change="update()"></b-select>
+        <div class="card mb-3">
+            <div class="card-header">Search backend options</div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="form-label">Search backend type</label>
+                    <select class="form-select" v-model="backend.backend_type">
+                        <option value="elasticsearch">elasticsearch</option>
+                        <option value="sqlite">sqlite</option>
+                    </select>
+                </div>
 
-            <hr/>
+                <template v-if="backend.backend_type === 'elasticsearch'">
+                    <div class="mb-2">
+                        <label class="form-label">Elasticsearch URL</label>
+                        <div class="input-group">
+                            <input class="form-control" v-model="backend.es_url">
+                            <button class="btn btn-outline-primary" type="button" @click="testEs()">Test</button>
+                        </div>
+                    </div>
+                    <div class="alert mt-2" :class="pingOk ? 'alert-success' : 'alert-danger'"
+                         v-if="pingMessage !== null">
+                        {{ pingMessage }}
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="esInsecure"
+                               v-model="backend.es_insecure_ssl"
+                               :disabled="!backend.es_url.startsWith('https:')">
+                        <label class="form-check-label" for="esInsecure">
+                            Do not verify SSL connections to Elasticsearch.
+                        </label>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Elasticsearch index name</label>
+                        <input class="form-control" v-model="backend.es_index">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-2 d-flex flex-column justify-content-end">
+                            <label class="form-label">Number of threads</label>
+                            <input class="form-control" type="number" min="1" v-model.number="backend.threads">
+                        </div>
+                        <div class="col-md-6 mb-2 d-flex flex-column justify-content-end">
+                            <label class="form-label">Index batch size</label>
+                            <input class="form-control" type="number" min="1" v-model.number="backend.batch_size">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Elasticsearch mappings file override</label>
+                        <textarea class="form-control font-monospace" rows="4"
+                                  v-model="backend.es_mappings"></textarea>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Elasticsearch settings file override</label>
+                        <textarea class="form-control font-monospace" rows="4"
+                                  v-model="backend.es_settings"></textarea>
+                    </div>
+                </template>
 
-            <template v-if="backend.backend_type === 'elasticsearch'">
-                <b-alert :variant="esTestOk ? 'success' : 'danger'" :show="showEsTestAlert" class="mt-1">
-                    {{ esTestMessage }}
-                </b-alert>
-
-                <label>{{ $t("backendOptions.esUrl") }}</label>
-                <b-input-group>
-                    <b-form-input v-model="backend.es_url" @change="update()"></b-form-input>
-                    <b-input-group-append>
-                        <b-button variant="outline-primary" @click="testEs()">{{ $t("test") }}</b-button>
-                    </b-input-group-append>
-                </b-input-group>
-
-                <b-form-checkbox v-model="backend.es_insecure_ssl" :disabled="!this.backend.es_url.startsWith('https')"
-                                 @change="update()">
-                    {{ $t("backendOptions.esInsecure") }}
-                </b-form-checkbox>
-
-                <label>{{ $t("backendOptions.esIndex") }}</label>
-                <b-form-input v-model="backend.es_index" @change="update()"></b-form-input>
-
-                <label>{{ $t("backendOptions.threads") }}</label>
-                <b-form-input v-model="backend.threads" type="number" min="1" @change="update()"></b-form-input>
-
-                <label>{{ $t("backendOptions.batchSize") }}</label>
-                <b-form-input v-model="backend.batch_size" type="number" min="1" @change="update()"></b-form-input>
-
-                <label>{{ $t("backendOptions.esMappings") }}</label>
-                <b-form-textarea v-model="backend.es_mappings" rows="4" @change="update()"></b-form-textarea>
-
-                <label>{{ $t("backendOptions.esSettings") }}</label>
-                <b-form-textarea v-model="backend.es_settings" rows="4" @change="update()"></b-form-textarea>
-            </template>
-            <template v-else>
-                <label>{{ $t("backendOptions.searchIndex") }}</label>
-                <b-form-input v-model="backend.search_index" disabled></b-form-input>
-            </template>
-        </b-card-body>
-
-    </b-card>
+                <template v-else>
+                    <div class="mb-2">
+                        <label class="form-label">Search index file location</label>
+                        <input class="form-control" :value="backend.search_index" readonly>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
 </template>
 
-<script>
-import sist2AdminApi from "@/Sist2AdminApi";
-import Sist2AdminApi from "@/Sist2AdminApi";
+<script setup>
+import { onMounted, ref, watch } from "vue";
 
-export default {
-    name: "SearchBackend",
-    data() {
-        return {
-            showEsTestAlert: false,
-            esTestOk: false,
-            esTestMessage: "",
-            loading: true,
-            backend: null,
-            backendTypeOptions: [
-                {
-                    text: "Elasticsearch",
-                    value: "elasticsearch"
-                },
-                {
-                    text: "SQLite",
-                    value: "sqlite"
-                }
-            ]
-        }
-    },
-    mounted() {
-        Sist2AdminApi.getSearchBackend(this.getName()).then(resp => {
-            this.backend = resp.data;
-            this.loading = false;
-        });
-    },
-    methods: {
-        getName() {
-            return this.$route.params.name;
-        },
-        testEs() {
-            sist2AdminApi.pingEs(this.backend.es_url, this.backend.es_insecure_ssl)
-                .then((resp) => {
-                    this.showEsTestAlert = true;
-                    this.esTestOk = resp.data.ok;
-                    this.esTestMessage = resp.data.message;
-                });
-        },
-        update() {
-            Sist2AdminApi.updateSearchBackend(this.getName(), this.backend);
-        },
-        deleteBackend() {
-            Sist2AdminApi.deleteBackend(this.getName())
-                .then(() => {
-                    this.$router.push("/");
-                })
-                .catch(err => {
-                    this.$bvToast.toast("Cannot delete search backend " +
-                        "because it is referenced by a job or frontend", {
-                        title: "Error",
-                        variant: "danger",
-                        toaster: "b-toaster-bottom-right"
-                    });
-                })
-        }
+import BackButton from "../components/BackButton.vue";
+import { api } from "../api.js";
+import { navigate, route } from "../router.js";
+
+const SAVE_DEBOUNCE = 500;
+
+const backend = ref(null);
+const error = ref(null);
+const pingOk = ref(false);
+const pingMessage = ref(null);
+
+let saveTimeout = null;
+
+async function save() {
+    try {
+        await api.put(`/api/search_backend/${encodeURIComponent(backend.value.name)}`, backend.value);
+        error.value = null;
+    } catch (e) {
+        error.value = e.message;
     }
 }
+
+async function testEs() {
+    const url = encodeURIComponent(backend.value.es_url);
+    const insecure = backend.value.es_insecure_ssl;
+    const result = await api.get(`/api/ping_es?url=${url}&insecure=${insecure}`);
+    pingOk.value = result.ok;
+    pingMessage.value = result.message;
+}
+
+async function deleteBackend() {
+    if (!window.confirm(`Delete search backend ${backend.value.name}?`)) {
+        return;
+    }
+    try {
+        await api.delete(`/api/search_backend/${encodeURIComponent(backend.value.name)}`);
+        navigate("/");
+    } catch (e) {
+        error.value = e.message;
+    }
+}
+
+onMounted(async () => {
+    backend.value = await api.get(`/api/search_backend/${encodeURIComponent(route.params.name)}`);
+
+    watch(
+        backend,
+        () => {
+            window.clearTimeout(saveTimeout);
+            saveTimeout = window.setTimeout(save, SAVE_DEBOUNCE);
+        },
+        { deep: true }
+    );
+});
 </script>
-
-<style scoped>
-
-</style>

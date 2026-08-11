@@ -1,94 +1,70 @@
 <template>
-    <div>
-        <b-form-checkbox :checked="desktopNotificationsEnabled" @change="updateNotifications($event)">
-            {{ $t("jobOptions.desktopNotifications") }}
-        </b-form-checkbox>
-
-        <b-form-checkbox v-model="job.schedule_enabled" @change="update()">
-            {{ $t("jobOptions.scheduleEnabled") }}
-        </b-form-checkbox>
-
-        <label>{{ $t("jobOptions.cron") }}</label>
-        <b-form-input class="text-monospace" :state="cronValid" v-model="job.cron_expression"
-                      :disabled="!job.schedule_enabled" @change="update()"></b-form-input>
-
-        <label>{{ $t("jobOptions.keepNLogs") }}</label>
-        <b-input-group>
-            <b-form-input type="number" v-model="job.keep_last_n_logs" @change="update()"></b-form-input>
-            <b-input-group-append>
-                <b-button variant="danger" @click="onDeleteNowClick()">{{ $t("jobOptions.deleteNow") }}</b-button>
-            </b-input-group-append>
-        </b-input-group>
-
+    <div class="card mb-3">
+        <div class="card-header">Job options</div>
+        <div class="card-body">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="desktopNotifications"
+                       :checked="notificationsEnabled" @change="toggleNotifications($event.target.checked)">
+                <label class="form-check-label" for="desktopNotifications">Desktop notifications</label>
+            </div>
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="scheduleEnabled"
+                       v-model="job.schedule_enabled">
+                <label class="form-check-label" for="scheduleEnabled">Enable scheduled re-scan</label>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Job schedule</label>
+                <input class="form-control" :class="{'is-invalid': !cronValid}" v-model="job.cron_expression">
+                <div class="invalid-feedback">Invalid cron expression</div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Keep last N log files. Set to -1 to keep all logs.</label>
+                <div class="input-group">
+                    <input class="form-control" type="number" min="-1" v-model.number="job.keep_last_n_logs">
+                    <button class="btn btn-outline-danger" type="button" @click="deleteLogsNow()">Delete now</button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
-<script>
+<script setup>
+import { computed } from "vue";
 
-import Sist2AdminApi from "@/Sist2AdminApi";
+import { api } from "../api.js";
+import { jobNotificationsEnabled, setJobNotifications } from "../store.js";
 
-export default {
-    name: "JobOptions",
-    props: ["job"],
-    data() {
-        return {
-            cronValid: undefined,
-            logsToDelete: null
-        }
-    },
-    computed: {
-        desktopNotificationsEnabled() {
-            return this.$store.state.jobDesktopNotificationMap[this.job.name];
-        }
-    },
-    mounted() {
-        this.cronValid = this.checkCron(this.job.cron_expression)
-    },
-    methods: {
-        checkCron(expression) {
-            return /((((\d+,)+\d+|(\d+([/-])\d+)|\d+|\*) ?){5,7})/.test(expression);
-        },
-        updateNotifications(value) {
-            this.$store.dispatch("setJobDesktopNotification", {
-                job: this.job.name,
-                enabled: value
-            });
-        },
-        update() {
-            if (this.job.schedule_enabled) {
-                this.cronValid = this.checkCron(this.job.cron_expression);
-            } else {
-                this.cronValid = undefined;
-            }
+const CRON_FIELD_REGEX = /^[0-9*,/-]+$/;
 
-            if (this.cronValid !== false) {
-                this.$emit("change", this.job);
-            }
-        },
-        onDeleteNowClick() {
-            Sist2AdminApi.getLogsToDelete(this.job.name, this.job.keep_last_n_logs).then(resp => {
-                const toDelete = resp.data;
-                const message = `Delete ${toDelete.length} log files?`;
+const props = defineProps({
+    job: { type: Object, required: true }
+});
 
-                this.$bvModal.msgBoxConfirm(message, {
-                    title: this.$t("confirmation"),
-                    size: "sm",
-                    buttonSize: "sm",
-                    okVariant: "danger",
-                    okTitle: this.$t("delete"),
-                    cancelTitle: this.$t("cancel"),
-                    footerClass: "p-2",
-                    hideHeaderClose: false,
-                    centered: true
-                }).then(value => {
-                    if (value) {
-                        toDelete.forEach(row => {
-                            Sist2AdminApi.deleteTaskLogs(row["id"]);
-                        });
-                    }
-                });
-            })
-        }
-    },
+const notificationsEnabled = computed(() => jobNotificationsEnabled(props.job.name));
+
+const cronValid = computed(() => {
+    const fields = props.job.cron_expression.trim().split(/\s+/);
+    return fields.length === 5 && fields.every((field) => CRON_FIELD_REGEX.test(field));
+});
+
+function toggleNotifications(enabled) {
+    setJobNotifications(props.job.name, enabled);
+}
+
+async function deleteLogsNow() {
+    const n = props.job.keep_last_n_logs;
+    const rows = await api.get(`/api/job/${encodeURIComponent(props.job.name)}/logs_to_delete?n=${n}`);
+
+    if (rows.length === 0) {
+        window.alert("No log files to delete.");
+        return;
+    }
+    if (!window.confirm(`Delete ${rows.length} log file(s)?`)) {
+        return;
+    }
+
+    for (const row of rows) {
+        await api.post(`/api/task/${row.id}/delete_logs`);
+    }
 }
 </script>

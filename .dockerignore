@@ -6,6 +6,8 @@ sist2-vue/dist/
 sist2-vue/node_modules/
 sist2-admin/frontend/dist/
 sist2-admin/frontend/node_modules/
+sist2-admin/node_modules/
+sist2-admin/data/
 vcpkg_installed/
 vcpkg-manifest-install.log
 CMakeCache.txt

@@ -1,175 +1,130 @@
 <template>
-    <b-card>
-        <b-card-body>
-
-            <h4 class="mb-3">{{ taskId }} {{ $t("logs") }}</h4>
-
-            <div v-if="$store.state.sist2AdminInfo">
-                {{ $t("logFile") }}
-                <code>{{ $store.state.sist2AdminInfo.logs_folder }}/sist2-{{ taskId }}.log</code>
-                <br/>
-                <br/>
+    <div>
+        <BackButton to="/tasks"/>
+        <div class="d-flex align-items-center mb-2 flex-wrap">
+            <h5 class="mb-0 me-3">Reading log file {{ route.params.taskId }}</h5>
+            <div class="form-check form-switch me-3">
+                <input class="form-check-input" type="checkbox" id="followMode" v-model="follow">
+                <label class="form-check-label" for="followMode">Follow</label>
             </div>
+            <span class="me-2">Log level:</span>
+            <div class="form-check form-check-inline" v-for="level in LEVELS" :key="level">
+                <input class="form-check-input" type="checkbox" :id="`level-${level}`" :value="level"
+                       v-model="enabledLevels">
+                <label class="form-check-label" :for="`level-${level}`">{{ level }}</label>
+            </div>
+        </div>
 
-            <b-row>
-                <b-col>
-                    <span>{{ $t("logLevel") }}</span>
-                    <b-select :options="levels.slice(0, -1)" v-model="logLevel" @input="connect()"></b-select>
-                </b-col>
-                <b-col>
-                    <span>{{ $t("logMode") }}</span>
-                    <b-select :options="modeOptions" v-model="mode" @input="connect()"></b-select>
-                </b-col>
-            </b-row>
-
-            <div id="log-tail-output" class="mt-3 ml-1"></div>
-
-        </b-card-body>
-    </b-card>
+        <div ref="container" class="log-container font-monospace p-2"></div>
+    </div>
 </template>
 
-<script>
+<script setup>
+import { onMounted, onUnmounted, ref, watch } from "vue";
 
-export default {
-    name: "Tail",
-    data() {
-        return {
-            logLevel: "DEBUG",
-            levels: ["DEBUG", "INFO", "WARNING", "ERROR", "ADMIN", "FATAL"],
-            socket: null,
-            mode: "follow",
-            modeOptions: [
-                {
-                    "text": this.$t('follow'),
-                    "value": "follow"
-                },
-                {
-                    "text": this.$t('wholeFile'),
-                    "value": "wholeFile"
-                }
-            ]
+import BackButton from "../components/BackButton.vue";
+import { api } from "../api.js";
+import { route } from "../router.js";
+
+const LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "FATAL", "ADMIN"];
+const LEVEL_COLORS = {
+    DEBUG: "#909090",
+    INFO: "#ced4da",
+    WARNING: "#ffc107",
+    ERROR: "#ff5722",
+    FATAL: "#ff5722",
+    ADMIN: "#00bcd4"
+};
+const FOLLOW_LINES = 32;
+const MAX_RENDERED_LINES = 2000;
+
+const follow = ref(true);
+const enabledLevels = ref(["INFO", "WARNING", "ERROR", "FATAL", "ADMIN"]);
+const container = ref(null);
+
+let events = null;
+
+function classify(payload) {
+    if (payload.stderr !== undefined) {
+        return { level: "ERROR", text: payload.stderr };
+    }
+    if (payload.stdout !== undefined) {
+        return { level: "INFO", text: payload.stdout };
+    }
+    if (payload["sist2-admin"] !== undefined) {
+        return { level: "ADMIN", text: payload["sist2-admin"] };
+    }
+    if (payload.level !== undefined) {
+        let text = payload.message;
+        if (payload.filepath !== undefined) {
+            text = `[${payload.datetime} ${payload.filepath}] ${payload.message}`;
         }
-    },
-    computed: {
-        taskId: function () {
-            return this.$route.params.taskId;
-        }
-    },
-    methods: {
-        connect() {
-            let lineCount = 0;
-            const outputElem = document.getElementById("log-tail-output")
-            outputElem.replaceChildren();
-            if (this.socket !== null) {
-                this.socket.close();
-            }
+        return { level: payload.level, text: text };
+    }
+    return { level: "INFO", text: JSON.stringify(payload) };
+}
 
-            const n = this.mode === "follow" ? 32 : 9999999999;
-            if (window.location.protocol === "https:") {
-                this.socket = new WebSocket(`wss://${window.location.host}/log/${this.taskId}?n=${n}`);
-            } else {
-                this.socket = new WebSocket(`ws://${window.location.host}/log/${this.taskId}?n=${n}`);
-            }
-            this.socket.onopen = () => {
-                this.socket.send("Hello from client");
-            }
+function appendLine(rawLine) {
+    let entry;
+    try {
+        entry = classify(JSON.parse(rawLine));
+    } catch (e) {
+        entry = { level: "INFO", text: rawLine };
+    }
 
-            this.socket.onmessage = e => {
-                let message;
-                try {
-                    message = JSON.parse(e.data);
-                } catch {
-                    console.error(e.data)
-                    return;
-                }
+    if (!enabledLevels.value.includes(entry.level)) {
+        return;
+    }
 
-                if ("ping" in message) {
-                    return;
-                }
+    const element = document.createElement("div");
+    element.textContent = entry.text;
+    element.dataset.level = entry.level;
+    const color = LEVEL_COLORS[entry.level];
+    if (color !== undefined) {
+        element.style.color = color;
+    }
+    container.value.appendChild(element);
 
-                if (message.level === undefined) {
+    while (container.value.childElementCount > MAX_RENDERED_LINES) {
+        container.value.removeChild(container.value.firstChild);
+    }
 
-                    if ("stderr" in message) {
-                        message.level = "ERROR";
-                        message.message = message["stderr"];
-                    } else if ("stdout" in message) {
-                        message.level = "INFO";
-                        message.message = message["stdout"];
-                    } else {
-                        message.level = "ADMIN";
-                        message.message = message["sist2-admin"];
-                    }
-                    message.datetime = ""
-                    message.filepath = ""
-                }
-
-                if (this.levels.indexOf(message.level) < this.levels.indexOf(this.logLevel)) {
-                    return;
-                }
-
-                const logLine = `${message.datetime} [${message.level} ${message.filepath}] ${message.message}`;
-
-                const span = document.createElement("span");
-                span.setAttribute("class", message.level);
-                span.appendChild(document.createTextNode(logLine));
-
-                outputElem.appendChild(span);
-                lineCount += 1;
-
-                if (this.mode === "follow" && lineCount >= n) {
-                    outputElem.firstChild.remove();
-                }
-            }
-        }
-    },
-    mounted() {
-        this.connect()
+    if (follow.value) {
+        container.value.scrollTop = container.value.scrollHeight;
     }
 }
 
+function connect() {
+    if (events !== null) {
+        events.close();
+    }
+    container.value.replaceChildren();
+
+    const n = follow.value ? FOLLOW_LINES : 0;
+    events = api.events(`/api/task/${route.params.taskId}/log?n=${n}`);
+    events.onmessage = (event) => {
+        appendLine(JSON.parse(event.data).line);
+    };
+}
+
+watch(follow, connect);
+watch(enabledLevels, connect, { deep: true });
+
+onMounted(connect);
+
+onUnmounted(() => {
+    if (events !== null) {
+        events.close();
+    }
+});
 </script>
 
-<style>
-#log-tail-output span {
-    display: block;
-}
-
-span.DEBUG {
-    color: #9E9E9E;
-}
-
-span.WARNING {
-    color: #FFB300;
-}
-
-span.INFO {
-    color: #039BE5;
-}
-
-span.ERROR {
-    color: #F4511E;
-}
-
-span.FATAL {
-    color: #F4511E;
-}
-
-span.ADMIN {
-    color: #ee05ff;
-}
-
-
-#log-tail-output {
-    font-size: 13px;
-    font-family: monospace;
-
-    padding: 6px;
-    background-color: #f5f5f5;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    margin: 3px;
-    white-space: pre;
-    color: #000;
-    overflow-y: hidden;
+<style scoped>
+.log-container {
+    background-color: #212529;
+    height: 75vh;
+    overflow-y: scroll;
+    font-size: 12px;
+    white-space: pre-wrap;
 }
 </style>

@@ -12,8 +12,7 @@ LOG
 sist2*
 !sist2-vue/
 !sist2-admin
-!sist2_admin
-!sist2.py
+!sist2-admin/server/sist2.js
 *.sist2/
 bundle*.css
 bundle.js
@@ -52,3 +51,4 @@ src/index/static_generated.c
 *.fts
 /*.md
 vcpkg_installed/
+sist2-admin/data/

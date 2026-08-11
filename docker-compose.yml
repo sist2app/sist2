@@ -23,7 +23,6 @@ services:
       - 4090:4090
       # NOTE: Don't export this port publicly!
       - 8080:8080
-    working_dir: /root/sist2-admin/
-    entrypoint: python3
+    entrypoint: node
     command:
-      - /root/sist2-admin/sist2_admin/app.py
+      - /root/sist2-admin/server/main.js

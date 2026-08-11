@@ -1,7 +1,0 @@
-fastapi
-git+https://github.com/simon987/hexlib.git
-uvicorn
-websockets
-pycron
-GitPython
-git+https://github.com/sist2app/sist2-python.git@2.1

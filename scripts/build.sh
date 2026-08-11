@@ -9,7 +9,7 @@ VCPKG_ROOT="/vcpkg"
 ) &
 
 (
-  cd sist2-admin/frontend/
+  cd sist2-admin/
   npm install
   npm run build
 ) &

@@ -1,54 +1,51 @@
 <template>
     <div>
-        <h5>{{ $t("selectJobs") }}</h5>
-        <b-progress v-if="loading" striped animated value="100"></b-progress>
-        <b-form-group v-else>
-            <b-form-checkbox-group
-                    v-if="jobs.length > 0"
-                    :checked="frontend.jobs"
-                    @input="frontend.jobs = $event; $emit('input')"
-            >
-                <div v-for="job in jobs" :key="job.name">
-                    <b-form-checkbox :disabled="job.status !== 'indexed'"
-                                     :value="job.name">
-                        <template #default><span
-                                :title="job.status !== 'indexed' ? $t('jobOptions.notIndexed') : ''"
-                        >[{{ job.name }}]</span></template>
-                    </b-form-checkbox>
-                    <br/>
-                </div>
-            </b-form-checkbox-group>
-            <div v-else>
-                <span class="text-muted">{{ $t('jobOptions.noJobAvailable') }}</span>
-                <router-link to="/">{{ $t("create") }}</router-link>
-            </div>
-        </b-form-group>
+        <p class="text-muted" v-if="jobs.length === 0">No jobs available.</p>
+        <div class="form-check" v-for="job in jobs" :key="job.name">
+            <input class="form-check-input" type="checkbox" :id="`job-${job.name}`" :value="job.name"
+                   :checked="selected.includes(job.name)" :disabled="disabledReason(job) !== null"
+                   @change="toggle(job.name)">
+            <label class="form-check-label" :class="{'text-muted': disabledReason(job) !== null}"
+                   :for="`job-${job.name}`">
+                {{ job.name }}
+                <span class="text-muted" v-if="disabledReason(job) !== null">({{ disabledReason(job) }})</span>
+            </label>
+        </div>
     </div>
 </template>
 
-<script>
-import Sist2AdminApi from "@/Sist2AdminApi";
+<script setup>
+import { onMounted, ref } from "vue";
 
-export default {
-    name: "JobCheckboxGroup",
-    props: ["frontend"],
-    mounted() {
-        Sist2AdminApi.getJobs().then(resp => {
-            this._jobs = resp.data;
-            this.loading = false;
-        });
-    },
-    computed: {
-        jobs() {
-            return this._jobs
-                .filter(job => job.index_options.search_backend === this.frontend.web_options.search_backend)
-        }
-    },
-    data() {
-        return {
-            loading: true,
-            _jobs: null
-        }
+import { api } from "../api.js";
+
+const props = defineProps({
+    selected: { type: Array, required: true },
+    searchBackend: { type: String, default: null }
+});
+
+const jobs = ref([]);
+
+function disabledReason(job) {
+    if (job.status !== "indexed") {
+        return "Has not been indexed yet";
+    }
+    if (job.index_options.search_backend !== props.searchBackend) {
+        return `Uses a different search backend: ${job.index_options.search_backend}`;
+    }
+    return null;
+}
+
+function toggle(jobName) {
+    const index = props.selected.indexOf(jobName);
+    if (index === -1) {
+        props.selected.push(jobName);
+    } else {
+        props.selected.splice(index, 1);
     }
 }
+
+onMounted(async () => {
+    jobs.value = await api.get("/api/job");
+});
 </script>

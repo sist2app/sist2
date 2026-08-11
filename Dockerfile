@@ -11,7 +11,7 @@ COPY sist2-vue sist2-vue
 COPY sist2-admin sist2-admin
 
 RUN cd sist2-vue/ && npm install && npm run build
-RUN cd sist2-admin/frontend/ && npm install && npm run build
+RUN cd sist2-admin/ && npm install && npm run build
 
 RUN mkdir build && cd build && cmake -DSIST_PLATFORM=x64_linux_docker -DSIST_DEBUG_INFO=on -DSIST_DEBUG=off -DBUILD_TESTS=off -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake ..
 RUN cd build && make -j$(nproc)
@@ -21,11 +21,16 @@ FROM --platform="linux/amd64" ubuntu@sha256:965fbcae990b0467ed5657caceaec165018e
 
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
+ENV SIST2_BINARY /root/sist2
+ENV DATA_FOLDER /sist2-admin/
 
 ENTRYPOINT ["/root/sist2"]
 
 RUN apt update && DEBIAN_FRONTEND=noninteractive apt install -y curl libasan5 libmagic1 python3  \
-    python3-pip git tesseract-ocr && rm -rf /var/lib/apt/lists/*
+    python3-pip git tesseract-ocr && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    DEBIAN_FRONTEND=noninteractive apt install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /usr/share/tessdata && \
     cd /usr/share/tessdata/ && \
@@ -44,9 +49,8 @@ RUN mkdir -p /usr/share/tessdata && \
 # sist2
 COPY --from=build /build/build/sist2 /root/sist2
 
-# sist2-admin
-WORKDIR /root/sist2-admin
-COPY sist2-admin/requirements.txt /root/sist2-admin/
+# sist2-admin (Node.js; python is kept for user scripts only)
 RUN ln /usr/bin/python3 /usr/bin/python
-RUN python -m pip install --no-cache -r /root/sist2-admin/requirements.txt
-COPY --from=build /build/sist2-admin/ /root/sist2-admin/
+RUN python -m pip install --no-cache git+https://github.com/sist2app/sist2-python.git@2.1
+COPY --from=build /build/sist2-admin/server/ /root/sist2-admin/server/
+COPY --from=build /build/sist2-admin/frontend/dist/ /root/sist2-admin/frontend/dist/

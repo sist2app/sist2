@@ -60,10 +60,9 @@ services:
       - 4090:4090
       # NOTE: Don't expose this port publicly!
       - 8080:8080
-    working_dir: /root/sist2-admin/
-    entrypoint: python3
+    entrypoint: node
     command:
-      - /root/sist2-admin/sist2_admin/app.py
+      - /root/sist2-admin/server/main.js
 ```
 
 Navigate to http://localhost:8080/ to configure sist2-admin.
@@ -223,7 +222,7 @@ docker run --rm --entrypoint cat my-sist2-image /root/sist2 > sist2-x64-linux
     ```bash
     git clone --recursive https://github.com/sist2app/sist2/
     (cd sist2-vue; npm install; npm run build)
-    (cd sist2-admin/frontend; npm install; npm run build)
+    (cd sist2-admin; npm install; npm run build)
     cmake -DSIST_DEBUG=off -G "Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE=<VCPKG_ROOT>/scripts/buildsystems/vcpkg.cmake .
     make
     ```

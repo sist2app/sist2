@@ -32,9 +32,3 @@
     </g>
   </svg>
 </template>
-
-<script>
-export default {
-  name: "Sist2Icon"
-}
-</script>

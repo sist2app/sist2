@@ -1,34 +1,24 @@
 <template>
-    <b-progress v-if="loading" striped animated value="100"></b-progress>
-    <span v-else-if="jobs.length === 0"></span>
-    <b-form-select v-else :options="jobs" text-field="name" value-field="name"
-                   @change="$emit('change', $event)" :value="$t('selectJob')"></b-form-select>
+    <select class="form-select" :value="modelValue" @change="$emit('update:modelValue', $event.target.value)">
+        <option :value="null" disabled>Select a job</option>
+        <option v-for="job in jobs" :key="job.name" :value="job.name">{{ job.name }}</option>
+    </select>
 </template>
 
-<script>
-import Sist2AdminApi from "@/Sist2AdminApi";
+<script setup>
+import { onMounted, ref } from "vue";
 
-export default {
-    name: "JobSelect",
-    mounted() {
-        Sist2AdminApi.getJobs().then(resp => {
-            this._jobs = resp.data;
-            this.loading = false;
-        });
-    },
-    computed: {
-        jobs() {
-            return [
-                {name: this.$t("selectJob"), disabled: true},
-                ...this._jobs.filter(job => job.index_path)
-            ]
-        }
-    },
-    data() {
-        return {
-            loading: true,
-            _jobs: null
-        }
-    }
-}
+import { api } from "../api.js";
+
+defineProps({
+    modelValue: { type: String, default: null }
+});
+defineEmits(["update:modelValue"]);
+
+const jobs = ref([]);
+
+onMounted(async () => {
+    const allJobs = await api.get("/api/job");
+    jobs.value = allJobs.filter((job) => job.index_path !== null);
+});
 </script>

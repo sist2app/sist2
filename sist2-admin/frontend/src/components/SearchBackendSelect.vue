@@ -1,37 +1,25 @@
 <template>
-    <b-progress v-if="loading" striped animated value="100"></b-progress>
-    <div v-else>
-        <label>{{$t("backendOptions.searchBackend")}}</label>
-        <b-select :options="options" :value="value" @change="$emit('change', $event)"></b-select>
-    </div>
+    <select class="form-select" :value="modelValue" @change="$emit('update:modelValue', $event.target.value)">
+        <option :value="null" disabled>Select a search backend</option>
+        <option v-for="backend in backends" :key="backend.name" :value="backend.name">
+            {{ backend.name }} ({{ backend.backend_type }})
+        </option>
+    </select>
 </template>
 
-<script>
-import Sist2AdminApi from "@/Sist2AdminApi";
+<script setup>
+import { onMounted, ref } from "vue";
 
-export default {
-    name: "SearchBackendSelect",
-    props: ["value"],
-    data() {
-        return {
-            loading: true,
-            backends: null,
-        }
-    },
-    computed: {
-        options() {
-            return this.backends.map(backend => backend.name)
-        }
-    },
-    mounted() {
-        Sist2AdminApi.getSearchBackends().then(resp => {
-            this.loading = false;
-            this.backends = resp.data
-        })
-    }
-}
+import { api } from "../api.js";
+
+defineProps({
+    modelValue: { type: String, default: null }
+});
+defineEmits(["update:modelValue"]);
+
+const backends = ref([]);
+
+onMounted(async () => {
+    backends.value = await api.get("/api/search_backend");
+});
 </script>
-
-<style scoped>
-
-</style>
