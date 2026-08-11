@@ -158,6 +158,9 @@ find_path(UTF8H_INCLUDE_DIR utf8h/utf8.h REQUIRED)
 find_library(CMS_LIB NAMES lcms2)
 find_library(JAS_LIB NAMES jasper)
 find_library(GUMBO_LIB NAMES gumbo)
+find_library(WPD_LIB NAMES wpd REQUIRED)
+find_library(WPD_STREAM_LIB NAMES wpd-stream REQUIRED)
+find_path(WPD_INCLUDE_DIR libwpd/libwpd.h REQUIRED)
 find_library(GOMP_LIB NAMES libgomp.a gomp
         PATHS
         /usr/lib/gcc/x86_64-linux-gnu/5/
@@ -257,37 +260,6 @@ target_compile_options(
         -g
 )
 
-include(ExternalProject)
-SET(WPD_LIB_DIR ${CMAKE_BINARY_DIR}/third-party/ext_libwpd/src/libwpd/src/lib/.libs/)
-SET(WPD_INCLUDE_DIR ${CMAKE_BINARY_DIR}/third-party/ext_libwpd/src/libwpd/inc/)
-ExternalProject_Add(
-        libwpd
-        URL http://prdownloads.sourceforge.net/libwpd/libwpd-0.9.9.tar.gz
-
-        UPDATE_COMMAND ""
-        PATCH_COMMAND ""
-        TEST_COMMAND ""
-        CONFIGURE_COMMAND ./configure --without-docs --enable-static --disable-shared
-        INSTALL_COMMAND ""
-
-        PREFIX "third-party/ext_libwpd"
-        SOURCE_DIR "third-party/ext_libwpd/src/libwpd"
-        BINARY_DIR "third-party/ext_libwpd/src/libwpd"
-
-        BUILD_COMMAND make -j33
-
-        # Ninja refuses to link archives that no rule produces, so the ExternalProject
-        # outputs have to be declared explicitly (the Makefile generator tolerates it)
-        BUILD_BYPRODUCTS
-        "${WPD_LIB_DIR}/libwpd-0.9.a"
-        "${WPD_LIB_DIR}/libwpd-stream-0.9.a"
-)
-
-add_dependencies(
-        scan
-        libwpd
-)
-
 target_link_directories(scan PUBLIC ${FFMPEG_LIBRARY_DIRS})
 target_link_libraries(
         scan
@@ -312,8 +284,8 @@ target_link_libraries(
         ${MUPDF_LIB}
         openjp2
 
-        ${WPD_LIB_DIR}/libwpd-0.9.a
-        ${WPD_LIB_DIR}/libwpd-stream-0.9.a
+        ${WPD_LIB}
+        ${WPD_STREAM_LIB}
 
         ${HARFBUZZ_LIB}
         ${JBIG2DEC_LIB}

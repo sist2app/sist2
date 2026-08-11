@@ -9,6 +9,7 @@
     "openblas",
     "antiword",
     "libmobi",
+    "libwpd",
     "utf8h",
     {
       "name": "curl",

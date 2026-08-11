@@ -1,0 +1,14 @@
+{
+  "name": "libwpd",
+  "version": "0.9.9",
+  "description": "Library for importing WordPerfect documents",
+  "homepage": "https://libwpd.sourceforge.net/",
+  "license": "LGPL-2.1-or-later OR MPL-2.0",
+  "dependencies": [
+    "zlib",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    }
+  ]
+}
