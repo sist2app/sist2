@@ -1,0 +1,316 @@
+From fa7ac54b979f0eb2efb622e259ddf30598ba90b1 Mon Sep 17 00:00:00 2001
+From: Shy <admin@bunke.red>
+Date: Wed, 12 Aug 2026 15:50:18 -0400
+Subject: [PATCH] Cache glyph names when building a simple font's encoding
+ table
+
+pdf_load_simple_font() resolves up to 256 glyph names against the face,
+and ft_name_index() answers each one with FT_Get_Name_Index(), which
+walks the face's glyph names comparing strings. A miss is worse still:
+it retries every duplicate name for the unicode value, then a uniXXXX
+spelling, walking the whole face again each time. Building an encoding
+table is therefore O(nglyphs * 256), and shows up as ~8% of the time
+spent extracting text from a corpus of ordinary PDFs.
+
+Add ft_new_name_map(), which walks the face once to build a glyph name
+to glyph index hash, and ft_name_index_map(), which resolves a name
+through such a map. pdf_load_simple_font() builds one map before its
+encoding loops and drops it afterwards.
+
+The mapping is unchanged: fz_hash_insert() keeps the entry already
+present, so the lowest glyph index wins for a duplicated name, which is
+what FT_Get_Name_Index() returns; glyph 0 is left out because every
+caller already reads 0 as "no glyph"; and names too long for a hash key,
+or a face with no glyph names at all, still go to freetype.
+---
+ include/mupdf/fitz/font.h | 24 ++++++++++
+ source/fitz/font.c        | 95 +++++++++++++++++++++++++++++++++++++--
+ source/pdf/pdf-font.c     | 33 +++++++++++---
+ 3 files changed, 142 insertions(+), 10 deletions(-)
+
+diff --git a/include/mupdf/fitz/font.h b/include/mupdf/fitz/font.h
+index 313a5d4..3539626 100644
+--- a/include/mupdf/fitz/font.h
++++ b/include/mupdf/fitz/font.h
+@@ -28,6 +28,7 @@
+ #include "mupdf/fitz/geometry.h"
+ #include "mupdf/fitz/buffer.h"
+ #include "mupdf/fitz/color.h"
++#include "mupdf/fitz/hash.h"
+ 
+ /* forward declaration for circular dependency */
+ struct fz_device;
+@@ -723,6 +724,29 @@ const char *ft_error_string(int err);
+ int ft_char_index(void *face, int cid);
+ int ft_name_index(void *face, const char *name);
+ 
++/**
++	Build a glyph name to glyph index map for a face.
++
++	ft_name_index has to walk the face's glyph names for every name it
++	resolves, so code that resolves many names against the same face -
++	a simple font's 256 entry encoding table, say - is quadratic in the
++	number of glyphs. Building one of these first makes it linear.
++
++	Returns NULL for a face that has no glyph names, which is a valid
++	argument to ft_name_index_map.
++
++	The map holds no reference to the face, and must be dropped with
++	fz_drop_hash_table before the face goes away.
++*/
++fz_hash_table *ft_new_name_map(fz_context *ctx, void *face);
++
++/**
++	ft_name_index, resolving names through a map built by
++	ft_new_name_map. A NULL map falls back to asking freetype, so this
++	behaves exactly like ft_name_index either way.
++*/
++int ft_name_index_map(fz_context *ctx, fz_hash_table *map, void *face, const char *name);
++
+ /**
+ 	Internal functions for our Harfbuzz integration
+ 	to work around the lack of thread safety.
+diff --git a/source/fitz/font.c b/source/fitz/font.c
+index a8a209f..c205b71 100644
+--- a/source/fitz/font.c
++++ b/source/fitz/font.c
+@@ -60,9 +60,29 @@ int ft_char_index(void *face, int cid)
+ 	return gid;
+ }
+ 
+-int ft_name_index(void *face, const char *name)
++/* Look a single name up, either in a map built by ft_new_name_map, or, when
++ * there is no map, by asking freetype. */
++static int ft_lookup_name(fz_context *ctx, fz_hash_table *map, void *face, const char *name)
++{
++	char key[FZ_HASH_TABLE_KEY_LENGTH] = { 0 };
++	size_t len;
++
++	if (map == NULL)
++		return FT_Get_Name_Index(face, (char*)name);
++
++	/* Names too long for a hash key are not in the map; they are rare
++	 * enough that walking the face for them costs nothing overall. */
++	len = strlen(name);
++	if (len >= sizeof key)
++		return FT_Get_Name_Index(face, (char*)name);
++
++	memcpy(key, name, len);
++	return (int)(intptr_t)fz_hash_find(ctx, map, key);
++}
++
++static int ft_name_index_imp(fz_context *ctx, fz_hash_table *map, void *face, const char *name)
+ {
+-	int code = FT_Get_Name_Index(face, (char*)name);
++	int code = ft_lookup_name(ctx, map, face, name);
+ 	if (code == 0)
+ 	{
+ 		int unicode = fz_unicode_from_glyph_name(name);
+@@ -71,7 +91,7 @@ int ft_name_index(void *face, const char *name)
+ 			const char **dupnames = fz_duplicate_glyph_names_from_unicode(unicode);
+ 			while (*dupnames)
+ 			{
+-				code = FT_Get_Name_Index(face, (char*)*dupnames);
++				code = ft_lookup_name(ctx, map, face, *dupnames);
+ 				if (code)
+ 					break;
+ 				dupnames++;
+@@ -80,13 +100,80 @@ int ft_name_index(void *face, const char *name)
+ 			{
+ 				char buf[12];
+ 				sprintf(buf, "uni%04X", unicode);
+-				code = FT_Get_Name_Index(face, buf);
++				code = ft_lookup_name(ctx, map, face, buf);
+ 			}
+ 		}
+ 	}
+ 	return code;
+ }
+ 
++int ft_name_index(void *face, const char *name)
++{
++	return ft_name_index_imp(NULL, NULL, face, name);
++}
++
++int ft_name_index_map(fz_context *ctx, fz_hash_table *map, void *face, const char *name)
++{
++	return ft_name_index_imp(ctx, map, face, name);
++}
++
++fz_hash_table *ft_new_name_map(fz_context *ctx, void *face_)
++{
++	FT_Face face = (FT_Face)face_;
++	fz_hash_table *map;
++	int gid;
++
++	if (!FT_HAS_GLYPH_NAMES(face))
++		return NULL;
++
++	/* Size the table for the whole face up front: fz_hash_insert grows the
++	 * table at 80% load, and rehashing it several times per font costs more
++	 * than the memory saved. */
++	map = fz_new_hash_table(ctx, face->num_glyphs + face->num_glyphs / 4 + 1,
++		FZ_HASH_TABLE_KEY_LENGTH, -1, NULL);
++
++	fz_try(ctx)
++	{
++		/* Glyph 0 is .notdef, and every caller reads a glyph index of 0 as
++		 * "no such glyph", so there is nothing to be gained by mapping it. */
++		for (gid = 1; gid < face->num_glyphs; gid++)
++		{
++			char key[FZ_HASH_TABLE_KEY_LENGTH] = { 0 };
++			char name[256];
++			size_t len;
++
++			/* A face we cannot read every name of would give lookups that
++			 * miss where FT_Get_Name_Index would have hit, so give up on
++			 * the map entirely and let the caller fall back to freetype. */
++			if (FT_Get_Glyph_Name(face, gid, name, sizeof name) != 0)
++			{
++				fz_drop_hash_table(ctx, map);
++				map = NULL;
++				break;
++			}
++
++			/* Nothing looks up the empty name, and a name too long for a
++			 * hash key is looked up through freetype instead. */
++			len = strlen(name);
++			if (len == 0 || len >= sizeof key)
++				continue;
++
++			memcpy(key, name, len);
++
++			/* fz_hash_insert keeps the entry that is already there, so the
++			 * lowest glyph index wins, as it does with FT_Get_Name_Index. */
++			fz_hash_insert(ctx, map, key, (void*)(intptr_t)gid);
++		}
++	}
++	fz_catch(ctx)
++	{
++		fz_drop_hash_table(ctx, map);
++		fz_rethrow(ctx);
++	}
++
++	return map;
++}
++
+ static void fz_drop_freetype(fz_context *ctx);
+ 
+ static fz_font *
+diff --git a/source/pdf/pdf-font.c b/source/pdf/pdf-font.c
+index c1724fc..b49578f 100644
+--- a/source/pdf/pdf-font.c
++++ b/source/pdf/pdf-font.c
+@@ -325,7 +325,17 @@ static int lookup_mre_code(const char *name)
+ 	return -1;
+ }
+ 
+-static int ft_find_glyph_by_unicode_name(FT_Face face, const char *name)
++/* The encoding loops only look names up for the entries that have one. */
++static int encoding_has_glyph_names(const char **estrings)
++{
++	int i;
++	for (i = 0; i < 256; i++)
++		if (estrings[i])
++			return 1;
++	return 0;
++}
++
++static int ft_find_glyph_by_unicode_name(fz_context *ctx, fz_hash_table *name_map, FT_Face face, const char *name)
+ {
+ 	int unicode, glyph;
+ 
+@@ -339,7 +349,7 @@ static int ft_find_glyph_by_unicode_name(FT_Face face, const char *name)
+ 	}
+ 
+ 	/* Fall back to font glyph name if we can. */
+-	glyph = ft_name_index(face, name);
++	glyph = ft_name_index_map(ctx, name_map, face, name);
+ 	if (glyph > 0)
+ 		return glyph;
+ 
+@@ -767,6 +777,7 @@ pdf_load_simple_font(fz_context *ctx, pdf_document *doc, pdf_obj *dict)
+ 	pdf_obj *widths;
+ 	unsigned short *etable = NULL;
+ 	pdf_font_desc *fontdesc = NULL;
++	fz_hash_table *name_map = NULL;
+ 	pdf_obj *subtype;
+ 	FT_Face face;
+ 	FT_CharMap cmap;
+@@ -782,6 +793,7 @@ pdf_load_simple_font(fz_context *ctx, pdf_document *doc, pdf_obj *dict)
+ 
+ 	fz_var(fontdesc);
+ 	fz_var(etable);
++	fz_var(name_map);
+ 	fz_var(has_lock);
+ 
+ 	/* Load font file */
+@@ -901,6 +913,11 @@ pdf_load_simple_font(fz_context *ctx, pdf_document *doc, pdf_obj *dict)
+ 		fz_ft_lock(ctx);
+ 		has_lock = 1;
+ 
++		/* the encoding loops below resolve up to 256 glyph names against this
++		 * face, so resolve them through a map instead of walking it per name */
++		if (encoding_has_glyph_names(estrings))
++			name_map = ft_new_name_map(ctx, face);
++
+ 		/* start with the builtin encoding */
+ 		for (i = 0; i < 256; i++)
+ 			etable[i] = ft_char_index(face, i);
+@@ -925,7 +942,7 @@ pdf_load_simple_font(fz_context *ctx, pdf_document *doc, pdf_obj *dict)
+ 			{
+ 				if (estrings[i])
+ 				{
+-					glyph = ft_name_index(face, estrings[i]);
++					glyph = ft_name_index_map(ctx, name_map, face, estrings[i]);
+ 					if (glyph > 0)
+ 						etable[i] = glyph;
+ 				}
+@@ -942,7 +959,7 @@ pdf_load_simple_font(fz_context *ctx, pdf_document *doc, pdf_obj *dict)
+ 				{
+ 					if (estrings[i])
+ 					{
+-						glyph = ft_find_glyph_by_unicode_name(face, estrings[i]);
++						glyph = ft_find_glyph_by_unicode_name(ctx, name_map, face, estrings[i]);
+ 						if (glyph > 0)
+ 							etable[i] = glyph;
+ 					}
+@@ -961,7 +978,7 @@ pdf_load_simple_font(fz_context *ctx, pdf_document *doc, pdf_obj *dict)
+ 						if (mrcode > 0)
+ 							glyph = ft_char_index(face, mrcode);
+ 						if (glyph == 0)
+-							glyph = ft_name_index(face, estrings[i]);
++							glyph = ft_name_index_map(ctx, name_map, face, estrings[i]);
+ 						if (glyph > 0)
+ 							etable[i] = glyph;
+ 					}
+@@ -975,7 +992,7 @@ pdf_load_simple_font(fz_context *ctx, pdf_document *doc, pdf_obj *dict)
+ 				{
+ 					if (estrings[i])
+ 					{
+-						glyph = ft_name_index(face, estrings[i]);
++						glyph = ft_name_index_map(ctx, name_map, face, estrings[i]);
+ 						if (glyph > 0)
+ 							etable[i] = glyph;
+ 					}
+@@ -1011,6 +1028,9 @@ pdf_load_simple_font(fz_context *ctx, pdf_document *doc, pdf_obj *dict)
+ 					estrings[i] = (char*) fz_glyph_name_from_adobe_standard[i];
+ 		}
+ 
++		fz_drop_hash_table(ctx, name_map);
++		name_map = NULL;
++
+ 		fz_ft_unlock(ctx);
+ 		has_lock = 0;
+ 
+@@ -1068,6 +1088,7 @@ pdf_load_simple_font(fz_context *ctx, pdf_document *doc, pdf_obj *dict)
+ 	}
+ 	fz_catch(ctx)
+ 	{
++		fz_drop_hash_table(ctx, name_map);
+ 		if (has_lock)
+ 			fz_ft_unlock(ctx);
+ 		if (fontdesc && etable != fontdesc->cid_to_gid)
+-- 
+2.39.5
+
