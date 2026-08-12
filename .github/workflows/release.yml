@@ -31,6 +31,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     # A cold vcpkg build (ffmpeg, mupdf, tesseract, openblas from source) is the worst case
     timeout-minutes: 350
+    env:
+      # buildx uploads a .dockerbuild summary artifact per step; nothing consumes them
+      DOCKER_BUILD_SUMMARY: false
 
     steps:
       - uses: actions/checkout@v4
@@ -72,6 +75,8 @@ jobs:
           name: sist2-${{ matrix.arch }}-linux-static
           path: sist2-${{ matrix.arch }}-linux-static
           if-no-files-found: error
+          # Re-running a failed job would otherwise leave two artifacts of the same name
+          overwrite: true
 
       - name: Build and push runtime image
         uses: docker/build-push-action@v6
@@ -143,6 +148,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          pattern: sist2-*-linux-static
           path: artifacts
           merge-multiple: true
 
@@ -154,7 +160,9 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*
+          files: |
+            artifacts/sist2-*-linux-static
+            artifacts/SHA256SUMS
           generate_release_notes: true
           body: |
             Docker images:
