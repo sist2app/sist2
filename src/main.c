@@ -5,7 +5,6 @@
 #include <locale.h>
 
 #include "cli.h"
-#include "tpool.h"
 #include "io/walk.h"
 #include "index/elastic.h"
 #include "web/serve.h"

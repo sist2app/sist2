@@ -65,8 +65,6 @@ typedef struct scan_master {
     size_t completed_count;
     /** Set once the producer is done, so the progress bar can show a total instead of a moving one */
     int producer_finished;
-
-    database_ipc_ctx_t db_ctx;
 } scan_master_t;
 
 static void spawn_worker(worker_t *worker);
@@ -468,14 +466,8 @@ scan_master_t *scan_master_create(int worker_count, int print_progress) {
     uv_async_init(&master->loop, &master->wakeup, on_wakeup);
     master->wakeup.data = master;
 
-    // The index database is only ever touched by this thread, but database.c still reaches for the
-    // mutexes it used to need when every worker had its own connection
-    pthread_mutex_init(&master->db_ctx.mutex, NULL);
-    pthread_mutex_init(&master->db_ctx.db_mutex, NULL);
-    pthread_mutex_init(&master->db_ctx.index_db_mutex, NULL);
-
+    // This thread is the only writer the index database ever sees
     ProcData.index_db = database_create(ScanCtx.index.path, INDEX_DATABASE);
-    ProcData.index_db->ipc_ctx = &master->db_ctx;
     database_open(ProcData.index_db);
 
     return master;
@@ -536,9 +528,6 @@ void scan_master_destroy(scan_master_t *master) {
 
     uv_loop_close(&master->loop);
 
-    pthread_mutex_destroy(&master->db_ctx.mutex);
-    pthread_mutex_destroy(&master->db_ctx.db_mutex);
-    pthread_mutex_destroy(&master->db_ctx.index_db_mutex);
     pthread_mutex_destroy(&master->counter_mutex);
 
     // Anything still queued was never handed out (every worker died); free it rather than leak it

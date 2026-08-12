@@ -96,21 +96,6 @@ const char *FtsDatabaseSchema =
         "INSERT INTO search(search, rank) VALUES('rank', 'bm25(8, 3, 8, 5)');"
         "";
 
-const char *IpcDatabaseSchema =
-        "CREATE TABLE parse_job ("
-        "   id INTEGER PRIMARY KEY,"
-        "   filepath TEXT NOT NULL,"
-        "   mtime INTEGER NOT NULL,"
-        "   st_size INTEGER NOT NULL"
-        ")"STRICT";"
-        ""
-        "CREATE TABLE index_job ("
-        "   id INTEGER PRIMARY KEY,"
-        "   sid TEXT NOT NULL,"
-        "   type INTEGER NOT NULL,"
-        "   line TEXT"
-        ")"STRICT";";
-
 const char *IndexDatabaseSchema =
         "CREATE TABLE thumbnail ("
         "   id INTEGER REFERENCES document(id),"

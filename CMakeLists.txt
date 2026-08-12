@@ -88,7 +88,6 @@ add_library(
 
         src/sist.h
         src/io/walk.h src/io/walk.c
-        src/tpool.h src/tpool.c
         src/parsing/parse.h src/parsing/parse.c
         src/parsing/magic_util.c src/parsing/magic_util.h
         src/io/serialize.h src/io/serialize.c

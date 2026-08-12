@@ -2,7 +2,6 @@
 #define SIST2_CTX_H
 
 #include "sist.h"
-#include "tpool.h"
 #include "src/worker/thread_pool.h"
 #include "libscan/scan.h"
 #include "libscan/arc/arc.h"
@@ -104,7 +103,6 @@ typedef struct {
 
 typedef struct {
     int thread_id;
-    database_t *ipc_db;
     database_t *index_db;
     /** Document the thumbnails currently being written belong to */
     int last_doc_id;

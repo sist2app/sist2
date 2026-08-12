@@ -8,14 +8,11 @@
 
 typedef struct index_descriptor index_descriptor_t;
 
-extern const char *IpcDatabaseSchema;
 extern const char *IndexDatabaseSchema;
 extern const char *FtsDatabaseSchema;
 
 typedef enum {
     INDEX_DATABASE,
-    IPC_CONSUMER_DATABASE,
-    IPC_PRODUCER_DATABASE,
     FTS_DATABASE
 } database_type_t;
 
@@ -28,12 +25,6 @@ typedef enum {
 } database_stat_type_d;
 
 typedef enum {
-    JOB_UNDEFINED,
-    JOB_BULK_LINE,
-    JOB_PARSE_JOB
-} job_type_t;
-
-typedef enum {
     FTS_SORT_INVALID,
     FTS_SORT_SCORE,
     FTS_SORT_SIZE,
@@ -43,28 +34,6 @@ typedef enum {
     FTS_SORT_ID,
     FTS_SORT_EMBEDDING
 } fts_sort_t;
-
-typedef struct {
-    job_type_t type;
-    union {
-        parse_job_t *parse_job;
-        es_bulk_line_t *bulk_line;
-    };
-} job_t;
-
-typedef struct {
-    int job_count;
-    int no_more_jobs;
-    int completed_job_count;
-
-    pthread_mutex_t mutex;
-    pthread_mutex_t db_mutex;
-    pthread_mutex_t index_db_mutex;
-    pthread_cond_t has_work_cond;
-    char current_job[MAX_THREADS][PATH_MAX * 2];
-} database_ipc_ctx_t;
-
-#define SET_CURRENT_JOB(ctx, job) (strcpy((ctx)->current_job[ProcData.thread_id], job))
 
 typedef struct {
     double date_min;
@@ -91,11 +60,6 @@ typedef struct database {
     sqlite3_stmt *delete_tag_stmt;
     sqlite3_stmt *write_tag_stmt;
 
-    sqlite3_stmt *insert_parse_job_stmt;
-    sqlite3_stmt *insert_index_job_stmt;
-    sqlite3_stmt *pop_parse_job_stmt;
-    sqlite3_stmt *pop_index_job_stmt;
-
     sqlite3_stmt *fts_search_paths;
     sqlite3_stmt *fts_search_paths_w_prefix;
     sqlite3_stmt *fts_suggest_paths;
@@ -108,8 +72,6 @@ typedef struct database {
     sqlite3_stmt *fts_model_size;
 
     char **tag_array;
-
-    database_ipc_ctx_t *ipc_ctx;
 } database_t;
 
 typedef struct {
@@ -179,9 +141,7 @@ void database_generate_stats(database_t *db, double treemap_threshold);
 
 database_stat_type_d database_get_stat_type_by_mnemonic(const char *name);
 
-job_t *database_get_work(database_t *db, job_type_t job_type);
 
-void database_add_work(database_t *db, job_t *job);
 
 cJSON *database_get_stats(database_t *db, database_stat_type_d type);
 

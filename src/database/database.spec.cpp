@@ -19,20 +19,15 @@ protected:
     std::string db_path = temp_path("database.sist2");
     std::string scan_root = temp_path("scan-root");
     database_t *db = nullptr;
-    database_ipc_ctx_t ipc_ctx = {};
 
     void SetUp() override {
         std::filesystem::remove(db_path);
 
-        pthread_mutex_init(&ipc_ctx.mutex, nullptr);
-        pthread_mutex_init(&ipc_ctx.db_mutex, nullptr);
-        pthread_mutex_init(&ipc_ctx.index_db_mutex, nullptr);
 
         strcpy(ScanCtx.index.desc.root, scan_root.c_str());
         ScanCtx.index.desc.root_len = (int) scan_root.size() + 1;
 
         db = database_create(db_path.c_str(), INDEX_DATABASE);
-        db->ipc_ctx = &ipc_ctx;
 
         database_initialize(db);
         database_open(db);
@@ -56,9 +51,6 @@ protected:
         database_close(db, FALSE);
         std::filesystem::remove(db_path);
 
-        pthread_mutex_destroy(&ipc_ctx.mutex);
-        pthread_mutex_destroy(&ipc_ctx.db_mutex);
-        pthread_mutex_destroy(&ipc_ctx.index_db_mutex);
     }
 
     document_t make_document(const std::string &relative_path, unsigned long size = 1234) {

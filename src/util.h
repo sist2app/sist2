@@ -101,13 +101,6 @@ struct timespec timespec_add(struct timespec ts1, long usec);
     x = (timer_end.tv_sec - timer_begin.tv_sec) * 1000000 + (timer_end.tv_nsec - timer_begin.tv_nsec) / 1000; \
 } while (0)
 
-#define pthread_cond_timedwait_ms(cond, mutex, delay_ms) do {\
-        struct timespec now; \
-        clock_gettime(CLOCK_REALTIME, &now); \
-        struct timespec end_time = timespec_add(now, MILLISECOND * (delay_ms)); \
-        pthread_cond_timedwait(cond, mutex, &end_time); \
-    } while (0)
-
 #define array_foreach(arr) \
     for (int i = 0; (arr)[i] != 0; i++)
 

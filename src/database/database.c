@@ -18,7 +18,6 @@ database_t *database_create(const char *filename, database_type_t type) {
     db->db = NULL;
     db->tag_array = NULL;
 
-    db->ipc_ctx = NULL;
 
     return db;
 }
@@ -100,33 +99,12 @@ void random_func(sqlite3_context *ctx, UNUSED(int argc), UNUSED(sqlite3_value **
 }
 
 
-void save_current_job_info(sqlite3_context *ctx, UNUSED(int argc), sqlite3_value **argv) {
-#ifdef SIST_DEBUG
-    if (argc != 1 || sqlite3_value_type(argv[0]) != SQLITE_TEXT) {
-        sqlite3_result_error(ctx, "Invalid parameters", -1);
-    }
-#endif
-
-    database_ipc_ctx_t *ipc_ctx = sqlite3_user_data(ctx);
-
-    const char *current_job = (const char *) sqlite3_value_text(argv[0]);
-
-    char buf[PATH_MAX];
-    strcpy(buf, current_job);
-
-    SET_CURRENT_JOB(ipc_ctx, current_job);
-
-    sqlite3_result_text(ctx, "ok", -1, SQLITE_STATIC);
-}
-
 void database_initialize(database_t *db) {
     CRASH_IF_NOT_SQLITE_OK(sqlite3_open(db->filename, &db->db));
 
     LOG_DEBUGF("database.c", "Initializing database %s", db->filename);
     if (db->type == INDEX_DATABASE) {
         CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, IndexDatabaseSchema, NULL, NULL, NULL));
-    } else if (db->type == IPC_CONSUMER_DATABASE || db->type == IPC_PRODUCER_DATABASE) {
-        CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, IpcDatabaseSchema, NULL, NULL, NULL));
     } else if (db->type == FTS_DATABASE) {
         CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, FtsDatabaseSchema, NULL, NULL, NULL));
     }
@@ -224,46 +202,6 @@ void database_open(database_t *db) {
                 NULL,
                 NULL
         );
-    } else if (db->type == IPC_CONSUMER_DATABASE) {
-
-        sqlite3_create_function(
-                db->db,
-                "save_current_job_info",
-                1,
-                SQLITE_UTF8,
-                db->ipc_ctx,
-                save_current_job_info,
-                NULL,
-                NULL
-        );
-
-        CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
-                db->db,
-                "DELETE FROM parse_job WHERE id = (SELECT MIN(id) FROM parse_job)"
-                " RETURNING filepath,mtime,st_size,save_current_job_info(filepath);",
-                -1, &db->pop_parse_job_stmt, NULL
-        ));
-        CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
-                db->db,
-                "DELETE FROM index_job WHERE id = (SELECT MIN(id) FROM index_job)"
-                " RETURNING sid,type,line;",
-                -1, &db->pop_index_job_stmt, NULL
-        ));
-
-    } else if (db->type == IPC_PRODUCER_DATABASE) {
-        char sql[40];
-        int max_size_mb = 10; // TODO: read from args.
-
-        snprintf(sql, sizeof(sql), "PRAGMA max_page_count=%d", (max_size_mb * 1024 * 1024) / 4096);
-        CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, sql, NULL, NULL, NULL));
-
-        CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
-                db->db, "INSERT INTO parse_job (filepath,mtime,st_size) VALUES (?,?,?);", -1,
-                &db->insert_parse_job_stmt, NULL));
-        CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
-                db->db, "INSERT INTO index_job (sid,type,line) VALUES (?,?,?);", -1,
-                &db->insert_index_job_stmt, NULL));
-
     } else if (db->type == FTS_DATABASE) {
 
         CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
@@ -383,10 +321,6 @@ void database_close(database_t *db, int optimize) {
 
     if (db->db) {
         sqlite3_close(db->db);
-    }
-
-    if (db->type == IPC_PRODUCER_DATABASE) {
-        remove(db->filename);
     }
 
     free(db);
@@ -636,21 +570,17 @@ int database_mark_document(database_t *db, const char *path, int mtime) {
     sqlite3_bind_text(db->mark_document_stmt, 1, path, -1, SQLITE_STATIC);
     sqlite3_bind_int(db->mark_document_stmt, 2, mtime);
 
-    pthread_mutex_lock(&db->ipc_ctx->index_db_mutex);
     int ret = sqlite3_step(db->mark_document_stmt);
 
     if (ret == SQLITE_ROW) {
         CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->mark_document_stmt));
-        pthread_mutex_unlock(&db->ipc_ctx->index_db_mutex);
         return TRUE;
     }
 
     if (ret == SQLITE_DONE) {
         CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->mark_document_stmt));
-        pthread_mutex_unlock(&db->ipc_ctx->index_db_mutex);
         return FALSE;
     }
-    pthread_mutex_unlock(&db->ipc_ctx->index_db_mutex);
 
     CRASH_IF_STMT_FAIL(ret);
     return FALSE;
@@ -676,11 +606,9 @@ int database_write_document(database_t *db, document_t *doc, const char *json_da
         sqlite3_bind_null(db->write_document_stmt, 7);
     }
 
-    pthread_mutex_lock(&db->ipc_ctx->index_db_mutex);
     CRASH_IF_STMT_FAIL(sqlite3_step(db->write_document_stmt));
     int id = sqlite3_column_int(db->write_document_stmt, 0);
     CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->write_document_stmt));
-    pthread_mutex_unlock(&db->ipc_ctx->index_db_mutex);
 
     return id;
 }
@@ -691,154 +619,10 @@ void database_write_thumbnail(database_t *db, int doc_id, int num, void *data, s
     sqlite3_bind_int(db->write_thumbnail_stmt, 2, num);
     sqlite3_bind_blob(db->write_thumbnail_stmt, 3, data, (int) data_size, SQLITE_STATIC);
 
-    pthread_mutex_lock(&db->ipc_ctx->index_db_mutex);
     CRASH_IF_STMT_FAIL(sqlite3_step(db->write_thumbnail_stmt));
     CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->write_thumbnail_stmt));
-    pthread_mutex_unlock(&db->ipc_ctx->index_db_mutex);
 }
 
-
-job_t *database_get_work(database_t *db, job_type_t job_type) {
-    job_t *job;
-
-    pthread_mutex_lock(&db->ipc_ctx->mutex);
-    while (db->ipc_ctx->job_count == 0 && !db->ipc_ctx->no_more_jobs) {
-        pthread_cond_timedwait_ms(&db->ipc_ctx->has_work_cond, &db->ipc_ctx->mutex, 10);
-    }
-    pthread_mutex_unlock(&db->ipc_ctx->mutex);
-
-    pthread_mutex_lock(&db->ipc_ctx->db_mutex);
-
-    if (job_type == JOB_PARSE_JOB) {
-        int ret = sqlite3_step(db->pop_parse_job_stmt);
-        if (ret == SQLITE_DONE) {
-            CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->pop_parse_job_stmt));
-            pthread_mutex_unlock(&db->ipc_ctx->db_mutex);
-            return NULL;
-        } else {
-            CRASH_IF_STMT_FAIL(ret);
-        }
-
-        job = malloc(sizeof(*job));
-
-        job->parse_job = create_parse_job(
-                (const char *) sqlite3_column_text(db->pop_parse_job_stmt, 0),
-                sqlite3_column_int(db->pop_parse_job_stmt, 1),
-                sqlite3_column_int64(db->pop_parse_job_stmt, 2));
-
-        CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->pop_parse_job_stmt));
-    } else {
-
-        int ret = sqlite3_step(db->pop_index_job_stmt);
-
-        if (ret == SQLITE_DONE) {
-            CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->pop_index_job_stmt));
-            pthread_mutex_unlock(&db->ipc_ctx->db_mutex);
-            return NULL;
-        }
-
-        CRASH_IF_STMT_FAIL(ret);
-
-        job = malloc(sizeof(*job));
-
-        const char *line = (const char *) sqlite3_column_text(db->pop_index_job_stmt, 2);
-        if (line != NULL) {
-            job->bulk_line = malloc(sizeof(es_bulk_line_t) + strlen(line) + 1);
-            strcpy(job->bulk_line->line, line);
-        } else {
-            job->bulk_line = malloc(sizeof(es_bulk_line_t));
-        }
-        strcpy(job->bulk_line->sid, (const char *) sqlite3_column_text(db->pop_index_job_stmt, 0));
-        job->bulk_line->type = sqlite3_column_int(db->pop_index_job_stmt, 1);
-        job->bulk_line->next = NULL;
-
-        CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->pop_index_job_stmt));
-    }
-
-    pthread_mutex_unlock(&db->ipc_ctx->db_mutex);
-
-    pthread_mutex_lock(&db->ipc_ctx->mutex);
-    db->ipc_ctx->job_count -= 1;
-    pthread_mutex_unlock(&db->ipc_ctx->mutex);
-
-    job->type = job_type;
-    return job;
-}
-
-void database_add_work(database_t *db, job_t *job) {
-    int ret;
-
-    pthread_mutex_lock(&db->ipc_ctx->db_mutex);
-
-    if (job->type == JOB_PARSE_JOB) {
-        do {
-            sqlite3_bind_text(db->insert_parse_job_stmt, 1, job->parse_job->filepath, -1, SQLITE_STATIC);
-            sqlite3_bind_int(db->insert_parse_job_stmt, 2, job->parse_job->vfile.mtime);
-            sqlite3_bind_int64(db->insert_parse_job_stmt, 3, (long) job->parse_job->vfile.st_size);
-
-            ret = sqlite3_step(db->insert_parse_job_stmt);
-
-            if (ret == SQLITE_FULL) {
-                sqlite3_reset(db->insert_parse_job_stmt);
-                pthread_mutex_unlock(&db->ipc_ctx->db_mutex);
-                usleep(1000000);
-                pthread_mutex_lock(&db->ipc_ctx->db_mutex);
-                continue;
-            } else {
-                CRASH_IF_STMT_FAIL(ret);
-            }
-
-            ret = sqlite3_reset(db->insert_parse_job_stmt);
-            if (ret == SQLITE_FULL) {
-                pthread_mutex_unlock(&db->ipc_ctx->db_mutex);
-                usleep(100000);
-                pthread_mutex_lock(&db->ipc_ctx->db_mutex);
-            } else if (ret != SQLITE_OK) {
-                LOG_FATALF("database.c", "sqlite3_reset returned error %d", ret);
-            }
-        } while (ret != SQLITE_DONE && ret != SQLITE_OK);
-    } else if (job->type == JOB_BULK_LINE) {
-        do {
-            sqlite3_bind_text(db->insert_index_job_stmt, 1, job->bulk_line->sid, -1, SQLITE_STATIC);
-            sqlite3_bind_int(db->insert_index_job_stmt, 2, job->bulk_line->type);
-            if (job->bulk_line->type != ES_BULK_LINE_DELETE) {
-                sqlite3_bind_text(db->insert_index_job_stmt, 3, job->bulk_line->line, -1, SQLITE_STATIC);
-            } else {
-                sqlite3_bind_null(db->insert_index_job_stmt, 3);
-            }
-
-            ret = sqlite3_step(db->insert_index_job_stmt);
-
-            if (ret == SQLITE_FULL) {
-                sqlite3_reset(db->insert_index_job_stmt);
-                pthread_mutex_unlock(&db->ipc_ctx->db_mutex);
-                usleep(100000);
-                pthread_mutex_lock(&db->ipc_ctx->db_mutex);
-                continue;
-            } else {
-                CRASH_IF_STMT_FAIL(ret);
-            }
-
-            ret = sqlite3_reset(db->insert_index_job_stmt);
-            if (ret == SQLITE_FULL) {
-                pthread_mutex_unlock(&db->ipc_ctx->db_mutex);
-                usleep(100000);
-                pthread_mutex_lock(&db->ipc_ctx->db_mutex);
-            } else if (ret != SQLITE_OK) {
-                LOG_FATALF("database.c", "sqlite3_reset returned error %d", ret);
-            }
-
-        } while (ret != SQLITE_DONE && ret != SQLITE_OK);
-    } else {
-        LOG_FATAL("database.c", "FIXME: invalid job type");
-    }
-    pthread_mutex_unlock(&db->ipc_ctx->db_mutex);
-
-    pthread_mutex_lock(&db->ipc_ctx->mutex);
-    db->ipc_ctx->job_count += 1;
-    pthread_cond_signal(&db->ipc_ctx->has_work_cond);
-    pthread_mutex_unlock(&db->ipc_ctx->mutex);
-}
 
 void database_write_tag(database_t *db, long sid, char *tag) {
     sqlite3_bind_int64(db->write_tag_stmt, 1, sid);
