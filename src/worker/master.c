@@ -24,6 +24,9 @@
 // process, the two pipes and the deadline timer
 #define HANDLES_PER_WORKER (4)
 
+// musl's 128kB default is not enough for the recursive walk
+#define PRODUCER_STACK_SIZE (16 * 1024 * 1024)
+
 typedef struct {
     char *path;
     int mtime;
@@ -54,6 +57,8 @@ typedef struct worker {
     int open_handles;
     int64_t exit_status;
     int term_signal;
+    /** Jobs this slot finished, across respawns */
+    size_t completed_jobs;
 
     /** The job the worker was given, and the archive member it reported working on */
     char job_path[SIST_PATH_MAX];
@@ -213,10 +218,13 @@ static void handle_frame(const frame_t *frame, void *user_data) {
         case FRAME_CURRENT_JOB:
             memcpy(worker->current_path, frame->payload, MIN(frame->len, sizeof(worker->current_path) - 1));
             worker->current_path[MIN(frame->len, sizeof(worker->current_path) - 1)] = '\0';
+            // Per file, not per job: an archive re-arms it on every member
+            arm_deadline(worker);
             break;
         case FRAME_DONE:
             disarm_deadline(worker);
             worker->busy = FALSE;
+            worker->completed_jobs += 1;
             worker->job_path[0] = '\0';
             worker->current_path[0] = '\0';
             worker->master->completed_count += 1;
@@ -320,30 +328,35 @@ static void on_handle_closed(uv_handle_t *handle) {
     worker->parser = NULL;
 
     // Once a worker has been told to go away, how it exits is none of our business: a debug build
-    // exits non-zero whenever LeakSanitizer has something to say, and that is not a crash
+    // exits non-zero whenever LeakSanitizer has something to say, and that is not a crash.
+    // Anything else that ends a busy process loses its file, a plain exit(0) included.
     int crashed = !worker->said_bye
-                  && (worker->timed_out || worker->term_signal != 0 || worker->exit_status != 0);
+                  && (worker->timed_out || worker->term_signal != 0 || worker->exit_status != 0
+                      || worker->busy);
 
     if (!crashed) {
         worker->alive = FALSE;
         worker->master->live_workers -= 1;
 
         if (worker->master->live_workers == 0) {
-            uv_close((uv_handle_t *) &worker->master->wakeup, NULL);
+            // Nothing left to take work; let the producer out of queue_push()
+            queue_close(worker->master->queue);
         }
         return;
     }
 
     report_crash(worker);
 
-    if (!worker->busy) {
-        // A worker that dies without a job in hand cannot run at all; respawning it would spin
-        LOG_FATAL("master.c", "Worker process died before it was given any work, giving up");
+    if (!worker->busy && worker->completed_jobs == 0) {
+        // Never ran a job; respawning would only spin
+        LOG_FATAL("master.c", "Worker process died before it completed any work, giving up");
     }
 
-    // The job died with the process; count it so the progress bar can still reach 100%
-    worker->busy = FALSE;
-    worker->master->completed_count += 1;
+    if (worker->busy) {
+        // The job died with the process; count it so the progress bar can still reach 100%
+        worker->busy = FALSE;
+        worker->master->completed_count += 1;
+    }
 
     spawn_worker(worker);
     dispatch(worker->master);
@@ -369,6 +382,8 @@ static void on_worker_exit(uv_process_t *process, int64_t exit_status, int term_
 
     worker->exit_status = exit_status;
     worker->term_signal = term_signal;
+    // The handles close later; dispatch() must not pick this worker until then
+    worker->alive = FALSE;
 
     LOG_DEBUGF("master.c", "Worker process terminated with status code %d", (int) exit_status);
 
@@ -382,10 +397,12 @@ static void on_worker_exit(uv_process_t *process, int64_t exit_status, int term_
 static char **build_worker_args() {
     char **args = malloc(sizeof(char *) * (ScanCtx.argc + 2));
 
-    for (int i = 0; i < ScanCtx.argc; i++) {
-        args[i] = (char *) ScanCtx.argv[i];
+    // In front of the user's argv: after their own "--" it would be a positional
+    args[0] = (char *) ScanCtx.argv[0];
+    args[1] = "--worker";
+    for (int i = 1; i < ScanCtx.argc; i++) {
+        args[i + 1] = (char *) ScanCtx.argv[i];
     }
-    args[ScanCtx.argc] = "--worker";
     args[ScanCtx.argc + 1] = NULL;
 
     return args;
@@ -528,6 +545,9 @@ scan_master_t *scan_master_create(int worker_count, int print_progress) {
     uv_loop_init(&master->loop);
     uv_async_init(&master->loop, &master->wakeup, on_wakeup);
     master->wakeup.data = master;
+    // The worker handles keep the loop running. Closed after the producer is joined, so
+    // uv_async_send() cannot race with its close.
+    uv_unref((uv_handle_t *) &master->wakeup);
 
     // This thread is the only writer the index database ever sees
     ProcData.index_db = database_create(ScanCtx.index.path, INDEX_DATABASE);
@@ -566,13 +586,21 @@ int scan_master_run(scan_master_t *master, scan_producer_t producer, void *user_
 
     producer_arg_t producer_arg = {.master = master, .producer = producer, .user_data = user_data};
 
+    pthread_attr_t producer_attr;
+    pthread_attr_init(&producer_attr);
+    pthread_attr_setstacksize(&producer_attr, PRODUCER_STACK_SIZE);
+
     pthread_t producer_thread;
-    pthread_create(&producer_thread, NULL, run_producer, &producer_arg);
+    pthread_create(&producer_thread, &producer_attr, run_producer, &producer_arg);
+    pthread_attr_destroy(&producer_attr);
 
     dispatch(master);
     uv_run(&master->loop, UV_RUN_DEFAULT);
 
     pthread_join(producer_thread, NULL);
+
+    uv_close((uv_handle_t *) &master->wakeup, NULL);
+    uv_run(&master->loop, UV_RUN_DEFAULT);
 
     if (master->print_progress && !LogCtx.json_logs) {
         progress_bar_print(1.0, 0, 0);

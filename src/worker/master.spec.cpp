@@ -46,10 +46,12 @@ protected:
         file << "the quick brown fox jumps over the lazy dog\n";
     }
 
-    int scan(const std::string &env, int threads = 4, const std::string &extra_args = "") {
+    int scan(const std::string &env, int threads = 4, const std::string &extra_args = "",
+             const std::string &args_before_path = "") {
         std::string command = env + " " + SIST2_BINARY + " scan --threads " + std::to_string(threads)
                               + " " + extra_args
-                              + " -o " + index.string() + " " + (dir / "files").string()
+                              + " -o " + index.string()
+                              + " " + args_before_path + " " + (dir / "files").string()
                               + " > /dev/null 2>&1";
 
         int status = system(command.c_str());
@@ -117,11 +119,40 @@ TEST_F(ScanMasterTest, SurvivesACrashingWorkerWithASingleWorker) {
     ASSERT_EQ(text_file_count(), FILE_COUNT);
 }
 
+TEST_F(ScanMasterTest, SurvivesAWorkerThatExitsCleanlyWithAJobInHand) {
+    // A worker leaving with status 0 still lost the file it was holding
+    ASSERT_EQ(scan(std::string("SIST2_EXIT_ON_FILE=") + CRASH_TRIGGER, 1), 0);
+
+    ASSERT_EQ(text_file_count(), FILE_COUNT);
+}
+
 TEST_F(ScanMasterTest, KillsAWorkerThatRunsPastItsDeadline) {
     // Without --job-timeout this scan would never finish
     ASSERT_EQ(scan(std::string("SIST2_HANG_ON_FILE=") + CRASH_TRIGGER, 4, "--job-timeout 1"), 0);
 
     ASSERT_EQ(text_file_count(), FILE_COUNT);
+}
+
+TEST_F(ScanMasterTest, IndexesEveryFileWithAnEndOfOptionsMarker) {
+    // Appended after the user's "--", --worker is a positional and the child scans alone
+    ASSERT_EQ(scan("", 4, "", "--"), 0);
+    ASSERT_EQ(text_file_count(), FILE_COUNT + 1);
+}
+
+TEST_F(ScanMasterTest, IncrementalScanKeepsModifiedFiles) {
+    ASSERT_EQ(scan(""), 0);
+
+    const int documents = document_count();
+
+    // A re-written row must not be mistaken for one the scan never visited
+    const fs::path modified = dir / "files" / "file-0.txt";
+    write_file(modified);
+    fs::last_write_time(modified, fs::file_time_type::clock::now() + std::chrono::hours(1));
+
+    ASSERT_EQ(scan("", 4, "--incremental"), 0);
+
+    ASSERT_EQ(document_count(), documents);
+    ASSERT_EQ(count("path LIKE '%file-0.txt'"), 1);
 }
 
 TEST_F(ScanMasterTest, IncrementalScanKeepsUnchangedArchiveMembers) {

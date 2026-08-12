@@ -146,6 +146,11 @@ static int fd_read_all(int fd, void *data, size_t size) {
 int frame_write(int fd, uint32_t type, const void *payload, uint32_t len) {
     uint32_t header[2] = {type, len};
 
+    // The reader treats an oversized frame as a fatal protocol violation
+    if (len > FRAME_MAX_PAYLOAD) {
+        return -1;
+    }
+
     if (fd_write_all(fd, header, sizeof(header)) != 0) {
         return -1;
     }

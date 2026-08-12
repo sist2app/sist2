@@ -75,7 +75,7 @@ typedef struct {
 /* Blocking IO, used by the worker side */
 
 /**
- * @return 0 on success, -1 on error.
+ * @return 0 on success, -1 on error or on a payload over FRAME_MAX_PAYLOAD.
  */
 int frame_write(int fd, uint32_t type, const void *payload, uint32_t len);
 

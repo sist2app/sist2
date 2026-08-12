@@ -147,10 +147,18 @@ void database_open(database_t *db) {
                 db->db,
                 "INSERT INTO document (path, parent, mime, mtime, size, thumbnail_count, json_data, version) "
                 "VALUES (?, (SELECT id FROM document WHERE path=?), ?, ?, ?, ?, ?, (SELECT max(id) FROM version)) "
-                "ON CONFLICT (path) DO UPDATE SET json_data=excluded.json_data "
+                "ON CONFLICT (path) DO UPDATE SET json_data=excluded.json_data, mime=excluded.mime, "
+                "mtime=excluded.mtime, size=excluded.size, thumbnail_count=excluded.thumbnail_count, "
+                "version=excluded.version "
                 "RETURNING id;",
                 -1,
                 &db->write_document_stmt, NULL));
+        // mark_document_stmt misses a file whose mtime changed, so mark it by id instead
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
+                db->db,
+                "UPDATE marked SET marked=1 WHERE id=?;",
+                -1,
+                &db->mark_written_document_stmt, NULL));
         CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
                 db->db,
                 "INSERT INTO thumbnail (id, num, data) VALUES (?,?,?) ON CONFLICT DO UPDATE SET data=excluded.data;",
@@ -623,6 +631,11 @@ int database_write_document(database_t *db, document_t *doc, const char *json_da
     CRASH_IF_STMT_FAIL(sqlite3_step(db->write_document_stmt));
     int id = sqlite3_column_int(db->write_document_stmt, 0);
     CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->write_document_stmt));
+
+    // No-op outside an incremental scan
+    sqlite3_bind_int(db->mark_written_document_stmt, 1, id);
+    CRASH_IF_STMT_FAIL(sqlite3_step(db->mark_written_document_stmt));
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->mark_written_document_stmt));
 
     return id;
 }

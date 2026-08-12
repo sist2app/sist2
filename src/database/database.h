@@ -51,6 +51,7 @@ typedef struct database {
     sqlite3_stmt *treemap_merge_up_delete_stmt;
 
     sqlite3_stmt *mark_document_stmt;
+    sqlite3_stmt *mark_written_document_stmt;
     sqlite3_stmt *write_document_stmt;
     sqlite3_stmt *write_thumbnail_stmt;
     sqlite3_stmt *get_document;

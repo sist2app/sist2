@@ -278,7 +278,8 @@ int scan_args_validate(scan_args_t *args, int argc, const char **argv) {
         args->max_memory_buffer_mib = DEFAULT_MAX_MEM_BUFFER;
     }
 
-    if (args->list_path != OPTION_VALUE_UNSPECIFIED) {
+    // Only the master walks the list
+    if (args->list_path != OPTION_VALUE_UNSPECIFIED && !args->worker) {
         if (strcmp(args->list_path, "-") == 0) {
             args->list_file = stdin;
             LOG_DEBUG("cli.c", "Using stdin as list file");
