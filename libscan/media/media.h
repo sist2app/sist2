@@ -48,13 +48,21 @@ static inline AVCodecContext *alloc_jpeg_encoder(int w, int h, int qscale) {
 
 static inline AVCodecContext *alloc_webp_encoder(int w, int h, int qscale) {
 
-    const AVCodec *webp_codec = avcodec_find_encoder(AV_CODEC_ID_WEBP);
+    // AV_CODEC_ID_WEBP resolves to libwebp_anim, which wraps every still thumbnail in an
+    // animation encoder for nothing
+    const AVCodec *webp_codec = avcodec_find_encoder_by_name("libwebp");
+    if (webp_codec == NULL) {
+        webp_codec = avcodec_find_encoder(AV_CODEC_ID_WEBP);
+    }
+
     AVCodecContext *webp = avcodec_alloc_context3(webp_codec);
     webp->width = w;
     webp->height = h;
     webp->time_base.den = 1000000;
     webp->time_base.num = 1;
-    webp->compression_level = 6;
+    // libwebp method: 6 spends ~2x the CPU of 2 for ~5% fewer bytes, and thumbnail
+    // encoding is the single most expensive step of a PDF scan
+    webp->compression_level = 2;
     webp->global_quality = FF_QP2LAMBDA * qscale;
 
     webp->pix_fmt = AV_PIX_FMT_YUV420P;

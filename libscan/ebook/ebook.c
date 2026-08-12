@@ -133,8 +133,21 @@ int render_cover(scan_ebook_ctx_t *ctx, fz_context *fzctx, document_t *doc, fz_d
     av_image_fill_arrays(scaled_frame->data, scaled_frame->linesize, dst_buf, AV_PIX_FMT_YUV420P, pixmap->w, pixmap->h,
                          1);
 
-    unsigned char *samples = calloc(1, 1024 * 1024 * 1024);
-    memcpy(samples, pixmap->samples, pixmap->stride * pixmap->h);
+    // sws_scale()'s SIMD paths read past the last row, so the pixmap is copied into a padded
+    // buffer rather than passed straight in
+    size_t sample_len = (size_t) pixmap->stride * pixmap->h;
+    unsigned char *samples = av_malloc(sample_len + AV_INPUT_BUFFER_PADDING_SIZE);
+    if (samples == NULL) {
+        CTX_LOG_ERRORF(doc->filepath, "Could not allocate %zu bytes for thumbnail", sample_len);
+        sws_freeContext(sws_ctx);
+        av_free(dst_buf);
+        av_frame_free(&scaled_frame);
+        fz_drop_pixmap(fzctx, pixmap);
+        fz_drop_page(fzctx, cover);
+        return FALSE;
+    }
+    memcpy(samples, pixmap->samples, sample_len);
+    memset(samples + sample_len, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
     const uint8_t *in_data[1] = {samples,};
     int in_line_size[1] = {(int) pixmap->stride};
@@ -162,7 +175,7 @@ int render_cover(scan_ebook_ctx_t *ctx, fz_context *fzctx, document_t *doc, fz_d
     doc->thumbnail_count = 1;
     APPEND_THUMBNAIL(doc, (char *) thumbnail_packet->data, thumbnail_packet->size);
 
-    free(samples);
+    av_free(samples);
     av_packet_free(&thumbnail_packet);
     av_free(*scaled_frame->data);
     av_frame_free(&scaled_frame);
