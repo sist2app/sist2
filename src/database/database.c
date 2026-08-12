@@ -10,14 +10,10 @@
 
 
 database_t *database_create(const char *filename, database_type_t type) {
-    database_t *db = malloc(sizeof(database_t));
+    database_t *db = calloc(1, sizeof(database_t));
 
     strcpy(db->filename, filename);
     db->type = type;
-    db->select_thumbnail_stmt = NULL;
-    db->db = NULL;
-    db->tag_array = NULL;
-
 
     return db;
 }
@@ -318,6 +314,41 @@ void database_open(database_t *db) {
     }
 }
 
+// sqlite3_close() refuses to free a connection that still owns prepared statements. Only the
+// ones prepared here may be finalized: fts5 keeps its own on the same connection and frees
+// them itself when the virtual table is disconnected.
+static void database_finalize_statements(database_t *db) {
+    sqlite3_stmt **statements[] = {
+            &db->select_thumbnail_stmt,
+            &db->treemap_merge_up_update_stmt,
+            &db->treemap_merge_up_delete_stmt,
+            &db->mark_document_stmt,
+            &db->mark_written_document_stmt,
+            &db->write_document_stmt,
+            &db->write_thumbnail_stmt,
+            &db->get_document,
+            &db->get_models,
+            &db->get_embedding,
+            &db->delete_tag_stmt,
+            &db->write_tag_stmt,
+            &db->fts_search_paths,
+            &db->fts_search_paths_w_prefix,
+            &db->fts_suggest_paths,
+            &db->fts_date_range,
+            &db->fts_get_mimetypes,
+            &db->fts_get_document,
+            &db->fts_suggest_tag,
+            &db->fts_get_tags,
+            &db->fts_write_tag_stmt,
+            &db->fts_model_size,
+    };
+
+    for (size_t i = 0; i < sizeof(statements) / sizeof(statements[0]); i++) {
+        sqlite3_finalize(*statements[i]);
+        *statements[i] = NULL;
+    }
+}
+
 void database_close(database_t *db, int optimize) {
     LOG_DEBUGF("database.c", "Closing database %s (%p)", db->filename, db->db);
 
@@ -328,13 +359,13 @@ void database_close(database_t *db, int optimize) {
     }
 
     if (db->db) {
-        // sqlite3_close() refuses to free a connection that still owns prepared statements, and
-        // database_t holds ~20 of them
-        sqlite3_stmt *stmt;
-        while ((stmt = sqlite3_next_stmt(db->db, NULL)) != NULL) {
-            sqlite3_finalize(stmt);
+        database_finalize_statements(db);
+
+        int res = sqlite3_close(db->db);
+        if (res != SQLITE_OK) {
+            LOG_ERRORF("database.c", "Could not close %s: (%d) %s",
+                       db->filename, res, sqlite3_errmsg(db->db));
         }
-        sqlite3_close(db->db);
     }
 
     free(db);
