@@ -20,14 +20,19 @@ scan_code_t parse_text(scan_text_ctx_t *ctx, vfile_t *f, document_t *doc) {
         return SCAN_ERR_READ;
     }
 
+    if (ret <= 2) {
+        free(buf);
+        return SCAN_OK;
+    }
+
     text_buffer_t tex = text_buffer_create(ctx->content_size);
 
     if ((*(int16_t*)buf) == (int16_t)0xFFFE) {
-        text_buffer_append_string16_le(&tex, buf + 2, to_read - 2);
+        text_buffer_append_string16_le(&tex, buf + 2, ret - 2);
     } else if((*(int16_t*)buf) == (int16_t)0xFEFF) {
-        text_buffer_append_string16_be(&tex, buf + 2, to_read - 2);
+        text_buffer_append_string16_be(&tex, buf + 2, ret - 2);
     } else {
-        text_buffer_append_string(&tex, buf, to_read);
+        text_buffer_append_string(&tex, buf, ret);
     }
     text_buffer_terminate_string(&tex);
 
@@ -57,7 +62,7 @@ scan_code_t parse_markup(scan_text_ctx_t *ctx, vfile_t *f, document_t *doc) {
         return SCAN_ERR_READ;
     }
 
-    *(buf + to_read) = '\0';
+    *(buf + ret) = '\0';
 
     text_buffer_t tex = text_buffer_create(ctx->content_size);
     text_buffer_append_markup(&tex, buf);
