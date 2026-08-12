@@ -122,6 +122,12 @@ void database_generate_stats(database_t *db, double treemap_threshold) {
                                         NULL, NULL, NULL));
 
     // Merge up
+    sqlite3_prepare_v2(db->db,
+                       "INSERT INTO tm (path, size) SELECT path_parent(path) as parent, 0 "
+                       " FROM tm WHERE parent not IN (SELECT path FROM tm) AND size<?"
+                       " ON CONFLICT DO NOTHING;", -1, &stmt, NULL);
+    sqlite3_bind_int64(stmt, 1, threshold);
+
     int merged_rows = 0;
     do {
         if (merged_rows) {
@@ -129,12 +135,8 @@ void database_generate_stats(database_t *db, double treemap_threshold) {
         }
         merged_rows = 0;
 
-        sqlite3_prepare_v2(db->db,
-                           "INSERT INTO tm (path, size) SELECT path_parent(path) as parent, 0 "
-                           " FROM tm WHERE parent not IN (SELECT path FROM tm) AND size<?"
-                           " ON CONFLICT DO NOTHING;", -1, &stmt, NULL);
-        sqlite3_bind_int64(stmt, 1, threshold);
         CRASH_IF_STMT_FAIL(sqlite3_step(stmt));
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(stmt));
 
         database_iterator_t *iter = database_create_treemap_iterator(db, threshold);
         database_treemap_iter_foreach(row, iter) {
@@ -151,6 +153,8 @@ void database_generate_stats(database_t *db, double treemap_threshold) {
         }
         free(iter);
     } while (merged_rows > TREEMAP_MINIMUM_MERGES_TO_CONTINUE);
+
+    sqlite3_finalize(stmt);
 
     CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db,
                                         "INSERT INTO stats_treemap (path, size) SELECT path,size FROM tm;",
