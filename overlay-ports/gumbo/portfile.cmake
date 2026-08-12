@@ -1,6 +1,5 @@
-# Overlay of the upstream port: the codeberg archive is regenerated with different
-# gzip settings than when the upstream port was written, so its SHA512 no longer
-# matches. Identical otherwise.
+# Overlay of the upstream port: codeberg regenerates the archive with gzip settings that
+# do not match the SHA512 upstream recorded, so the hash here is corrected. Identical otherwise.
 vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
 
 vcpkg_download_distfile(ARCHIVE

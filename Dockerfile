@@ -1,13 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
-#
-# Single build path for every sist2 release artifact. No pre-built builder image:
-# vcpkg compiles the pinned dependency set into its own layer, which CI keeps warm
-# through a registry build cache (see .github/workflows/release.yml).
-#
 #   docker buildx build --target artifact -o type=local,dest=. .   -> static binary only
 #   docker buildx build .                                          -> runtime image
-#
 FROM alpine:3.22 AS build
 
 RUN apk add --no-cache \
@@ -84,7 +78,7 @@ RUN mkdir -p /usr/share/tessdata && cd /usr/share/tessdata && \
         curl -fsSL -O "https://raw.githubusercontent.com/tesseract-ocr/tessdata/main/${lang}.traineddata"; \
     done
 
-# python is kept for user scripts only
+# python is for user scripts
 RUN ln -sf /usr/bin/python3 /usr/bin/python && \
     python -m pip install --no-cache --break-system-packages \
         git+https://github.com/sist2app/sist2-python.git@2.1

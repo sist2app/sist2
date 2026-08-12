@@ -9,9 +9,9 @@ option(SIST_COVERAGE "Instrument libscan and sist2_core for gcov coverage" off)
 
 # Both of these have to be decided before project(), which is what runs the vcpkg toolchain:
 # VCPKG_BUILD_TYPE picks which half of every port gets built, and the toolchain searches
-# debug/lib first whenever CMAKE_BUILD_TYPE is Debug *or unset* — an unset build type used to
-# leave the optimized binary linked against -O0 mupdf, freetype and harfbuzz, which cost ~1.8x
-# on PDF parsing and left MuPDF's assert()s live in production.
+# debug/lib first whenever CMAKE_BUILD_TYPE is Debug *or unset* — leaving the build type unset
+# links the optimized binary against -O0 mupdf, freetype and harfbuzz, which costs ~1.8x on PDF
+# parsing and leaves MuPDF's assert()s live in production.
 if (SIST_DEBUG)
     set(VCPKG_BUILD_TYPE debug)
     set(SIST_DEFAULT_BUILD_TYPE Debug)
