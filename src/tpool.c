@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include "parsing/parse.h"
+#include "worker/sink.h"
 
 #define BLANK_STR "                                         "
 
@@ -134,6 +135,7 @@ static void worker_proc_init(tpool_t *pool, int thread_id) {
     pthread_mutex_unlock(&pool->shm->data_mutex);
 
     ProcData.thread_id = thread_id;
+    DocumentSink = &DatabaseSink;
 
     if (ScanCtx.index.path[0] != '\0') {
         ProcData.index_db = database_create(ScanCtx.index.path, INDEX_DATABASE);

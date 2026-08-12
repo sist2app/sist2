@@ -12,6 +12,7 @@
 #include "parsing/mime.h"
 #include "parsing/parse.h"
 #include "ignorelist.h"
+#include "worker/worker.h"
 
 #include <signal.h>
 #include <pthread.h>
@@ -235,6 +236,11 @@ void initialize_scan_context(scan_args_t *args) {
 
 void sist2_scan(scan_args_t *args) {
     initialize_scan_context(args);
+
+    if (args->worker) {
+        worker_run();
+        return;
+    }
 
     database_scan_begin(args);
 
@@ -523,6 +529,7 @@ int main(int argc, const char *argv[]) {
             OPT_BOOLEAN(0, "fast-epub", &scan_args->fast_epub,
                         "Faster but less accurate EPUB parsing (no thumbnails, metadata)."),
             OPT_BOOLEAN(0, "checksums", &scan_args->calculate_checksums, "Calculate file checksums when scanning."),
+            OPT_BOOLEAN(0, "worker", &scan_args->worker, "Internal: run as a worker process of a scan."),
             OPT_STRING(0, "list-file", &scan_args->list_path, "Specify a list of newline-delimited paths to be scanned"
                                                               " instead of normal directory traversal. Use '-' to read"
                                                               " from stdin."),

@@ -102,6 +102,8 @@ typedef struct {
     int thread_id;
     database_t *ipc_db;
     database_t *index_db;
+    /** Document the thumbnails currently being written belong to */
+    int last_doc_id;
 } ProcData_t;
 
 extern ScanCtx_t ScanCtx;

@@ -1,6 +1,7 @@
 #include "src/ctx.h"
 #include "serialize.h"
 #include "src/parsing/mime.h"
+#include "src/worker/sink.h"
 
 
 char *get_meta_key_text(enum metakey meta_key) {
@@ -184,7 +185,7 @@ void write_document(document_t *doc) {
     char *json_str = cJSON_PrintBuffered(json, buffer_size_guess, FALSE);
     cJSON_Delete(json);
 
-    int doc_id = database_write_document(ProcData.index_db, doc, json_str);
+    sink_write_document(doc, json_str);
     free(doc);
     free(json_str);
 
@@ -192,7 +193,7 @@ void write_document(document_t *doc) {
     meta = thumbnails_to_write.meta_head;
     int index_num = 0;
     while (meta != NULL) {
-        database_write_thumbnail(ProcData.index_db, doc_id, index_num, meta->str_val, meta->size);
+        sink_write_thumbnail(index_num, meta->str_val, meta->size);
 
         meta_line_t *tmp = meta;
         meta = meta->next;

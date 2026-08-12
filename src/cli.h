@@ -39,6 +39,8 @@ typedef struct scan_args {
     int calculate_checksums;
     char *list_path;
     FILE *list_file;
+    /** Set on the child processes the scan master spawns; not meant to be passed by hand */
+    int worker;
 } scan_args_t;
 
 scan_args_t *scan_args_create();

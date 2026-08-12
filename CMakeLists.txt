@@ -116,7 +116,10 @@ add_library(
         src/ignorelist.h
 
         src/worker/queue.c src/worker/queue.h
-        src/worker/thread_pool.c src/worker/thread_pool.h)
+        src/worker/thread_pool.c src/worker/thread_pool.h
+        src/worker/protocol.c src/worker/protocol.h
+        src/worker/sink.c src/worker/sink.h
+        src/worker/worker.c src/worker/worker.h)
 set_target_properties(sist2_core PROPERTIES LINKER_LANGUAGE C)
 
 add_executable(sist2 src/main.c)

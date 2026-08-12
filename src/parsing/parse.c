@@ -6,6 +6,7 @@
 #include "src/io/serialize.h"
 #include "src/parsing/fs_util.h"
 #include "src/parsing/magic_util.h"
+#include "src/worker/sink.h"
 
 
 #define MIN_VIDEO_SIZE (1024 * 64)
@@ -145,7 +146,7 @@ void parse(parse_job_t *job) {
     }
 
     if (IS_SUB_JOB(job)) {
-        SET_CURRENT_JOB(ProcData.ipc_db->ipc_ctx, job->filepath);
+        sink_set_current_job(job->filepath);
     }
 
     document_t *doc = malloc(sizeof(document_t));
@@ -167,7 +168,7 @@ void parse(parse_job_t *job) {
         return;
     }
 
-    int document_exists = database_mark_document(ProcData.index_db, doc->filepath + ScanCtx.index.desc.root_len, doc->mtime);
+    int document_exists = sink_mark_document(doc->filepath + ScanCtx.index.desc.root_len, doc->mtime);
     if (document_exists) {
         CLOSE_FILE(job->vfile)
         free(doc);
@@ -196,7 +197,7 @@ void parse(parse_job_t *job) {
         case FILETYPE_ARCHIVE:
 
             // Insert the document now so that the children documents can link to an existing ID
-            database_write_document(ProcData.index_db, doc, NULL);
+            sink_write_document(doc, NULL);
 
             parse_archive(&ScanCtx.arc_ctx, &job->vfile, doc, ScanCtx.exclude, ScanCtx.exclude_extra);
             break;
