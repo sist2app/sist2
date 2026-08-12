@@ -10,8 +10,16 @@
 
 #define BLANK_STR "                                         "
 
-#define QUEUE_CAPACITY_PER_WORKER (64)
-#define MIN_QUEUE_CAPACITY (512)
+/**
+ * How far the walk is allowed to run ahead of the workers.
+ *
+ * The bound is what keeps a scan of millions of files from buffering all of their paths, but it
+ * cannot be tight: the progress bar shows completed/submitted, so a walk kept on a short leash makes
+ * every scan look like it is permanently at 99%. This is deep enough that the walk finishes well
+ * before the workers on any normal index, which is what makes the ratio mean something, and it costs
+ * about 10MB of queued paths — the same order as the /dev/shm job database it replaced.
+ */
+#define QUEUE_CAPACITY (50000)
 
 // process, the two pipes and the deadline timer
 #define HANDLES_PER_WORKER (4)
@@ -513,7 +521,7 @@ scan_master_t *scan_master_create(int worker_count, int print_progress) {
 
     master->worker_count = worker_count;
     master->print_progress = print_progress;
-    master->queue = queue_create(MAX(worker_count * QUEUE_CAPACITY_PER_WORKER, MIN_QUEUE_CAPACITY));
+    master->queue = queue_create(QUEUE_CAPACITY);
 
     pthread_mutex_init(&master->counter_mutex, NULL);
 
