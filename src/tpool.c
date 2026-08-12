@@ -8,6 +8,8 @@
 
 #define BLANK_STR "                                         "
 
+#define WORKER_STACK_SIZE (16 * 1024 * 1024)
+
 typedef struct {
     int thread_id;
     tpool_t *pool;
@@ -358,15 +360,22 @@ void tpool_start(tpool_t *pool) {
 
     pthread_mutex_lock(&pool->shm->mutex);
 
+    // Parsers run on the worker stack; musl's 128kB default is not enough
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setstacksize(&attr, WORKER_STACK_SIZE);
+
     for (int i = 0; i < pool->num_threads; i++) {
 
         start_thread_arg_t *arg = malloc(sizeof(start_thread_arg_t));
         arg->thread_id = i + 1;
         arg->pool = pool;
 
-        pthread_create(&pool->threads[i], NULL, tpool_worker, arg);
+        pthread_create(&pool->threads[i], &attr, tpool_worker, arg);
         pool->start_thread_args[i] = arg;
     }
+
+    pthread_attr_destroy(&attr);
 
     // Only open the database when all workers are done initializing
     while (pool->shm->initialized_count != pool->num_threads) {
