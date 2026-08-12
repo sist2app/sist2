@@ -55,13 +55,23 @@ jobs:
           "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
 
       - name: Configure
+        # vcpkg gives up on a source tarball as soon as one download fails, so a
+        # dropped connection kills a cold build. Ports built before the failure
+        # come back from the binary cache, making a retry cheap.
         run: |
-          cmake -B build -G Ninja \
-            -DSIST_PLATFORM=x64_linux_ci \
-            -DSIST_DEBUG=off \
-            -DBUILD_TESTS=on \
-            -DVCPKG_MANIFEST_FEATURES=tests \
-            -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          for attempt in 1 2 3; do
+            if cmake -B build -G Ninja \
+                -DSIST_PLATFORM=x64_linux_ci \
+                -DSIST_DEBUG=off \
+                -DBUILD_TESTS=on \
+                -DVCPKG_MANIFEST_FEATURES=tests \
+                -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/vcpkg/scripts/buildsystems/vcpkg.cmake"; then
+              exit 0
+            fi
+            echo "::warning::configure failed (attempt $attempt/3)"
+            sleep $((attempt * 30))
+          done
+          exit 1
 
       - name: Build
         run: cmake --build build -j "$(nproc)"
