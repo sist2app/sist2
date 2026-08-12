@@ -13,6 +13,7 @@
 #include "parsing/parse.h"
 #include "ignorelist.h"
 #include "worker/worker.h"
+#include "worker/master.h"
 
 #include <signal.h>
 #include <pthread.h>
@@ -234,6 +235,15 @@ void initialize_scan_context(scan_args_t *args) {
     ScanCtx.json_ctx.ndjson_mime = mime_get_mime_by_string("application/ndjson");
 }
 
+// Both producers run on the master's producer thread and submit through scan_master_submit()
+static int scan_walk_producer(void *root) {
+    return walk_directory_tree((const char *) root);
+}
+
+static int scan_file_list_producer(void *list_file) {
+    return iterate_file_list(list_file);
+}
+
 void sist2_scan(scan_args_t *args) {
     initialize_scan_context(args);
 
@@ -253,25 +263,22 @@ void sist2_scan(scan_args_t *args) {
 
     ignorelist_load_ignore_file(ScanCtx.ignorelist, ignore_filepath);
 
-    ScanCtx.pool = tpool_create(ScanCtx.threads, TRUE);
-    tpool_start(ScanCtx.pool);
+    ScanCtx.master = scan_master_create(ScanCtx.threads, TRUE);
 
     if (args->list_path) {
-        // Scan using file list
-        int list_ret = iterate_file_list(args->list_file);
+        int list_ret = scan_master_run(ScanCtx.master, scan_file_list_producer, args->list_file);
         if (list_ret != 0) {
             LOG_FATALF("main.c", "iterate_file_list() failed! (%d)", list_ret);
         }
     } else {
-        // Scan directory recursively
-        int walk_ret = walk_directory_tree(ScanCtx.index.desc.root);
+        int walk_ret = scan_master_run(ScanCtx.master, scan_walk_producer, ScanCtx.index.desc.root);
         if (walk_ret == -1) {
             LOG_FATALF("main.c", "walk_directory_tree() failed! %s (%d)", strerror(errno), errno);
         }
     }
 
-    tpool_wait(ScanCtx.pool);
-    tpool_destroy(ScanCtx.pool);
+    scan_master_destroy(ScanCtx.master);
+    ScanCtx.master = NULL;
 
     database_t *db = database_create(args->output, INDEX_DATABASE);
     database_open(db);
@@ -460,6 +467,11 @@ int set_to_negative_if_value_is_zero(UNUSED(struct argparse *self), const struct
 
 int main(int argc, const char *argv[]) {
     setlocale(LC_ALL, "");
+
+    // argparse permutes argv in place, so the worker command line is built from a copy taken here
+    ScanCtx.argc = argc;
+    ScanCtx.argv = malloc(sizeof(char *) * argc);
+    memcpy(ScanCtx.argv, argv, sizeof(char *) * argc);
 
     scan_args_t *scan_args = scan_args_create();
     index_args_t *index_args = index_args_create();

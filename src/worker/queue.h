@@ -33,6 +33,18 @@ void *queue_pop(queue_t *queue);
  */
 void *queue_try_pop(queue_t *queue);
 
+typedef enum {
+    QUEUE_ITEM,
+    QUEUE_EMPTY,
+    QUEUE_DONE,
+} queue_poll_result_t;
+
+/**
+ * Non-blocking pop that distinguishes "nothing right now" from "nothing ever again", without the
+ * window a queue_try_pop() followed by queue_is_closed() would leave open.
+ */
+queue_poll_result_t queue_poll(queue_t *queue, void **item);
+
 /**
  * Signal that no more items will be pushed. Wakes every blocked producer and consumer.
  */

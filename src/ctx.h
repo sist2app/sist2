@@ -27,7 +27,11 @@
 typedef struct {
     struct index_t index;
 
-    tpool_t *pool;
+    struct scan_master *master;
+
+    /** Command line of this process, replayed to spawn the worker processes */
+    int argc;
+    const char **argv;
 
     int threads;
     int depth;

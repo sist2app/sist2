@@ -1,6 +1,7 @@
 #include "walk.h"
 #include "src/ctx.h"
 #include "src/parsing/fs_util.h"
+#include "src/worker/master.h"
 
 #include <dirent.h>
 #include <pthread.h>
@@ -12,13 +13,7 @@ int sub_strings[30];
 #define EXCLUDED(str) (pcre_exec(ScanCtx.exclude, ScanCtx.exclude_extra, str, strlen(str), 0, 0, sub_strings, sizeof(sub_strings)) >= 0)
 
 static void queue_parse_job(const char *filepath, const struct stat *info) {
-    parse_job_t *job = create_parse_job(filepath, (int) info->st_mtim.tv_sec, info->st_size);
-
-    tpool_add_work(ScanCtx.pool, &(job_t) {
-            .type = JOB_PARSE_JOB,
-            .parse_job = job
-    });
-    free(job);
+    scan_master_submit(ScanCtx.master, filepath, (int) info->st_mtim.tv_sec, info->st_size);
 }
 
 // Skip an entry (and its subtree, for directories) when it is beyond the
@@ -140,14 +135,8 @@ int iterate_file_list(void *input_file) {
             LOG_FATALF("walk.c", "File is not a children of root folder (%s): %s", ScanCtx.index.desc.root, buf);
         }
 
-        parse_job_t *job = create_parse_job(absolute_path, (int) info.st_mtim.tv_sec, info.st_size);
+        scan_master_submit(ScanCtx.master, absolute_path, (int) info.st_mtim.tv_sec, info.st_size);
         free(absolute_path);
-
-        tpool_add_work(ScanCtx.pool, &(job_t) {
-                .type = JOB_PARSE_JOB,
-                .parse_job = job
-        });
-        free(job);
     }
 
     return 0;

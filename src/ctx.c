@@ -1,7 +1,7 @@
 #include "ctx.h"
 
 ScanCtx_t ScanCtx = {
-        .pool = NULL,
+        .master = NULL,
         .index.path = {0,},
 };
 WebCtx_t WebCtx;
