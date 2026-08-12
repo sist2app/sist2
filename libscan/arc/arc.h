@@ -72,8 +72,6 @@ static inline int vfile_close_callback(struct archive *a, void *user_data) {
 
 int arc_open(scan_arc_ctx_t *ctx, vfile_t *f, struct archive **a, arc_data_t *arc_data, int allow_recurse);
 
-int should_parse_filtered_file(const char *filepath);
-
 scan_code_t parse_archive(scan_arc_ctx_t *ctx, vfile_t *f, document_t *doc, pcre *exclude, pcre_extra *exclude_extra);
 
 int arc_read(struct vfile *f, void *buf, size_t size);

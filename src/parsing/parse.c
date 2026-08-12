@@ -31,7 +31,7 @@ typedef enum {
     FILETYPE_NDJSON,
 } file_type_t;
 
-file_type_t get_file_type(unsigned int mime, size_t size, const char *filepath) {
+static file_type_t get_file_type(unsigned int mime, size_t size) {
 
     int major_mime = MAJOR_MIME(mime);
 
@@ -50,10 +50,7 @@ file_type_t get_file_type(unsigned int mime, size_t size, const char *filepath) 
         return FILETYPE_TEXT;
     } else if (IS_FONT(mime)) {
         return FILETYPE_FONT;
-    } else if (ScanCtx.arc_ctx.mode != ARC_MODE_SKIP && (
-            IS_ARC(mime) ||
-            (IS_ARC_FILTER(mime) && should_parse_filtered_file(filepath))
-    )) {
+    } else if (ScanCtx.arc_ctx.mode != ARC_MODE_SKIP && (IS_ARC(mime) || IS_ARC_FILTER(mime))) {
         return FILETYPE_ARCHIVE;
     } else if ((ScanCtx.ooxml_ctx.content_size > 0 || ScanCtx.media_ctx.tn_size > 0) && IS_DOC(mime)) {
         return FILETYPE_OOXML;
@@ -175,7 +172,7 @@ void parse(parse_job_t *job) {
         return;
     }
 
-    switch (get_file_type(doc->mime, doc->size, doc->filepath)) {
+    switch (get_file_type(doc->mime, doc->size)) {
         case FILETYPE_RAW:
             parse_raw(&ScanCtx.raw_ctx, &job->vfile, doc);
             break;

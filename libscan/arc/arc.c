@@ -8,17 +8,36 @@
 
 #define MAX_DECOMPRESSED_SIZE_RATIO 40.0
 
-int should_parse_filtered_file(const char *filepath) {
+static const char *COMPRESSION_EXTENSIONS[] = {
+        ".gz", ".tgz", ".bz2", ".tbz2", ".xz", ".txz", ".zst", ".tzst",
+        ".lz", ".lz4", ".lzma", ".lzo", ".Z", ".uu", ".rpm"
+};
 
-    if (strstr(filepath, ".tgz")) {
-        return TRUE;
+/**
+ * Name of the single member of a compressed stream: the file name without its compression
+ * extension, so that the member keeps the extension the parsers dispatch on.
+ */
+static void arc_raw_entry_name(const char *filepath, char *buf, size_t buf_size) {
+    const char *name = strrchr(filepath, '/');
+    name = name == NULL ? filepath : name + 1;
+
+    size_t name_len = strlen(name);
+
+    for (size_t i = 0; i < sizeof(COMPRESSION_EXTENSIONS) / sizeof(COMPRESSION_EXTENSIONS[0]); i++) {
+        size_t ext_len = strlen(COMPRESSION_EXTENSIONS[i]);
+
+        if (name_len > ext_len && strcmp(name + name_len - ext_len, COMPRESSION_EXTENSIONS[i]) == 0) {
+            name_len -= ext_len;
+            break;
+        }
     }
 
-    if (strstr(filepath, ".tar.")) {
-        return TRUE;
+    if (name_len >= buf_size) {
+        name_len = buf_size - 1;
     }
 
-    return FALSE;
+    memcpy(buf, name, name_len);
+    buf[name_len] = '\0';
 }
 
 void arc_close(struct vfile *f) {
@@ -109,6 +128,8 @@ int arc_open(scan_arc_ctx_t *ctx, vfile_t *f, struct archive **a, arc_data_t *ar
         *a = archive_read_new();
         archive_read_support_filter_all(*a);
         archive_read_support_format_all(*a);
+        // Not covered by _all(): a compressed stream that is not an archive has a single member
+        archive_read_support_format_raw(*a);
         if (ctx->passphrase[0] != 0) {
             archive_read_add_passphrase(*a, ctx->passphrase);
         }
@@ -118,6 +139,8 @@ int arc_open(scan_arc_ctx_t *ctx, vfile_t *f, struct archive **a, arc_data_t *ar
         *a = archive_read_new();
         archive_read_support_filter_all(*a);
         archive_read_support_format_all(*a);
+        // Not covered by _all(): a compressed stream that is not an archive has a single member
+        archive_read_support_format_raw(*a);
         if (ctx->passphrase[0] != 0) {
             archive_read_add_passphrase(*a, ctx->passphrase);
         }
@@ -193,16 +216,35 @@ scan_code_t parse_archive(scan_arc_ctx_t *ctx, vfile_t *f, document_t *doc, pcre
         sub_job->vfile.calculate_checksum = f->calculate_checksum;
         strcpy(sub_job->parent, doc->filepath);
 
+        char raw_name[PATH_MAX];
+
         while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
             struct stat entry_stat = *archive_entry_stat(entry);
             sub_job->vfile.st_size = entry_stat.st_size;
             sub_job->vfile.mtime = (int) entry_stat.st_mtim.tv_sec;
+
+            // A compressed stream that is not an archive has a single member; its name, size and
+            // mtime are only known when the compression header carries them
+            if (archive_format(a) == ARCHIVE_FORMAT_RAW) {
+                if (!archive_entry_size_is_set(entry)) {
+                    sub_job->vfile.st_size = f->st_size;
+                }
+                if (!archive_entry_mtime_is_set(entry)) {
+                    sub_job->vfile.mtime = f->mtime;
+                }
+            }
 
             if (S_ISREG(entry_stat.st_mode)) {
 
                 const char *entry_name = archive_entry_pathname_utf8(entry);
                 if (entry_name == NULL) {
                     entry_name = archive_entry_pathname(entry);
+                }
+
+                // The name the raw format falls back to when the compression header has none
+                if (archive_format(a) == ARCHIVE_FORMAT_RAW && strcmp(entry_name, "data") == 0) {
+                    arc_raw_entry_name(f->filepath, raw_name, sizeof(raw_name));
+                    entry_name = raw_name;
                 }
 
                 int filepath_len = snprintf(sub_job->filepath, sizeof(sub_job->filepath), "%s#/%s",

@@ -92,11 +92,39 @@ TEST_F(ArcRecurseTest, EncryptedZipWrongPassphrase) {
     ASSERT_EQ(thumbnail_size(sub_docs.last()), 0);
 }
 
-/** Only multi-extension tar variants are worth opening when the mime type says "filtered file" */
-TEST(ArcFilter, FilteredFileNames) {
-    ASSERT_TRUE(should_parse_filtered_file("/tmp/archive.tar.gz"));
-    ASSERT_TRUE(should_parse_filtered_file("/tmp/archive.tar.bz2"));
-    ASSERT_TRUE(should_parse_filtered_file("/tmp/archive.tgz"));
-    ASSERT_FALSE(should_parse_filtered_file("/tmp/archive.gz"));
-    ASSERT_FALSE(should_parse_filtered_file("/tmp/archive.xz"));
+/** A compressed file that is not an archive yields its single member */
+TEST_F(ArcRecurseTest, GzipStream) {
+    scan_text_ctx_t text_ctx = make_text_ctx();
+
+    recurse_into([&text_ctx](parse_job_t *job, document_t *sub_doc) {
+        strcpy(sub_doc->filepath, job->filepath);
+        parse_text(&text_ctx, &job->vfile, sub_doc);
+    });
+
+    load("arc/text.txt.gz");
+
+    parse_archive(&ctx, &f, &doc, nullptr, nullptr);
+
+    ASSERT_EQ(sub_docs.size(), 1);
+    // The gzip header carries the name of the file it was made from
+    ASSERT_TRUE(strstr(sub_docs.last()->filepath, "#/text.txt") != nullptr) << sub_docs.last()->filepath;
+    ASSERT_STREQ(get_meta(sub_docs.last(), MetaContent)->str_val, "the gzip member content marker");
+}
+
+/** Without a name in the header, the member is named after the file, minus its extension */
+TEST_F(ArcRecurseTest, GzipStreamWithoutStoredName) {
+    scan_text_ctx_t text_ctx = make_text_ctx();
+
+    recurse_into([&text_ctx](parse_job_t *job, document_t *sub_doc) {
+        strcpy(sub_doc->filepath, job->filepath);
+        parse_text(&text_ctx, &job->vfile, sub_doc);
+    });
+
+    load("arc/nameless.gz");
+
+    parse_archive(&ctx, &f, &doc, nullptr, nullptr);
+
+    ASSERT_EQ(sub_docs.size(), 1);
+    ASSERT_TRUE(strstr(sub_docs.last()->filepath, "#/nameless") != nullptr) << sub_docs.last()->filepath;
+    ASSERT_STREQ(get_meta(sub_docs.last(), MetaContent)->str_val, "the nameless gzip content marker");
 }
