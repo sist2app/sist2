@@ -328,6 +328,12 @@ void database_close(database_t *db, int optimize) {
     }
 
     if (db->db) {
+        // sqlite3_close() refuses to free a connection that still owns prepared statements, and
+        // database_t holds ~20 of them
+        sqlite3_stmt *stmt;
+        while ((stmt = sqlite3_next_stmt(db->db, NULL)) != NULL) {
+            sqlite3_finalize(stmt);
+        }
         sqlite3_close(db->db);
     }
 
