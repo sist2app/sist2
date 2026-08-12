@@ -113,7 +113,10 @@ add_library(
         src/web/web_fts.c
         src/database/database_embeddings.c
         src/ignorelist.c
-        src/ignorelist.h)
+        src/ignorelist.h
+
+        src/worker/queue.c src/worker/queue.h
+        src/worker/thread_pool.c src/worker/thread_pool.h)
 set_target_properties(sist2_core PROPERTIES LINKER_LANGUAGE C)
 
 add_executable(sist2 src/main.c)
@@ -132,6 +135,7 @@ find_library(MAGIC_LIB NAMES libmagic.a REQUIRED)
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
 find_package(OpenBLAS CONFIG REQUIRED)
 find_package(libgit2 CONFIG REQUIRED)
+find_package(libuv CONFIG REQUIRED)
 
 find_package(LibArchive REQUIRED)
 find_package(BZip2 REQUIRED)
@@ -415,6 +419,7 @@ target_link_libraries(
         ${MAGIC_LIB}
         unofficial::sqlite3::sqlite3
         OpenBLAS::OpenBLAS
+        libuv::uv_a
 )
 
 target_link_libraries(sist2 PRIVATE sist2_core)

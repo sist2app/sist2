@@ -11,6 +11,7 @@
     "libmobi",
     "libwpd",
     "utf8h",
+    "libuv",
     {
       "name": "curl",
       "default-features": false,

@@ -70,16 +70,14 @@ void print_json(cJSON *document, const char id_str[SIST_SID_LEN]) {
 }
 
 void delete_document(const char *sid) {
-    es_bulk_line_t bulk_line;
+    es_bulk_line_t *bulk_line = malloc(sizeof(es_bulk_line_t));
 
-    bulk_line.type = ES_BULK_LINE_DELETE;
-    bulk_line.next = NULL;
-    strcpy(bulk_line.sid, sid);
+    bulk_line->type = ES_BULK_LINE_DELETE;
+    bulk_line->next = NULL;
+    strcpy(bulk_line->sid, sid);
 
-    tpool_add_work(IndexCtx.pool, &(job_t) {
-            .type = JOB_BULK_LINE,
-            .bulk_line = &bulk_line,
-    });
+    // The pool takes ownership of the line
+    thread_pool_submit(IndexCtx.pool, bulk_line);
 }
 
 
@@ -96,11 +94,9 @@ void index_json(cJSON *document, const char doc_id[SIST_SID_LEN]) {
     bulk_line->next = NULL;
 
     cJSON_free(json);
-    tpool_add_work(IndexCtx.pool, &(job_t) {
-            .type = JOB_BULK_LINE,
-            .bulk_line = bulk_line,
-    });
-    free(bulk_line);
+
+    // The pool takes ownership of the line
+    thread_pool_submit(IndexCtx.pool, bulk_line);
 }
 
 void *create_bulk_buffer(int max, int *count, size_t *buf_len, int legacy) {
