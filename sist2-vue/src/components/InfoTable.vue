@@ -35,14 +35,17 @@ function dmsToDecimal(dms, ref) {
 export default {
   name: "InfoTable",
   props: ["doc"],
-  data() {
-    return {
-      indexName: "loading..."
-    }
-  },
   computed: {
+    indexName() {
+      const index = this.$store.getters.indexMap[this.doc._source.index];
+
+      if (index === undefined) {
+        return "";
+      }
+
+      return index.name;
+    },
     tableItems() {
-      this.indexName;
       const src = this.doc._source;
 
       const items = [
@@ -99,15 +102,6 @@ export default {
 
       return items;
     }
-  },
-  mounted() {
-    if (this.$store.getters.indexMap[this.doc.index]) {
-      this.indexName = this.$store.getters.indexMap[this.doc._source.index].name
-    }
-
-    window.setTimeout(() => {
-      this.indexName = this.$store.getters.indexMap[this.doc._source.index].name
-    }, 500)
   },
 }
 </script>

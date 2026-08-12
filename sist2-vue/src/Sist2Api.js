@@ -145,7 +145,13 @@ class Sist2Api {
     }
 
     _getIndexRoot(indexId) {
-        return this.sist2Info.indices.find(idx => idx.id === indexId).root;
+        const index = this.sist2Info.indices.find(idx => idx.id === indexId);
+
+        if (index === undefined) {
+            return "";
+        }
+
+        return index.root;
     }
 
     esQuery(query) {
@@ -558,7 +564,7 @@ class Sist2Api {
         delete query.query["function_score"];
 
         query._source = {
-            includes: ["content", "name", "path", "extension"]
+            includes: ["content", "name", "path", "extension", "index"]
         }
 
         query.size = 1;
