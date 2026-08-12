@@ -205,6 +205,7 @@ void initialize_scan_context(scan_args_t *args) {
 
     ScanCtx.threads = args->threads;
     ScanCtx.depth = args->depth;
+    ScanCtx.job_timeout = args->job_timeout;
 
     strncpy(ScanCtx.index.path, args->output, sizeof(ScanCtx.index.path) - 1);
     strncpy(ScanCtx.index.desc.name, args->name, sizeof(ScanCtx.index.desc.name) - 1);
@@ -541,6 +542,9 @@ int main(int argc, const char *argv[]) {
                         "Faster but less accurate EPUB parsing (no thumbnails, metadata)."),
             OPT_BOOLEAN(0, "checksums", &scan_args->calculate_checksums, "Calculate file checksums when scanning."),
             OPT_BOOLEAN(0, "worker", &scan_args->worker, "Internal: run as a worker process of a scan."),
+            OPT_INTEGER(0, "job-timeout", &scan_args->job_timeout,
+                        "Kill and restart a worker process that spends more than this many seconds on a single "
+                        "file. DEFAULT: 0 (no timeout)"),
             OPT_STRING(0, "list-file", &scan_args->list_path, "Specify a list of newline-delimited paths to be scanned"
                                                               " instead of normal directory traversal. Use '-' to read"
                                                               " from stdin."),

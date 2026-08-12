@@ -47,6 +47,12 @@ function(sist2_add_test)
             ${T_NAME} PRIVATE
             SIST2_TEST_FILES_DIR="${CMAKE_SOURCE_DIR}/third-party/libscan-test-files/test_files"
     )
+
+    # The scan master specs drive the real binary, which spawns real worker processes
+    if (TARGET sist2)
+        add_dependencies(${T_NAME} sist2)
+        target_compile_definitions(${T_NAME} PRIVATE SIST2_BINARY="$<TARGET_FILE:sist2>")
+    endif ()
     target_link_libraries(${T_NAME} PRIVATE GTest::gtest GTest::gtest_main ${T_LIBRARIES})
 
     if (T_SANITIZER)

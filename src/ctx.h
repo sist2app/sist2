@@ -34,6 +34,8 @@ typedef struct {
 
     int threads;
     int depth;
+    /** Seconds a worker may spend on one file before it is killed and restarted, 0 to disable */
+    int job_timeout;
     int calculate_checksums;
 
     pcre *exclude;

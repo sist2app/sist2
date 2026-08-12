@@ -13,8 +13,8 @@
 #define QUEUE_CAPACITY_PER_WORKER (8)
 #define MIN_QUEUE_CAPACITY (32)
 
-// process + the two pipes
-#define HANDLES_PER_WORKER (3)
+// process, the two pipes and the deadline timer
+#define HANDLES_PER_WORKER (4)
 
 typedef struct {
     char path[SIST_PATH_MAX];
@@ -31,11 +31,14 @@ typedef struct worker {
     uv_pipe_t in;
     /** Master's end of the pipe the worker writes to */
     uv_pipe_t out;
+    /** Only armed when --job-timeout is set */
+    uv_timer_t deadline;
     frame_parser_t *parser;
 
     int alive;
     int busy;
     int said_bye;
+    int timed_out;
     int open_handles;
     int64_t exit_status;
     int term_signal;
@@ -70,6 +73,10 @@ typedef struct scan_master {
 static void spawn_worker(worker_t *worker);
 
 static void dispatch(scan_master_t *master);
+
+static void arm_deadline(worker_t *worker);
+
+static void disarm_deadline(worker_t *worker);
 
 /* Writing to a worker */
 
@@ -196,6 +203,7 @@ static void handle_frame(const frame_t *frame, void *user_data) {
             worker->current_path[MIN(frame->len, sizeof(worker->current_path) - 1)] = '\0';
             break;
         case FRAME_DONE:
+            disarm_deadline(worker);
             worker->busy = FALSE;
             worker->job_path[0] = '\0';
             worker->current_path[0] = '\0';
@@ -227,9 +235,44 @@ static void on_worker_output(uv_stream_t *stream, ssize_t nread, const uv_buf_t 
     free(buf->base);
 }
 
+/* Deadlines */
+
+static void on_deadline(uv_timer_t *timer) {
+    worker_t *worker = timer->data;
+
+    LOG_WARNINGF("master.c", "Worker exceeded the %d second job timeout on %s, restarting it",
+                 ScanCtx.job_timeout,
+                 worker->current_path[0] != '\0' ? worker->current_path : worker->job_path);
+
+    // Killing it takes the usual crash path: the job is written off and a new process takes over
+    worker->timed_out = TRUE;
+    uv_process_kill(&worker->process, SIGKILL);
+}
+
+static void arm_deadline(worker_t *worker) {
+    if (ScanCtx.job_timeout <= 0) {
+        return;
+    }
+
+    uv_timer_start(&worker->deadline, on_deadline, (uint64_t) ScanCtx.job_timeout * 1000, 0);
+}
+
+static void disarm_deadline(worker_t *worker) {
+    if (ScanCtx.job_timeout <= 0) {
+        return;
+    }
+
+    uv_timer_stop(&worker->deadline);
+}
+
 /* Spawning, crashes and respawns */
 
 static void report_crash(worker_t *worker) {
+    if (worker->timed_out) {
+        // on_deadline() already said what happened
+        return;
+    }
+
     const char *job_filepath = worker->current_path[0] != '\0'
                                ? worker->current_path
                                : (worker->job_path[0] != '\0' ? worker->job_path : "unknown");
@@ -264,7 +307,10 @@ static void on_handle_closed(uv_handle_t *handle) {
     frame_parser_destroy(worker->parser);
     worker->parser = NULL;
 
-    int crashed = worker->term_signal != 0 || worker->exit_status != 0;
+    // Once a worker has been told to go away, how it exits is none of our business: a debug build
+    // exits non-zero whenever LeakSanitizer has something to say, and that is not a crash
+    int crashed = !worker->said_bye
+                  && (worker->timed_out || worker->term_signal != 0 || worker->exit_status != 0);
 
     if (!crashed) {
         worker->alive = FALSE;
@@ -296,6 +342,7 @@ static void close_worker_handles(worker_t *worker) {
             (uv_handle_t *) &worker->process,
             (uv_handle_t *) &worker->in,
             (uv_handle_t *) &worker->out,
+            (uv_handle_t *) &worker->deadline,
     };
 
     for (int i = 0; i < HANDLES_PER_WORKER; i++) {
@@ -337,14 +384,17 @@ static void spawn_worker(worker_t *worker) {
 
     uv_pipe_init(&master->loop, &worker->in, 0);
     uv_pipe_init(&master->loop, &worker->out, 0);
+    uv_timer_init(&master->loop, &worker->deadline);
 
     worker->process.data = worker;
     worker->in.data = worker;
     worker->out.data = worker;
+    worker->deadline.data = worker;
     worker->parser = frame_parser_create();
     worker->open_handles = HANDLES_PER_WORKER;
     worker->busy = FALSE;
     worker->said_bye = FALSE;
+    worker->timed_out = FALSE;
     worker->exit_status = 0;
     worker->term_signal = 0;
     worker->job_path[0] = '\0';
@@ -419,6 +469,7 @@ static void dispatch(scan_master_t *master) {
         free(job);
 
         send_frame(worker, FRAME_JOB, payload, len);
+        arm_deadline(worker);
     }
 }
 

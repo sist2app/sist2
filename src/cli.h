@@ -41,6 +41,8 @@ typedef struct scan_args {
     FILE *list_file;
     /** Set on the child processes the scan master spawns; not meant to be passed by hand */
     int worker;
+    /** Seconds a worker may spend on one file before it is killed and restarted, 0 to disable */
+    int job_timeout;
 } scan_args_t;
 
 scan_args_t *scan_args_create();

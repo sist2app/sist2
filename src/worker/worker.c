@@ -5,6 +5,8 @@
 #include "src/ctx.h"
 #include "src/parsing/parse.h"
 
+#include <signal.h>
+
 static void send_frame(uint32_t type, char *payload, uint32_t len) {
     int ret = frame_write(WORKER_OUT_FD, type, payload, len);
     free(payload);
@@ -75,6 +77,28 @@ static const document_sink_t WorkerSink = {
         .set_current_job = worker_set_current_job,
 };
 
+/**
+ * Test hooks: make the worker die, or hang, on a chosen file. They stand in for the malformed
+ * documents that make a parser segfault or spin, which are hard to keep around as fixtures.
+ */
+static int triggered_by(const char *variable, const char *path) {
+    const char *trigger = getenv(variable);
+
+    return trigger != NULL && *trigger != '\0' && strstr(path, trigger) != NULL;
+}
+
+static void maybe_misbehave_for_test(const char *path) {
+    if (triggered_by("SIST2_CRASH_ON_FILE", path)) {
+        raise(SIGSEGV);
+    }
+
+    if (triggered_by("SIST2_HANG_ON_FILE", path)) {
+        while (TRUE) {
+            sleep(3600);
+        }
+    }
+}
+
 void worker_run() {
     DocumentSink = &WorkerSink;
 
@@ -101,6 +125,8 @@ void worker_run() {
             LOG_FATAL("worker.c", "FIXME: malformed JOB frame");
         }
         frame_free(&frame);
+
+        maybe_misbehave_for_test(job.path);
 
         parse_job_t *parse_job = create_parse_job(job.path, job.mtime, job.size);
         parse(parse_job);
