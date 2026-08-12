@@ -1,0 +1,13 @@
+{
+  "name": "libantiword2",
+  "version-date": "2026-08-12",
+  "description": "Safe text and metadata extraction from legacy MS Word binary documents",
+  "homepage": "https://github.com/shyyio/libantiword2",
+  "license": "MIT",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    }
+  ]
+}

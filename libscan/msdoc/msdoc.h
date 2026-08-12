@@ -17,6 +17,8 @@ static int is_msdoc(scan_msdoc_ctx_t *ctx, unsigned int mime) {
 
 void parse_msdoc(scan_msdoc_ctx_t *ctx, vfile_t *f, document_t *doc);
 
-void parse_msdoc_text(scan_msdoc_ctx_t *ctx, document_t *doc, FILE *file_in, void* buf, size_t buf_len);
+/* takes ownership of buf */
+void parse_msdoc_buf(scan_msdoc_ctx_t *ctx, document_t *doc, const char *filepath,
+                     void *buf, size_t buf_len);
 
 #endif

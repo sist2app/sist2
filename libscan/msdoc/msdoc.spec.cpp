@@ -68,6 +68,44 @@ TEST_F(MsdocTest, Utf8) {
     ASSERT_TRUE(strstr(content(), "调查项目 A questionnaire") != nullptr);
 }
 
+/** Field instructions are the field's source code, not text: the hyperlink
+ * target must not end up in the index, the field result must. */
+TEST_F(MsdocTest, HyperlinkField) {
+    load("msdoc/hyperlink.doc");
+
+    parse_msdoc(&ctx, &f, &doc);
+
+    ASSERT_NE(meta(MetaContent), nullptr);
+    ASSERT_TRUE(strstr(content(), "A hyperlink field inside text") != nullptr);
+    ASSERT_TRUE(strstr(content(), "HYPERLINK") == nullptr);
+    ASSERT_TRUE(strstr(content(), "example.com") == nullptr);
+    // the accented and CJK paragraphs survive as UTF-8
+    ASSERT_TRUE(strstr(content(), "café naïve résumé") != nullptr);
+    ASSERT_TRUE(strstr(content(), "日本語のテキスト") != nullptr);
+}
+
+/** Word 6/95 fast-saved: the text is in piece-table order, and the dead
+ * bytes between the pieces ('#' in this document) are not text. */
+TEST_F(MsdocTest, Word6FastSaved) {
+    load("msdoc/word6_fastsaved.doc");
+
+    parse_msdoc(&ctx, &f, &doc);
+
+    ASSERT_NE(meta(MetaContent), nullptr);
+    ASSERT_TRUE(strstr(content(), "storage document element system") != nullptr);
+    ASSERT_TRUE(strchr(content(), '#') == nullptr);
+}
+
+/** Word 2 for Windows: a flat file with no OLE container */
+TEST_F(MsdocTest, Word2ForWindows) {
+    load("msdoc/word2.doc");
+
+    parse_msdoc(&ctx, &f, &doc);
+
+    ASSERT_NE(meta(MetaContent), nullptr);
+    ASSERT_TRUE(strstr(content(), "element section analysis") != nullptr);
+}
+
 /** A truncated or corrupted OLE document must not crash the parser */
 TEST_F(MsdocTest, Fuzz1) {
     load("msdoc/fuzz_ole.doc");
@@ -83,9 +121,8 @@ TEST_F(MsdocTest, Fuzz1) {
 
         fuzz_buffer(fuzzed, &fuzzed_len, 3, 8, 5);
 
-        // parse_msdoc_text() takes ownership of the buffer and frees it
-        FILE *file = fmemopen(fuzzed, fuzzed_len, "rb");
-        parse_msdoc_text(&ctx, &doc, file, fuzzed, fuzzed_len);
+        // parse_msdoc_buf() takes ownership of the buffer and frees it
+        parse_msdoc_buf(&ctx, &doc, "fuzz_ole.doc", fuzzed, fuzzed_len);
     }
 
     free(buf);

@@ -158,9 +158,9 @@ find_library(LZO2_LIB NAMES lzo2)
 
 find_library(MUPDF_LIB NAMES libmupdf.a REQUIRED)
 find_library(MOBI_LIB NAMES libmobi.a mobi REQUIRED)
-find_library(ANTIWORD_LIB NAMES libantiword.a antiword REQUIRED)
+find_library(ANTIWORD2_LIB NAMES libantiword2.a antiword2 REQUIRED)
 find_path(MOBI_INCLUDE_DIR mobi.h REQUIRED)
-find_path(ANTIWORD_INCLUDE_DIR antiword/antiword.h REQUIRED)
+find_path(ANTIWORD2_INCLUDE_DIR antiword2.h REQUIRED)
 find_path(UTF8H_INCLUDE_DIR utf8h/utf8.h REQUIRED)
 find_library(CMS_LIB NAMES lcms2)
 find_library(JAS_LIB NAMES jasper)
@@ -197,7 +197,7 @@ list(REMOVE_ITEM FFMPEG_LIBRARIES /usr/lib/x86_64-linux-gnu/libm.a)
 list(REMOVE_ITEM FFMPEG_LIBRARIES /usr/lib/aarch64-linux-gnu/libm.a)
 
 #
-# Per-configuration compile flags (shared by scan, sist2 and antiword)
+# Per-configuration compile flags (shared by scan and sist2)
 #
 # -Wmissing-field-initializers excluded: omitted fields are guaranteed zero-initialized,
 # and the vendored argparse OPT_*() variadic macros cannot pad trailing fields
@@ -212,8 +212,6 @@ target_compile_options(sist2_core PRIVATE ${SIST_WARNING_OPTIONS})
 target_compile_options(sist2 PRIVATE ${SIST_WARNING_OPTIONS})
 
 if (SIST_DEBUG)
-    # antiword.h requires exactly one of DEBUG/NDEBUG
-    target_compile_definitions(scan PRIVATE DEBUG)
     set(SIST_SANITIZE_OPTIONS
             -g
             -fstack-protector
@@ -313,7 +311,7 @@ target_link_libraries(
         ${JAS_LIB}
         ${GUMBO_LIB}
 
-        ${ANTIWORD_LIB}
+        ${ANTIWORD2_LIB}
         ${MOBI_LIB}
         unofficial::pcre::pcre unofficial::pcre::pcre16 unofficial::pcre::pcre32 unofficial::pcre::pcrecpp
         leptonica
@@ -336,7 +334,7 @@ target_include_directories(
         ${LIBXML2_INCLUDE_DIR}
         ${FFMPEG_INCLUDE_DIR}
         ${MOBI_INCLUDE_DIR}
-        ${ANTIWORD_INCLUDE_DIR}
+        ${ANTIWORD2_INCLUDE_DIR}
         ${UTF8H_INCLUDE_DIR}
         ${WPD_INCLUDE_DIR}
         ${FFMPEG_INCLUDE_DIRS}

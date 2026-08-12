@@ -7,7 +7,7 @@
   },
   "dependencies": [
     "openblas",
-    "antiword",
+    "libantiword2",
     "libmobi",
     "libwpd",
     "utf8h",
