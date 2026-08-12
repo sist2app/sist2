@@ -55,6 +55,7 @@ typedef struct database {
     sqlite3_stmt *write_document_stmt;
     sqlite3_stmt *write_thumbnail_stmt;
     sqlite3_stmt *get_document;
+    sqlite3_stmt *get_parent_id;
     sqlite3_stmt *get_models;
     sqlite3_stmt *get_embedding;
 
@@ -197,6 +198,11 @@ cJSON *database_fts_suggest_tag(database_t *db, char *prefix);
 cJSON *database_fts_get_tags(database_t *db);
 
 cJSON *database_get_document(database_t *db, int doc_id);
+
+#define DATABASE_NO_PARENT (0)
+
+/** Id of the document this one was extracted from, DATABASE_NO_PARENT for a file on disk */
+int database_get_parent_id(database_t *db, int doc_id);
 
 void cosine_sim_func(sqlite3_context *ctx, int argc, sqlite3_value **argv);
 

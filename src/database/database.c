@@ -171,6 +171,10 @@ void database_open(database_t *db) {
                 &db->get_document, NULL));
 
         CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
+                db->db, "SELECT parent FROM document WHERE id=?", -1,
+                &db->get_parent_id, NULL));
+
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
                 db->db, "SELECT * FROM model", -1,
                 &db->get_models, NULL));
 
@@ -327,6 +331,7 @@ static void database_finalize_statements(database_t *db) {
             &db->write_document_stmt,
             &db->write_thumbnail_stmt,
             &db->get_document,
+            &db->get_parent_id,
             &db->get_models,
             &db->get_embedding,
             &db->delete_tag_stmt,
@@ -723,6 +728,23 @@ cJSON *database_get_document(database_t *db, int doc_id) {
     CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->get_document));
 
     return json;
+}
+
+int database_get_parent_id(database_t *db, int doc_id) {
+    sqlite3_bind_int(db->get_parent_id, 1, doc_id);
+
+    int ret = sqlite3_step(db->get_parent_id);
+    CRASH_IF_STMT_FAIL(ret);
+
+    int parent_id = DATABASE_NO_PARENT;
+
+    if (ret == SQLITE_ROW && sqlite3_column_type(db->get_parent_id, 0) != SQLITE_NULL) {
+        parent_id = sqlite3_column_int(db->get_parent_id, 0);
+    }
+
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->get_parent_id));
+
+    return parent_id;
 }
 
 void database_increment_version(database_t *db) {

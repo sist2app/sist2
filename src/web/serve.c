@@ -394,23 +394,20 @@ cJSON *get_root_document_by_id(int index_id, int doc_id) {
         return NULL;
     }
 
-    int next_id = doc_id;
+    // Documents extracted from an archive are served from the file the archive was read from
+    int root_id = doc_id;
 
     while (TRUE) {
-        cJSON *doc = database_get_document(db, next_id);
+        int parent_id = database_get_parent_id(db, root_id);
 
-        if (doc == NULL) {
-            return NULL;
+        if (parent_id == DATABASE_NO_PARENT) {
+            break;
         }
 
-        cJSON *parent = cJSON_GetObjectItem(doc, "parent");
-        if (parent == NULL || !cJSON_IsNumber(parent)) {
-            return doc;
-        }
-
-        next_id = parent->valueint;
-        cJSON_Delete(doc);
+        root_id = parent_id;
     }
+
+    return database_get_document(db, root_id);
 }
 
 void file(struct mg_connection *nc, struct mg_http_message *hm) {

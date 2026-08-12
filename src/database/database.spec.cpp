@@ -166,3 +166,20 @@ TEST_F(DatabaseTest, IncrementalScanDeleteList) {
 
     free(iter);
 }
+
+/** Documents extracted from an archive point back to the file they came from */
+TEST_F(DatabaseTest, ParentIdOfArchiveMember) {
+    document_t archive = make_document("files.zip");
+    const int archive_id = database_write_document(db, &archive, R"({"name": "files.zip"})");
+
+    document_t member = make_document("files.zip#/inside.txt");
+    strcpy(member.parent, archive.filepath);
+    const int member_id = database_write_document(db, &member, R"({"name": "inside.txt"})");
+
+    ASSERT_EQ(database_get_parent_id(db, member_id), archive_id);
+    ASSERT_EQ(database_get_parent_id(db, archive_id), DATABASE_NO_PARENT);
+}
+
+TEST_F(DatabaseTest, ParentIdOfMissingDocument) {
+    ASSERT_EQ(database_get_parent_id(db, 999), DATABASE_NO_PARENT);
+}
