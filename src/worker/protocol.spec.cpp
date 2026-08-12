@@ -19,10 +19,10 @@ struct Encoded {
 
     ~Encoded() { free(payload); }
 
-    frame_t frame(uint32_t type) const { return frame_t{type, len, payload}; }
+    frame_t frame(const uint32_t type) const { return frame_t{type, len, payload}; }
 
     // Same frame with the payload cut short, to check that the decoders reject it
-    frame_t truncated(uint32_t type, uint32_t bytes_removed) const {
+    frame_t truncated(const uint32_t type, const uint32_t bytes_removed) const {
         return frame_t{type, len - bytes_removed, payload};
     }
 };
@@ -33,10 +33,10 @@ TEST(Protocol, JobRoundTrip) {
     job.mtime = 1754870400;
     job.size = 8589934592L;
 
-    Encoded encoded([&](uint32_t *len) { return proto_encode_job(&job, len); });
+    const Encoded encoded([&](uint32_t *len) { return proto_encode_job(&job, len); });
 
     proto_job_t decoded = {};
-    frame_t frame = encoded.frame(FRAME_JOB);
+    const frame_t frame = encoded.frame(FRAME_JOB);
     ASSERT_EQ(proto_decode_job(&frame, &decoded), 0);
 
     ASSERT_STREQ(decoded.path, job.path);
@@ -48,7 +48,7 @@ TEST(Protocol, JobRejectsTruncatedPayload) {
     proto_job_t job = {};
     strcpy(job.path, "/some/dir/a file.txt");
 
-    Encoded encoded([&](uint32_t *len) { return proto_encode_job(&job, len); });
+    const Encoded encoded([&](uint32_t *len) { return proto_encode_job(&job, len); });
 
     for (uint32_t removed = 1; removed <= encoded.len; removed++) {
         proto_job_t decoded = {};
@@ -67,10 +67,10 @@ TEST(Protocol, DocRoundTrip) {
     doc.thumbnail_count = 3;
     doc.json = strdup(R"({"name":"document","content":"hello"})");
 
-    Encoded encoded([&](uint32_t *len) { return proto_encode_doc(&doc, len); });
+    const Encoded encoded([&](uint32_t *len) { return proto_encode_doc(&doc, len); });
 
     proto_doc_t decoded = {};
-    frame_t frame = encoded.frame(FRAME_DOC);
+    const frame_t frame = encoded.frame(FRAME_DOC);
     ASSERT_EQ(proto_decode_doc(&frame, &decoded), 0);
 
     ASSERT_STREQ(decoded.path, doc.path);
@@ -91,10 +91,10 @@ TEST(Protocol, DocWithoutJsonRoundTrip) {
     strcpy(doc.path, "archive.zip");
     doc.json = nullptr;
 
-    Encoded encoded([&](uint32_t *len) { return proto_encode_doc(&doc, len); });
+    const Encoded encoded([&](uint32_t *len) { return proto_encode_doc(&doc, len); });
 
     proto_doc_t decoded = {};
-    frame_t frame = encoded.frame(FRAME_DOC);
+    const frame_t frame = encoded.frame(FRAME_DOC);
     ASSERT_EQ(proto_decode_doc(&frame, &decoded), 0);
 
     ASSERT_STREQ(decoded.path, doc.path);
@@ -107,7 +107,7 @@ TEST(Protocol, DocRejectsTruncatedPayload) {
     strcpy(doc.path, "file.txt");
     doc.json = strdup("{}");
 
-    Encoded encoded([&](uint32_t *len) { return proto_encode_doc(&doc, len); });
+    const Encoded encoded([&](uint32_t *len) { return proto_encode_doc(&doc, len); });
 
     for (uint32_t removed = 1; removed <= encoded.len; removed++) {
         proto_doc_t decoded = {};
@@ -124,10 +124,10 @@ TEST(Protocol, ThumbRoundTrip) {
         data[i] = (char) (i & 0xFF);
     }
 
-    Encoded encoded([&](uint32_t *len) { return proto_encode_thumb(2, data.data(), data.size(), len); });
+    const Encoded encoded([&](uint32_t *len) { return proto_encode_thumb(2, data.data(), data.size(), len); });
 
     proto_thumb_t decoded = {};
-    frame_t frame = encoded.frame(FRAME_THUMB);
+    const frame_t frame = encoded.frame(FRAME_THUMB);
     ASSERT_EQ(proto_decode_thumb(&frame, &decoded), 0);
 
     ASSERT_EQ(decoded.index, 2);
@@ -140,10 +140,10 @@ TEST(Protocol, MarkRoundTrip) {
     strcpy(mark.path, "sub/dir/file.txt");
     mark.mtime = 1754870400;
 
-    Encoded encoded([&](uint32_t *len) { return proto_encode_mark(&mark, len); });
+    const Encoded encoded([&](uint32_t *len) { return proto_encode_mark(&mark, len); });
 
     proto_mark_t decoded = {};
-    frame_t frame = encoded.frame(FRAME_REQ_MARK);
+    const frame_t frame = encoded.frame(FRAME_REQ_MARK);
     ASSERT_EQ(proto_decode_mark(&frame, &decoded), 0);
 
     ASSERT_STREQ(decoded.path, mark.path);
@@ -151,17 +151,17 @@ TEST(Protocol, MarkRoundTrip) {
 }
 
 TEST(Protocol, Int32RoundTrip) {
-    Encoded encoded([&](uint32_t *len) { return proto_encode_i32(TRUE, len); });
+    const Encoded encoded([&](uint32_t *len) { return proto_encode_i32(TRUE, len); });
 
     int32_t decoded = -1;
-    frame_t frame = encoded.frame(FRAME_RSP_MARK);
+    const frame_t frame = encoded.frame(FRAME_RSP_MARK);
     ASSERT_EQ(proto_decode_i32(&frame, &decoded), 0);
 
     ASSERT_EQ(decoded, TRUE);
 }
 
 TEST(Protocol, Int32RejectsEmptyPayload) {
-    frame_t frame = {FRAME_RSP_MARK, 0, nullptr};
+    const frame_t frame = {FRAME_RSP_MARK, 0, nullptr};
 
     int32_t decoded;
     ASSERT_EQ(proto_decode_i32(&frame, &decoded), -1);
@@ -173,7 +173,7 @@ TEST(Protocol, WriteReadOverPipe) {
     int fds[2];
     ASSERT_EQ(pipe(fds), 0);
 
-    std::string json = R"({"content":"some text"})";
+    const std::string json = R"({"content":"some text"})";
     ASSERT_EQ(frame_write(fds[1], FRAME_DOC, json.data(), json.size()), 0);
     ASSERT_EQ(frame_write(fds[1], FRAME_DONE, nullptr, 0), 0);
     close(fds[1]);
@@ -202,7 +202,7 @@ TEST(Protocol, ReadReportsTruncatedStreamAsError) {
     ASSERT_EQ(pipe(fds), 0);
 
     // A header promising 32 bytes, followed by only 4 and then EOF
-    uint32_t header[2] = {FRAME_DOC, 32};
+    constexpr uint32_t header[2] = {FRAME_DOC, 32};
     ASSERT_EQ(write(fds[1], header, sizeof(header)), (ssize_t) sizeof(header));
     ASSERT_EQ(write(fds[1], "abcd", 4), 4);
     close(fds[1]);
@@ -217,7 +217,7 @@ TEST(Protocol, ReadRejectsOversizedFrame) {
     int fds[2];
     ASSERT_EQ(pipe(fds), 0);
 
-    uint32_t header[2] = {FRAME_DOC, FRAME_MAX_PAYLOAD + 1};
+    const uint32_t header[2] = {FRAME_DOC, FRAME_MAX_PAYLOAD + 1};
     ASSERT_EQ(write(fds[1], header, sizeof(header)), (ssize_t) sizeof(header));
     close(fds[1]);
 
@@ -240,8 +240,8 @@ static void collect(const frame_t *frame, void *user_data) {
 }
 
 // Serializes frames the same way frame_write() does, into a buffer the parser can be fed
-static std::string frame_bytes(uint32_t type, const std::string &payload) {
-    uint32_t header[2] = {type, (uint32_t) payload.size()};
+static std::string frame_bytes(const uint32_t type, const std::string &payload) {
+    const uint32_t header[2] = {type, (uint32_t) payload.size()};
 
     std::string bytes((const char *) header, sizeof(header));
     bytes += payload;
@@ -250,7 +250,7 @@ static std::string frame_bytes(uint32_t type, const std::string &payload) {
 }
 
 TEST(FrameParser, SeveralFramesInOneChunk) {
-    std::string stream = frame_bytes(FRAME_DOC, "first") + frame_bytes(FRAME_THUMB, "second")
+    const std::string stream = frame_bytes(FRAME_DOC, "first") + frame_bytes(FRAME_THUMB, "second")
                          + frame_bytes(FRAME_DONE, "");
 
     frame_parser_t *parser = frame_parser_create();
@@ -270,8 +270,8 @@ TEST(FrameParser, SeveralFramesInOneChunk) {
 }
 
 TEST(FrameParser, ReassemblesFramesFedOneByteAtATime) {
-    std::string big(100 * 1024, 'x');
-    std::string stream = frame_bytes(FRAME_DOC, "first") + frame_bytes(FRAME_THUMB, big);
+    const std::string big(100 * 1024, 'x');
+    const std::string stream = frame_bytes(FRAME_DOC, "first") + frame_bytes(FRAME_THUMB, big);
 
     frame_parser_t *parser = frame_parser_create();
     std::vector<CollectedFrame> collected;
@@ -288,7 +288,7 @@ TEST(FrameParser, ReassemblesFramesFedOneByteAtATime) {
 }
 
 TEST(FrameParser, EmitsNothingForAPartialFrame) {
-    std::string stream = frame_bytes(FRAME_DOC, "payload");
+    const std::string stream = frame_bytes(FRAME_DOC, "payload");
 
     frame_parser_t *parser = frame_parser_create();
     std::vector<CollectedFrame> collected;
@@ -304,7 +304,7 @@ TEST(FrameParser, EmitsNothingForAPartialFrame) {
 }
 
 TEST(FrameParser, RejectsOversizedFrame) {
-    uint32_t header[2] = {FRAME_DOC, FRAME_MAX_PAYLOAD + 1};
+    constexpr uint32_t header[2] = {FRAME_DOC, FRAME_MAX_PAYLOAD + 1};
 
     frame_parser_t *parser = frame_parser_create();
     std::vector<CollectedFrame> collected;
@@ -321,8 +321,8 @@ TEST(FrameParser, RoundTripsEncodedPayloads) {
     job.mtime = 42;
     job.size = 1024;
 
-    Encoded encoded([&](uint32_t *len) { return proto_encode_job(&job, len); });
-    std::string stream = frame_bytes(FRAME_JOB, std::string(encoded.payload, encoded.len));
+    const Encoded encoded([&](uint32_t *len) { return proto_encode_job(&job, len); });
+    const std::string stream = frame_bytes(FRAME_JOB, std::string(encoded.payload, encoded.len));
 
     frame_parser_t *parser = frame_parser_create();
     std::vector<CollectedFrame> collected;
@@ -330,7 +330,7 @@ TEST(FrameParser, RoundTripsEncodedPayloads) {
 
     ASSERT_EQ(collected.size(), 1u);
 
-    frame_t frame = {collected[0].type, (uint32_t) collected[0].payload.size(), collected[0].payload.data()};
+    const frame_t frame = {collected[0].type, (uint32_t) collected[0].payload.size(), collected[0].payload.data()};
     proto_job_t decoded = {};
     ASSERT_EQ(proto_decode_job(&frame, &decoded), 0);
     ASSERT_STREQ(decoded.path, job.path);

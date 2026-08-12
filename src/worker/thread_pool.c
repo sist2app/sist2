@@ -35,7 +35,7 @@ typedef struct thread_pool {
     int waiting;
 } thread_pool_t;
 
-thread_pool_t *thread_pool_create(thread_pool_options_t options) {
+thread_pool_t *thread_pool_create(const thread_pool_options_t options) {
     if (options.thread_count <= 0 || options.thread_count > MAX_THREADS) {
         LOG_FATALF("thread_pool.c", "Invalid thread count: %d", options.thread_count);
     }
@@ -57,9 +57,9 @@ thread_pool_t *thread_pool_create(thread_pool_options_t options) {
 
 static void print_progress(thread_pool_t *pool) {
     pthread_mutex_lock(&pool->counter_mutex);
-    size_t done = pool->completed_count;
-    size_t count = pool->submitted_count;
-    int waiting = pool->waiting;
+    const size_t done = pool->completed_count;
+    const size_t count = pool->submitted_count;
+    const int waiting = pool->waiting;
     pthread_mutex_unlock(&pool->counter_mutex);
 
     if (LogCtx.json_logs) {
@@ -70,7 +70,7 @@ static void print_progress(thread_pool_t *pool) {
 }
 
 static void *thread_pool_worker(void *arg) {
-    int thread_id = ((worker_arg_t *) arg)->thread_id;
+    const int thread_id = ((worker_arg_t *) arg)->thread_id;
     thread_pool_t *pool = ((worker_arg_t *) arg)->pool;
 
     ProcData.thread_id = thread_id;

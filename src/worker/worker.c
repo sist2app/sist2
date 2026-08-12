@@ -13,7 +13,7 @@ static int last_document_dropped = FALSE;
 /**
  * @return 0 on success, -1 if the frame was too big and was dropped.
  */
-static int send_frame(uint32_t type, char *payload, uint32_t len) {
+static int send_frame(const uint32_t type, char *payload, const uint32_t len) {
     if (len > FRAME_MAX_PAYLOAD) {
         // Losing one document beats the master killing the scan over it
         LOG_WARNINGF("worker.c", "Dropping a %u byte frame, over the %d byte protocol limit",
@@ -22,7 +22,7 @@ static int send_frame(uint32_t type, char *payload, uint32_t len) {
         return -1;
     }
 
-    int ret = frame_write(WORKER_OUT_FD, type, payload, len);
+    const int ret = frame_write(WORKER_OUT_FD, type, payload, len);
     free(payload);
 
     if (ret != 0) {
@@ -33,7 +33,7 @@ static int send_frame(uint32_t type, char *payload, uint32_t len) {
     return 0;
 }
 
-static int worker_mark_document(const char *rel_path, int mtime) {
+static int worker_mark_document(const char *rel_path, const int mtime) {
     // Both buffers are SIST_PATH_MAX, and rel_path is an offset into an even shorter one
     proto_mark_t mark = {.mtime = mtime};
     strcpy(mark.path, rel_path);
@@ -82,7 +82,7 @@ static void worker_write_document(document_t *doc, const char *json) {
     }
 }
 
-static void worker_write_thumbnail(int index, const void *data, size_t size) {
+static void worker_write_thumbnail(const int index, const void *data, const size_t size) {
     if (last_document_dropped) {
         // The master would attach these to the previous document
         return;
@@ -141,7 +141,7 @@ void worker_run() {
     while (TRUE) {
         frame_t frame;
 
-        int ret = frame_read(WORKER_IN_FD, &frame);
+        const int ret = frame_read(WORKER_IN_FD, &frame);
         if (ret != 0) {
             // Clean EOF means the master exited without saying goodbye; either way we are done
             break;

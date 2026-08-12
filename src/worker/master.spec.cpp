@@ -46,15 +46,15 @@ protected:
         file << "the quick brown fox jumps over the lazy dog\n";
     }
 
-    int scan(const std::string &env, int threads = 4, const std::string &extra_args = "",
+    int scan(const std::string &env, const int threads = 4, const std::string &extra_args = "",
              const std::string &args_before_path = "") {
-        std::string command = env + " " + SIST2_BINARY + " scan --threads " + std::to_string(threads)
+        const std::string command = env + " " + SIST2_BINARY + " scan --threads " + std::to_string(threads)
                               + " " + extra_args
                               + " -o " + index.string()
                               + " " + args_before_path + " " + (dir / "files").string()
                               + " > /dev/null 2>&1";
 
-        int status = system(command.c_str());
+        const int status = system(command.c_str());
 
         return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
     }
@@ -68,7 +68,7 @@ protected:
         sqlite3_stmt *stmt;
         sqlite3_prepare_v2(db, ("SELECT count(*) FROM document WHERE " + where).c_str(), -1, &stmt, nullptr);
 
-        int result = sqlite3_step(stmt) == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1;
+        const int result = sqlite3_step(stmt) == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1;
 
         sqlite3_finalize(stmt);
         sqlite3_close(db);
@@ -90,7 +90,7 @@ protected:
         sqlite3_stmt *stmt;
         sqlite3_prepare_v2(db, "SELECT count(*) FROM document", -1, &stmt, nullptr);
 
-        int count = sqlite3_step(stmt) == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1;
+        const int count = sqlite3_step(stmt) == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1;
 
         sqlite3_finalize(stmt);
         sqlite3_close(db);

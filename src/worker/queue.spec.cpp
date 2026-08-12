@@ -9,7 +9,7 @@ extern "C" {
 }
 
 // Items are opaque pointers; the tests only ever compare them, so fake addresses are enough
-static void *item(long n) {
+static void *item(const long n) {
     return (void *) (n + 1);
 }
 

@@ -102,7 +102,7 @@ typedef struct {
     char *buf;
 } write_req_t;
 
-static void write_done(uv_write_t *req, int status) {
+static void write_done(uv_write_t *req, const int status) {
     write_req_t *write_req = (write_req_t *) req;
 
     if (status != 0 && status != UV_EPIPE && status != UV_ECANCELED) {
@@ -113,20 +113,20 @@ static void write_done(uv_write_t *req, int status) {
     free(write_req);
 }
 
-static void send_frame(worker_t *worker, uint32_t type, char *payload, uint32_t len) {
+static void send_frame(worker_t *worker, const uint32_t type, char *payload, const uint32_t len) {
     write_req_t *write_req = malloc(sizeof(write_req_t));
 
     write_req->buf = malloc(FRAME_HEADER_SIZE + len);
-    uint32_t header[2] = {type, len};
+    const uint32_t header[2] = {type, len};
     memcpy(write_req->buf, header, FRAME_HEADER_SIZE);
     if (len > 0) {
         memcpy(write_req->buf + FRAME_HEADER_SIZE, payload, len);
     }
     free(payload);
 
-    uv_buf_t buf = uv_buf_init(write_req->buf, FRAME_HEADER_SIZE + len);
+    const uv_buf_t buf = uv_buf_init(write_req->buf, FRAME_HEADER_SIZE + len);
 
-    int ret = uv_write((uv_write_t *) write_req, (uv_stream_t *) &worker->in, &buf, 1, write_done);
+    const int ret = uv_write((uv_write_t *) write_req, (uv_stream_t *) &worker->in, &buf, 1, write_done);
     if (ret != 0) {
         LOG_WARNINGF("master.c", "Could not queue write to worker: %s", uv_strerror(ret));
         free(write_req->buf);
@@ -142,10 +142,10 @@ static void print_progress(scan_master_t *master) {
     }
 
     pthread_mutex_lock(&master->counter_mutex);
-    size_t count = master->submitted_count;
+    const size_t count = master->submitted_count;
     pthread_mutex_unlock(&master->counter_mutex);
 
-    size_t done = master->completed_count;
+    const size_t done = master->completed_count;
 
     if (LogCtx.json_logs) {
         progress_bar_print_json(done, count, 0, 0, master->producer_finished);
@@ -195,7 +195,7 @@ static void handle_req_mark(worker_t *worker, const frame_t *frame) {
         LOG_FATAL("master.c", "FIXME: malformed REQ_MARK frame");
     }
 
-    int exists = database_mark_document(ProcData.index_db, mark.path, mark.mtime);
+    const int exists = database_mark_document(ProcData.index_db, mark.path, mark.mtime);
 
     uint32_t len;
     char *payload = proto_encode_i32(exists, &len);
@@ -236,11 +236,11 @@ static void handle_frame(const frame_t *frame, void *user_data) {
     }
 }
 
-static void alloc_read_buffer(UNUSED(uv_handle_t *handle), size_t suggested_size, uv_buf_t *buf) {
+static void alloc_read_buffer(UNUSED(uv_handle_t *handle), const size_t suggested_size, uv_buf_t *buf) {
     *buf = uv_buf_init(malloc(suggested_size), (unsigned int) suggested_size);
 }
 
-static void on_worker_output(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
+static void on_worker_output(uv_stream_t *stream, const ssize_t nread, const uv_buf_t *buf) {
     worker_t *worker = stream->data;
 
     if (nread > 0) {
@@ -330,7 +330,7 @@ static void on_handle_closed(uv_handle_t *handle) {
     // Once a worker has been told to go away, how it exits is none of our business: a debug build
     // exits non-zero whenever LeakSanitizer has something to say, and that is not a crash.
     // Anything else that ends a busy process loses its file, a plain exit(0) included.
-    int crashed = !worker->said_bye
+    const int crashed = !worker->said_bye
                   && (worker->timed_out || worker->term_signal != 0 || worker->exit_status != 0
                       || worker->busy);
 
@@ -377,7 +377,7 @@ static void close_worker_handles(worker_t *worker) {
     }
 }
 
-static void on_worker_exit(uv_process_t *process, int64_t exit_status, int term_signal) {
+static void on_worker_exit(uv_process_t *process, const int64_t exit_status, const int term_signal) {
     worker_t *worker = process->data;
 
     worker->exit_status = exit_status;
@@ -443,7 +443,7 @@ static void spawn_worker(worker_t *worker) {
 
     char **args = build_worker_args();
 
-    uv_process_options_t options = {
+    const uv_process_options_t options = {
             .file = args[0],
             .args = args,
             .stdio = stdio,
@@ -451,7 +451,7 @@ static void spawn_worker(worker_t *worker) {
             .exit_cb = on_worker_exit,
     };
 
-    int ret = uv_spawn(&master->loop, &worker->process, &options);
+    const int ret = uv_spawn(&master->loop, &worker->process, &options);
     free(args);
 
     if (ret != 0) {
@@ -473,7 +473,7 @@ static void dispatch(scan_master_t *master) {
         }
 
         scan_job_t *job;
-        queue_poll_result_t result = queue_poll(master->queue, (void **) &job);
+        const queue_poll_result_t result = queue_poll(master->queue, (void **) &job);
 
         if (result == QUEUE_DONE) {
             worker->said_bye = TRUE;
@@ -529,7 +529,7 @@ static void *run_producer(void *arg) {
 
 /* Public interface */
 
-scan_master_t *scan_master_create(int worker_count, int print_progress) {
+scan_master_t *scan_master_create(const int worker_count, const int print_progress) {
     if (worker_count <= 0 || worker_count > MAX_THREADS) {
         LOG_FATALF("master.c", "Invalid worker count: %d", worker_count);
     }
@@ -556,7 +556,7 @@ scan_master_t *scan_master_create(int worker_count, int print_progress) {
     return master;
 }
 
-void scan_master_submit(scan_master_t *master, const char *path, int mtime, int64_t size) {
+void scan_master_submit(scan_master_t *master, const char *path, const int mtime, const int64_t size) {
     scan_job_t *job = malloc(sizeof(scan_job_t));
 
     job->path = strdup(path);
@@ -575,7 +575,7 @@ void scan_master_submit(scan_master_t *master, const char *path, int mtime, int6
     uv_async_send(&master->wakeup);
 }
 
-int scan_master_run(scan_master_t *master, scan_producer_t producer, void *user_data) {
+int scan_master_run(scan_master_t *master, const scan_producer_t producer, void *user_data) {
     LOG_INFOF("master.c", "Starting %d worker processes", master->worker_count);
 
     for (int i = 0; i < master->worker_count; i++) {

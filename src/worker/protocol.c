@@ -16,7 +16,7 @@ typedef struct {
     int failed;
 } buf_reader_t;
 
-static void write_bytes(buf_writer_t *writer, const void *data, size_t size) {
+static void write_bytes(buf_writer_t *writer, const void *data, const size_t size) {
     memcpy(writer->buf + writer->cursor, data, size);
     writer->cursor += size;
 }
@@ -26,7 +26,7 @@ static void write_bytes(buf_writer_t *writer, const void *data, size_t size) {
     write_bytes((writer), &_tmp, sizeof(_tmp));  \
 } while (0)
 
-static int read_bytes(buf_reader_t *reader, void *out, size_t size) {
+static int read_bytes(buf_reader_t *reader, void *out, const size_t size) {
     if (reader->failed || reader->cursor + size > reader->len) {
         reader->failed = TRUE;
         return FALSE;
@@ -38,7 +38,7 @@ static int read_bytes(buf_reader_t *reader, void *out, size_t size) {
     return TRUE;
 }
 
-static const char *read_slice(buf_reader_t *reader, size_t size) {
+static const char *read_slice(buf_reader_t *reader, const size_t size) {
     if (reader->failed || reader->cursor + size > reader->len) {
         reader->failed = TRUE;
         return NULL;
@@ -51,7 +51,7 @@ static const char *read_slice(buf_reader_t *reader, size_t size) {
 }
 
 // Copies a length-prefixed string into a fixed size buffer, NUL-terminating it
-static int read_string(buf_reader_t *reader, char *out, size_t capacity) {
+static int read_string(buf_reader_t *reader, char *out, const size_t capacity) {
     uint32_t size;
     if (!read_bytes(reader, &size, sizeof(size))) {
         return FALSE;
@@ -84,7 +84,7 @@ static size_t string_size(const char *str) {
     return sizeof(uint32_t) + strlen(str);
 }
 
-static char *alloc_payload(buf_writer_t *writer, size_t size, uint32_t *len) {
+static char *alloc_payload(buf_writer_t *writer, const size_t size, uint32_t *len) {
     writer->buf = malloc(size);
     writer->cursor = 0;
     writer->capacity = size;
@@ -95,11 +95,11 @@ static char *alloc_payload(buf_writer_t *writer, size_t size, uint32_t *len) {
 
 /* Blocking IO */
 
-static int fd_write_all(int fd, const void *data, size_t size) {
+static int fd_write_all(const int fd, const void *data, size_t size) {
     const char *cursor = data;
 
     while (size > 0) {
-        ssize_t written = write(fd, cursor, size);
+        const ssize_t written = write(fd, cursor, size);
 
         if (written < 0) {
             if (errno == EINTR) {
@@ -118,12 +118,12 @@ static int fd_write_all(int fd, const void *data, size_t size) {
 /**
  * @return 0 on success, 1 if nothing at all was read, -1 on error or truncated read.
  */
-static int fd_read_all(int fd, void *data, size_t size) {
+static int fd_read_all(const int fd, void *data, const size_t size) {
     char *cursor = data;
     size_t remaining = size;
 
     while (remaining > 0) {
-        ssize_t got = read(fd, cursor, remaining);
+        const ssize_t got = read(fd, cursor, remaining);
 
         if (got < 0) {
             if (errno == EINTR) {
@@ -143,8 +143,8 @@ static int fd_read_all(int fd, void *data, size_t size) {
     return 0;
 }
 
-int frame_write(int fd, uint32_t type, const void *payload, uint32_t len) {
-    uint32_t header[2] = {type, len};
+int frame_write(const int fd, const uint32_t type, const void *payload, const uint32_t len) {
+    const uint32_t header[2] = {type, len};
 
     // The reader treats an oversized frame as a fatal protocol violation
     if (len > FRAME_MAX_PAYLOAD) {
@@ -162,10 +162,10 @@ int frame_write(int fd, uint32_t type, const void *payload, uint32_t len) {
     return 0;
 }
 
-int frame_read(int fd, frame_t *frame) {
+int frame_read(const int fd, frame_t *frame) {
     uint32_t header[2];
 
-    int ret = fd_read_all(fd, header, sizeof(header));
+    const int ret = fd_read_all(fd, header, sizeof(header));
     if (ret != 0) {
         return ret;
     }
@@ -219,7 +219,7 @@ void frame_parser_destroy(frame_parser_t *parser) {
     free(parser);
 }
 
-int frame_parser_feed(frame_parser_t *parser, const char *data, size_t len, frame_cb_t cb, void *user_data) {
+int frame_parser_feed(frame_parser_t *parser, const char *data, const size_t len, const frame_cb_t cb, void *user_data) {
     if (parser->size + len > parser->capacity) {
         while (parser->capacity < parser->size + len) {
             parser->capacity *= 2;
@@ -239,15 +239,15 @@ int frame_parser_feed(frame_parser_t *parser, const char *data, size_t len, fram
             return -1;
         }
 
-        size_t frame_size = FRAME_HEADER_SIZE + header[1];
+        const size_t frame_size = FRAME_HEADER_SIZE + header[1];
         if (parser->size - consumed < frame_size) {
             break;
         }
 
         frame_t frame = {
-                .type = header[0],
-                .len = header[1],
-                .payload = header[1] == 0 ? NULL : parser->buf + consumed + FRAME_HEADER_SIZE
+            .type = header[0],
+            .len = header[1],
+            .payload = header[1] == 0 ? NULL : parser->buf + consumed + FRAME_HEADER_SIZE
         };
         cb(&frame, user_data);
 
@@ -362,7 +362,7 @@ int proto_decode_doc(const frame_t *frame, proto_doc_t *doc) {
     return 0;
 }
 
-char *proto_encode_thumb(int index, const void *data, size_t size, uint32_t *len) {
+char *proto_encode_thumb(const int index, const void *data, const size_t size, uint32_t *len) {
     buf_writer_t writer;
     alloc_payload(&writer, sizeof(int32_t) + size, len);
 
