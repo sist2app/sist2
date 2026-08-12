@@ -170,6 +170,25 @@ export function strUnescape(str) {
     return result;
 }
 
+const HTML_ESCAPES = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;"
+};
+
+export function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+}
+
+// Both backends wrap matches in <mark>; the rest of the fragment is untrusted file data.
+export function highlightHtml(str) {
+    return escapeHtml(str)
+        .replaceAll("&lt;mark&gt;", "<mark>")
+        .replaceAll("&lt;/mark&gt;", "</mark>");
+}
+
 const thresh = 1000;
 const units = ["k", "M", "G", "T", "P", "E", "Z", "Y"];
 

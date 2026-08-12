@@ -6,7 +6,8 @@
   "scripts": {
     "serve": "vite",
     "build": "vite build",
-    "watch": "vite build --watch"
+    "watch": "vite build --watch",
+    "test": "node --test \"src/**/*.spec.js\""
   },
   "dependencies": {
     "@auth0/auth0-spa-js": "^2.24.1",

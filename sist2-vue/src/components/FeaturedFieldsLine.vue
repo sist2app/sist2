@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import {humanDate, humanFileSize} from "@/util";
+import {escapeHtml, humanDate, humanFileSize} from "@/util";
 
 function scopedEval(context, expr) {
     const evaluator = Function.apply(null, [...Object.keys(context), "expr", "return eval(expr)"]);
@@ -24,7 +24,7 @@ export default {
 
             return this.$store.getters.optFeaturedFields
                 .replaceAll(/\$\{([^}]*)}/g, (match, g1) => {
-                    return scopedEval(scope, g1);
+                    return escapeHtml(scopedEval(scope, g1));
                 });
         }
     }

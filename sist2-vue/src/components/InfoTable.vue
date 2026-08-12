@@ -12,11 +12,14 @@ import {humanDate, humanFileSize} from "@/util";
 
 function makeGpsLink(latitude, longitude) {
 
-  if (isNaN(latitude) || isNaN(longitude)) {
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+
+  if (!isFinite(lat) || !isFinite(lon)) {
     return "";
   }
 
-  return `<a target="_blank" href="https://maps.google.com/?q=${latitude},${longitude}&ll=${latitude},${longitude}&t=k&z=17">${latitude}, ${longitude}</a>`;
+  return `<a target="_blank" href="https://maps.google.com/?q=${lat},${lon}&ll=${lat},${lon}&t=k&z=17">${lat}, ${lon}</a>`;
 }
 
 function dmsToDecimal(dms, ref) {

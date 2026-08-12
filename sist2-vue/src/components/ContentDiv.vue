@@ -3,6 +3,8 @@
 </template>
 
 <script>
+import {highlightHtml} from "@/util";
+
 const FRAGMENT_SEPARATOR = "<br /><i style='line-height: 2.4'>[…]</i><br/>";
 
 export default {
@@ -15,11 +17,14 @@ export default {
       }
 
       if (this.doc.highlight["content.nGram"]) {
-        return this.doc.highlight["content.nGram"].join(FRAGMENT_SEPARATOR);
+        return this.fragmentsHtml(this.doc.highlight["content.nGram"]);
       }
       if (this.doc.highlight.content) {
-        return this.doc.highlight.content.join(FRAGMENT_SEPARATOR);
+        return this.fragmentsHtml(this.doc.highlight.content);
       }
+    },
+    fragmentsHtml(fragments) {
+      return fragments.map(highlightHtml).join(FRAGMENT_SEPARATOR);
     }
   }
 }

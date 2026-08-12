@@ -2,12 +2,12 @@
     <a :href="`f/${sid(doc)}`"
        :class="doc._source.embedding ? 'file-title-anchor-with-embedding' : 'file-title-anchor'" target="_blank">
         <div class="file-title" :title="doc._source.path + '/' + doc._source.name + ext(doc)"
-             v-html="fileName() + ext(doc)"></div>
+             v-html="titleHtml()"></div>
     </a>
 </template>
 
 <script>
-import {ext, sid} from "@/util";
+import {escapeHtml, ext, highlightHtml, sid} from "@/util";
 
 export default {
     name: "DocFileTitle",
@@ -15,17 +15,20 @@ export default {
     methods: {
         sid: sid,
         ext: ext,
-        fileName() {
+        titleHtml() {
+            return this.fileNameHtml() + escapeHtml(ext(this.doc));
+        },
+        fileNameHtml() {
             if (!this.doc.highlight) {
-                return this.doc._source.name;
+                return escapeHtml(this.doc._source.name);
             }
             if (this.doc.highlight["name.nGram"]) {
-                return this.doc.highlight["name.nGram"];
+                return highlightHtml(this.doc.highlight["name.nGram"]);
             }
             if (this.doc.highlight.name) {
-                return this.doc.highlight.name;
+                return highlightHtml(this.doc.highlight.name);
             }
-            return this.doc._source.name;
+            return escapeHtml(this.doc._source.name);
         }
     }
 }

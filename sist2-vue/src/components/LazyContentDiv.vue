@@ -8,6 +8,7 @@
 <script>
 import Sist2Api from "@/Sist2Api";
 import Preloader from "@/components/Preloader.vue";
+import {escapeHtml, highlightHtml} from "@/util";
 
 export default {
     name: "LazyContentDiv",
@@ -33,14 +34,17 @@ export default {
     methods: {
         getContent(doc) {
             if (!doc.highlight) {
-                return doc._source.content;
+                if (!doc._source.content) {
+                    return "";
+                }
+                return escapeHtml(doc._source.content);
             }
 
             if (doc.highlight["content.nGram"]) {
-                return doc.highlight["content.nGram"][0];
+                return highlightHtml(doc.highlight["content.nGram"][0]);
             }
             if (doc.highlight.content) {
-                return doc.highlight.content[0];
+                return highlightHtml(doc.highlight.content[0]);
             }
         },
     }

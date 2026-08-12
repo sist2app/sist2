@@ -70,7 +70,7 @@ import FileIcon from "@/components/icons/FileIcon.vue";
 import FeaturedFieldsLine from "@/components/FeaturedFieldsLine.vue";
 import MLIcon from "@/components/icons/MlIcon.vue";
 import Sist2Api from "@/Sist2Api";
-import {sid} from "@/util";
+import {escapeHtml, highlightHtml, sid} from "@/util";
 
 export default {
     name: "DocListItem",
@@ -97,16 +97,16 @@ export default {
         },
         path() {
             if (!this.doc.highlight) {
-                return this.doc._source.path + "/"
+                return escapeHtml(this.doc._source.path) + "/"
             }
             if (this.doc.highlight["path.text"]) {
-                return this.doc.highlight["path.text"] + "/"
+                return highlightHtml(this.doc.highlight["path.text"]) + "/"
             }
 
             if (this.doc.highlight["path.nGram"]) {
-                return this.doc.highlight["path.nGram"] + "/"
+                return highlightHtml(this.doc.highlight["path.nGram"]) + "/"
             }
-            return this.doc._source.path + "/"
+            return escapeHtml(this.doc._source.path) + "/"
         },
         onTnEnter() {
             this.hover = true;
