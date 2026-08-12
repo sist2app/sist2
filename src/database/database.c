@@ -532,6 +532,20 @@ void database_incremental_scan_begin(database_t *db) {
 }
 
 void database_incremental_scan_end(database_t *db) {
+    // An archive that has not changed is never re-parsed, so the documents nested inside it are
+    // never marked one by one. They are still in the index and still current, so anything below a
+    // marked document is marked along with it.
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+            db->db,
+            "WITH RECURSIVE descendant(id) AS ("
+            "   SELECT d.id FROM document d INNER JOIN marked m ON m.id = d.parent AND m.marked = 1"
+            "   UNION"
+            "   SELECT d.id FROM document d INNER JOIN descendant p ON d.parent = p.id"
+            ") "
+            "UPDATE marked SET marked = 1 WHERE id IN (SELECT id FROM descendant);",
+            NULL, NULL, NULL
+    ));
+
     CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
             db->db,
             "DELETE FROM delete_list WHERE id IN (SELECT id FROM marked WHERE marked = 1);",

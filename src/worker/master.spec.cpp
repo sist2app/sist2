@@ -32,6 +32,9 @@ protected:
             write_file(dir / "files" / ("file-" + std::to_string(i) + ".txt"));
         }
         write_file(dir / "files" / (std::string(CRASH_TRIGGER) + ".txt"));
+
+        // An archive, so that documents nested inside one are covered too
+        fs::copy(fs::path(SIST2_TEST_FILES_DIR) / "arc" / "test1.zip", dir / "files" / "test1.zip");
     }
 
     void TearDown() override {
@@ -54,6 +57,28 @@ protected:
         return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
     }
 
+    int count(const std::string &where) {
+        sqlite3 *db;
+        if (sqlite3_open(index.c_str(), &db) != SQLITE_OK) {
+            return -1;
+        }
+
+        sqlite3_stmt *stmt;
+        sqlite3_prepare_v2(db, ("SELECT count(*) FROM document WHERE " + where).c_str(), -1, &stmt, nullptr);
+
+        int result = sqlite3_step(stmt) == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1;
+
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+
+        return result;
+    }
+
+    /** Only the text files created by SetUp(), so that the archive and its members do not count */
+    int text_file_count() {
+        return count("parent IS NULL AND path LIKE '%.txt'");
+    }
+
     int document_count() {
         sqlite3 *db;
         if (sqlite3_open(index.c_str(), &db) != SQLITE_OK) {
@@ -74,7 +99,7 @@ protected:
 
 TEST_F(ScanMasterTest, IndexesEveryFile) {
     ASSERT_EQ(scan(""), 0);
-    ASSERT_EQ(document_count(), FILE_COUNT + 1);
+    ASSERT_EQ(text_file_count(), FILE_COUNT + 1);
 }
 
 TEST_F(ScanMasterTest, SurvivesACrashingWorker) {
@@ -82,19 +107,38 @@ TEST_F(ScanMasterTest, SurvivesACrashingWorker) {
     ASSERT_EQ(scan(std::string("SIST2_CRASH_ON_FILE=") + CRASH_TRIGGER), 0);
 
     // The scan still finishes, and only the file that killed the worker is missing
-    ASSERT_EQ(document_count(), FILE_COUNT);
+    ASSERT_EQ(text_file_count(), FILE_COUNT);
 }
 
 TEST_F(ScanMasterTest, SurvivesACrashingWorkerWithASingleWorker) {
     // With one worker there is no second process to fall back on: the master has to respawn it
     ASSERT_EQ(scan(std::string("SIST2_CRASH_ON_FILE=") + CRASH_TRIGGER, 1), 0);
 
-    ASSERT_EQ(document_count(), FILE_COUNT);
+    ASSERT_EQ(text_file_count(), FILE_COUNT);
 }
 
 TEST_F(ScanMasterTest, KillsAWorkerThatRunsPastItsDeadline) {
     // Without --job-timeout this scan would never finish
     ASSERT_EQ(scan(std::string("SIST2_HANG_ON_FILE=") + CRASH_TRIGGER, 4, "--job-timeout 1"), 0);
 
-    ASSERT_EQ(document_count(), FILE_COUNT);
+    ASSERT_EQ(text_file_count(), FILE_COUNT);
+}
+
+TEST_F(ScanMasterTest, IncrementalScanKeepsUnchangedArchiveMembers) {
+    ASSERT_EQ(scan(""), 0);
+
+    const int documents = document_count();
+    const int archive_members = count("parent IS NOT NULL");
+    ASSERT_GT(archive_members, 0);
+
+    // Nothing changed, so nothing is re-parsed. The members of the archive are never visited
+    // individually and have to survive on the strength of their parent being unchanged.
+    ASSERT_EQ(scan("", 4, "--incremental"), 0);
+
+    ASSERT_EQ(count("parent IS NOT NULL"), archive_members);
+    ASSERT_EQ(document_count(), documents);
+
+    // And again, to make sure the second pass is stable too
+    ASSERT_EQ(scan("", 4, "--incremental"), 0);
+    ASSERT_EQ(document_count(), documents);
 }
