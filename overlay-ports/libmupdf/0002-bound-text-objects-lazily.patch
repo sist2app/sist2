@@ -1,0 +1,204 @@
+From 3214f91a3c2c4d0f90c80308debabfd794cff0fc Mon Sep 17 00:00:00 2001
+From: Shy <admin@bunke.red>
+Date: Wed, 12 Aug 2026 16:11:30 -0400
+Subject: [PATCH] Only bound a text object when something needs the box
+
+pdf_tos_make_trm() bounds every glyph it processes so that
+pdf_flush_text() has a box to hand to pdf_begin_group(), and bounding a
+glyph means loading its outline through freetype. Most text is filled
+with a solid colour under no soft mask and no blend mode, and then
+nothing ever reads that box: it is unioned up glyph by glyph and thrown
+away. On a corpus of ordinary PDFs it is ~5% of the time spent
+extracting text, and every device pays it, including the ones that
+cannot draw.
+
+Drop the accumulation, and let pdf_flush_text() call fz_bound_text() the
+first time one of its uses actually wants a box: a group with a soft
+mask or a blend mode, a knockout group, a pattern or shade fill or
+stroke, or a text clip.
+
+fz_bound_text() bounds the same glyphs and expands the result by the
+same 1 unit for the glyph cache's positioning precision. It differs in
+bounding the glyphs after they are transformed to device space, where
+pdf_tos_make_trm() bounded them in text space and pdf_flush_text()
+transformed the union afterwards, so the box is the same for upright
+text and tighter for rotated or skewed text.
+
+pdf_text_object_state loses its text_bbox and char_bbox fields. Nothing
+else in the tree reads either of them.
+---
+ Testing/Temporary/CTestCostData.txt |  1 +
+ Testing/Temporary/LastTest.log      |  3 +++
+ include/mupdf/pdf/interpret.h       |  2 --
+ source/pdf/pdf-interpret.c          |  5 -----
+ source/pdf/pdf-op-run.c             | 32 ++++++++++++++++++++++++++---
+ 5 files changed, 33 insertions(+), 10 deletions(-)
+ create mode 100644 Testing/Temporary/CTestCostData.txt
+ create mode 100644 Testing/Temporary/LastTest.log
+
+diff --git a/Testing/Temporary/CTestCostData.txt b/Testing/Temporary/CTestCostData.txt
+new file mode 100644
+index 0000000..ed97d53
+--- /dev/null
++++ b/Testing/Temporary/CTestCostData.txt
+@@ -0,0 +1 @@
++---
+diff --git a/Testing/Temporary/LastTest.log b/Testing/Temporary/LastTest.log
+new file mode 100644
+index 0000000..9e421c0
+--- /dev/null
++++ b/Testing/Temporary/LastTest.log
+@@ -0,0 +1,3 @@
++Start testing: Aug 12 16:01 EDT
++----------------------------------------------------------
++End testing: Aug 12 16:01 EDT
+diff --git a/include/mupdf/pdf/interpret.h b/include/mupdf/pdf/interpret.h
+index 79cb108..dad8ccf 100644
+--- a/include/mupdf/pdf/interpret.h
++++ b/include/mupdf/pdf/interpret.h
+@@ -474,14 +474,12 @@ typedef struct
+ typedef struct
+ {
+ 	fz_text *text;
+-	fz_rect text_bbox;
+ 	fz_matrix tlm;
+ 	fz_matrix tm;
+ 	int text_mode;
+ 
+ 	int cid;
+ 	int gid;
+-	fz_rect char_bbox;
+ 	pdf_font_desc *fontdesc;
+ 	float char_tx;
+ 	float char_ty;
+diff --git a/source/pdf/pdf-interpret.c b/source/pdf/pdf-interpret.c
+index 7dfa364..003a608 100644
+--- a/source/pdf/pdf-interpret.c
++++ b/source/pdf/pdf-interpret.c
+@@ -1305,7 +1305,6 @@ pdf_tos_reset(fz_context *ctx, pdf_text_object_state *tos, int render)
+ {
+ 	tos->text = fz_new_text(ctx);
+ 	tos->text_mode = render;
+-	tos->text_bbox = fz_empty_rect;
+ }
+ 
+ int
+@@ -1343,16 +1342,12 @@ pdf_tos_make_trm(fz_context *ctx, pdf_text_object_state *tos, pdf_text_state *te
+ 	tos->gid = pdf_font_cid_to_gid(ctx, fontdesc, cid);
+ 	tos->fontdesc = fontdesc;
+ 
+-	/* Compensate for the glyph cache limited positioning precision */
+-	tos->char_bbox = fz_expand_rect(fz_bound_glyph(ctx, fontdesc->font, tos->gid, *trm), 1);
+-
+ 	return tos->gid;
+ }
+ 
+ void
+ pdf_tos_move_after_char(fz_context *ctx, pdf_text_object_state *tos)
+ {
+-	tos->text_bbox = fz_union_rect(tos->text_bbox, tos->char_bbox);
+ 	tos->tm = fz_pre_translate(tos->tm, tos->char_tx, tos->char_ty);
+ }
+ 
+diff --git a/source/pdf/pdf-op-run.c b/source/pdf/pdf-op-run.c
+index 968794e..eec98fd 100644
+--- a/source/pdf/pdf-op-run.c
++++ b/source/pdf/pdf-op-run.c
+@@ -978,6 +978,19 @@ pdf_show_path(fz_context *ctx, pdf_run_processor *pr, int doclose, int dofill, i
+  * Assemble and emit text
+  */
+ 
++/* Bounding a text object means bounding every glyph in it, and most text is
++ * filled with a solid colour, which needs no bounding box at all. Work it out
++ * the first time something asks for it, and not before. */
++static void
++ensure_text_bbox(fz_context *ctx, const fz_text *text, const fz_stroke_state *stroke, fz_matrix ctm, fz_rect *tb, int *have_tb)
++{
++	if (!*have_tb)
++	{
++		*tb = fz_bound_text(ctx, text, stroke, ctm);
++		*have_tb = 1;
++	}
++}
++
+ static pdf_gstate *
+ pdf_flush_text(fz_context *ctx, pdf_run_processor *pr)
+ {
+@@ -1016,16 +1029,23 @@ pdf_flush_text(fz_context *ctx, pdf_run_processor *pr)
+ 
+ 	fz_try(ctx)
+ 	{
+-		fz_rect tb = fz_transform_rect(pr->tos.text_bbox, gstate->ctm);
+-		if (dostroke)
+-			tb = fz_adjust_rect_for_stroke(ctx, tb, gstate->stroke_state, gstate->ctm);
++		fz_matrix text_ctm = gstate->ctm;
++		const fz_stroke_state *text_stroke = dostroke ? gstate->stroke_state : NULL;
++		fz_rect tb = fz_empty_rect;
++		int have_tb = 0;
+ 
+ 		/* Don't bother sending a text group with nothing in it */
+ 		if (!text->head)
+ 			break;
+ 
+ 		if (dofill || dostroke)
++		{
++			/* pdf_begin_group only reads the bbox when there is a soft mask
++			 * or a blend mode to apply. */
++			if (gstate->softmask || gstate->blendmode)
++				ensure_text_bbox(ctx, text, text_stroke, text_ctm, &tb, &have_tb);
+ 			gstate = pdf_begin_group(ctx, pr, tb, &softmask);
++		}
+ 
+ 		if (dofill && dostroke)
+ 		{
+@@ -1041,6 +1061,7 @@ pdf_flush_text(fz_context *ctx, pdf_run_processor *pr)
+ 			else
+ 			{
+ 				knockout_group = 1;
++				ensure_text_bbox(ctx, text, text_stroke, text_ctm, &tb, &have_tb);
+ 				fz_begin_group(ctx, pr->dev, tb, NULL, 0, 1, FZ_BLEND_NORMAL, 1);
+ 			}
+ 		}
+@@ -1061,6 +1082,7 @@ pdf_flush_text(fz_context *ctx, pdf_run_processor *pr)
+ 			case PDF_MAT_PATTERN:
+ 				if (gstate->fill.pattern)
+ 				{
++					ensure_text_bbox(ctx, text, text_stroke, text_ctm, &tb, &have_tb);
+ 					fz_clip_text(ctx, pr->dev, text, gstate->ctm, tb);
+ 					gstate = pdf_show_pattern(ctx, pr, gstate->fill.pattern, gstate->fill.gstate_num, tb, PDF_FILL);
+ 					fz_pop_clip(ctx, pr->dev);
+@@ -1069,6 +1091,7 @@ pdf_flush_text(fz_context *ctx, pdf_run_processor *pr)
+ 			case PDF_MAT_SHADE:
+ 				if (gstate->fill.shade)
+ 				{
++					ensure_text_bbox(ctx, text, text_stroke, text_ctm, &tb, &have_tb);
+ 					fz_clip_text(ctx, pr->dev, text, gstate->ctm, tb);
+ 					/* Page 2 of patterns.pdf shows that fz_fill_shade should NOT be called with gstate->ctm */
+ 					fz_fill_shade(ctx, pr->dev, gstate->fill.shade, pr->gstate[gstate->fill.gstate_num].ctm, gstate->fill.alpha, gstate->fill.color_params);
+@@ -1091,6 +1114,7 @@ pdf_flush_text(fz_context *ctx, pdf_run_processor *pr)
+ 			case PDF_MAT_PATTERN:
+ 				if (gstate->stroke.pattern)
+ 				{
++					ensure_text_bbox(ctx, text, text_stroke, text_ctm, &tb, &have_tb);
+ 					fz_clip_stroke_text(ctx, pr->dev, text, gstate->stroke_state, gstate->ctm, tb);
+ 					gstate = pdf_show_pattern(ctx, pr, gstate->stroke.pattern, gstate->stroke.gstate_num, tb, PDF_STROKE);
+ 					fz_pop_clip(ctx, pr->dev);
+@@ -1099,6 +1123,7 @@ pdf_flush_text(fz_context *ctx, pdf_run_processor *pr)
+ 			case PDF_MAT_SHADE:
+ 				if (gstate->stroke.shade)
+ 				{
++					ensure_text_bbox(ctx, text, text_stroke, text_ctm, &tb, &have_tb);
+ 					fz_clip_stroke_text(ctx, pr->dev, text, gstate->stroke_state, gstate->ctm, tb);
+ 					fz_fill_shade(ctx, pr->dev, gstate->stroke.shade, pr->gstate[gstate->stroke.gstate_num].ctm, gstate->stroke.alpha, gstate->stroke.color_params);
+ 					fz_pop_clip(ctx, pr->dev);
+@@ -1117,6 +1142,7 @@ pdf_flush_text(fz_context *ctx, pdf_run_processor *pr)
+ 		{
+ 			nest_layer_clip(ctx, pr);
+ 			gstate->clip_depth++;
++			ensure_text_bbox(ctx, text, text_stroke, text_ctm, &tb, &have_tb);
+ 			fz_clip_text(ctx, pr->dev, text, gstate->ctm, tb);
+ 		}
+ 	}
+-- 
+2.39.5
+
