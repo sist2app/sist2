@@ -23,7 +23,6 @@ typedef struct {
 } scan_job_t;
 
 typedef struct worker {
-    int index;
     scan_master_t *master;
 
     uv_process_t process;
@@ -548,7 +547,6 @@ int scan_master_run(scan_master_t *master, scan_producer_t producer, void *user_
     LOG_INFOF("master.c", "Starting %d worker processes", master->worker_count);
 
     for (int i = 0; i < master->worker_count; i++) {
-        master->workers[i].index = i;
         master->workers[i].master = master;
         spawn_worker(&master->workers[i]);
         master->live_workers += 1;
