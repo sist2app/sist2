@@ -102,6 +102,10 @@ static void maybe_misbehave_for_test(const char *path) {
 void worker_run() {
     DocumentSink = &WorkerSink;
 
+    // A master that went away should end this process through the EOF path below, not through a
+    // signal raised in the middle of writing a document
+    signal(SIGPIPE, SIG_IGN);
+
     while (TRUE) {
         frame_t frame;
 

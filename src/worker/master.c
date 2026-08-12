@@ -10,17 +10,22 @@
 
 #define BLANK_STR "                                         "
 
-#define QUEUE_CAPACITY_PER_WORKER (8)
-#define MIN_QUEUE_CAPACITY (32)
+#define QUEUE_CAPACITY_PER_WORKER (64)
+#define MIN_QUEUE_CAPACITY (512)
 
 // process, the two pipes and the deadline timer
 #define HANDLES_PER_WORKER (4)
 
 typedef struct {
-    char path[SIST_PATH_MAX];
+    char *path;
     int mtime;
     int64_t size;
 } scan_job_t;
+
+static void scan_job_destroy(scan_job_t *job) {
+    free(job->path);
+    free(job);
+}
 
 typedef struct worker {
     scan_master_t *master;
@@ -465,7 +470,7 @@ static void dispatch(scan_master_t *master) {
         worker->busy = TRUE;
         strcpy(worker->job_path, job->path);
         worker->current_path[0] = '\0';
-        free(job);
+        scan_job_destroy(job);
 
         send_frame(worker, FRAME_JOB, payload, len);
         arm_deadline(worker);
@@ -526,8 +531,7 @@ scan_master_t *scan_master_create(int worker_count, int print_progress) {
 void scan_master_submit(scan_master_t *master, const char *path, int mtime, int64_t size) {
     scan_job_t *job = malloc(sizeof(scan_job_t));
 
-    strncpy(job->path, path, sizeof(job->path) - 1);
-    job->path[sizeof(job->path) - 1] = '\0';
+    job->path = strdup(path);
     job->mtime = mtime;
     job->size = size;
 
@@ -536,7 +540,7 @@ void scan_master_submit(scan_master_t *master, const char *path, int mtime, int6
     pthread_mutex_unlock(&master->counter_mutex);
 
     if (!queue_push(master->queue, job)) {
-        free(job);
+        scan_job_destroy(job);
         return;
     }
 
@@ -580,9 +584,9 @@ void scan_master_destroy(scan_master_t *master) {
     pthread_mutex_destroy(&master->counter_mutex);
 
     // Anything still queued was never handed out (every worker died); free it rather than leak it
-    void *job;
+    scan_job_t *job;
     while ((job = queue_try_pop(master->queue)) != NULL) {
-        free(job);
+        scan_job_destroy(job);
     }
     queue_destroy(master->queue);
 
