@@ -1,14 +1,31 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(sist2)
-set(CMAKE_C_STANDARD 11)
-
 option(SIST_DEBUG "Build a debug executable" on)
 option(SIST_FAST "Enable more optimisation flags" off)
 option(SIST_DEBUG_INFO "Turn on debug information in web interface" on)
 option(SIST_STATIC "Produce a fully static executable (musl only)" off)
 option(BUILD_TESTS "Build the test binaries" on)
 option(SIST_COVERAGE "Instrument libscan and sist2_core for gcov coverage" off)
+
+# Both of these have to be decided before project(), which is what runs the vcpkg toolchain:
+# VCPKG_BUILD_TYPE picks which half of every port gets built, and the toolchain searches
+# debug/lib first whenever CMAKE_BUILD_TYPE is Debug *or unset* — an unset build type used to
+# leave the optimized binary linked against -O0 mupdf, freetype and harfbuzz, which cost ~1.8x
+# on PDF parsing and left MuPDF's assert()s live in production.
+if (SIST_DEBUG)
+    set(VCPKG_BUILD_TYPE debug)
+    set(SIST_DEFAULT_BUILD_TYPE Debug)
+else ()
+    set(VCPKG_BUILD_TYPE release)
+    set(SIST_DEFAULT_BUILD_TYPE Release)
+endif ()
+
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE ${SIST_DEFAULT_BUILD_TYPE} CACHE STRING "Build type" FORCE)
+endif ()
+
+project(sist2)
+set(CMAKE_C_STANDARD 11)
 
 add_compile_definitions(
         "SIST_PLATFORM=${SIST_PLATFORM}"
@@ -18,9 +35,6 @@ if (SIST_DEBUG)
     add_compile_definitions(
             "SIST_DEBUG=${SIST_DEBUG}"
     )
-    set(VCPKG_BUILD_TYPE debug)
-else ()
-    set(VCPKG_BUILD_TYPE release)
 endif ()
 
 if (SIST_DEBUG_INFO)
@@ -152,8 +166,10 @@ find_package(LibXml2 REQUIRED)
 find_package(LibLZMA REQUIRED)
 find_package(unofficial-pcre CONFIG REQUIRED)
 
-find_library(JBIG2DEC_LIB NAMES jbig2decd jbig2dec)
-find_library(HARFBUZZ_LIB NAMES harfbuzz harfbuzzd)
+# NAMES_PER_DIR: try every spelling in one directory before moving on, so the debug/release
+# search order the toolchain set up decides which one wins, not the order of the names
+find_library(JBIG2DEC_LIB NAMES jbig2dec jbig2decd NAMES_PER_DIR)
+find_library(HARFBUZZ_LIB NAMES harfbuzz harfbuzzd NAMES_PER_DIR)
 find_library(LZO2_LIB NAMES lzo2)
 
 find_library(MUPDF_LIB NAMES libmupdf.a REQUIRED)
