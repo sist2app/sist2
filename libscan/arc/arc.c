@@ -267,7 +267,7 @@ scan_code_t parse_archive(scan_arc_ctx_t *ctx, vfile_t *f, document_t *doc, pcre
                     CTX_LOG_ERRORF("arc.c", "Skipped %s, possible zip bomb (decompressed_size_ratio=%f)",
                                    sub_job->filepath,
                                    decompressed_size_ratio);
-                    break;
+                    continue;
                 }
 
                 if ((archive_entry_is_encrypted(entry) || archive_entry_is_data_encrypted(entry) ||
