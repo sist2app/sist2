@@ -443,6 +443,11 @@ target_link_libraries(sist2 PRIVATE sist2_core)
 
 if (SIST_STATIC)
     target_link_options(sist2 PRIVATE -static)
+
+    # musl's mallocng returns every freed block to the kernel: ~594 mmap/munmap pairs
+    # per scanned file. mimalloc's archive overrides musl's weak malloc symbols.
+    find_package(mimalloc CONFIG REQUIRED)
+    target_link_libraries(sist2 PRIVATE mimalloc-static)
 endif ()
 
 if (BUILD_TESTS)

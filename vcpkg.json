@@ -6,6 +6,10 @@
     "overlay-ports": ["./overlay-ports"]
   },
   "dependencies": [
+    {
+      "name": "mimalloc",
+      "features": ["override"]
+    },
     "openblas",
     "libantiword2",
     "libmobi",
