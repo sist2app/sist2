@@ -212,12 +212,12 @@ fts_search_req_t *get_search_req(struct mg_http_message *hm) {
         cJSON_Delete(json);
         return NULL;
     }
-    int mime_count = req_mime_types.val ? 0 : cJSON_GetArraySize(req_mime_types.val);
+    int mime_count = cJSON_GetArraySize(req_mime_types.val);
     if (mime_count > 999) {
         cJSON_Delete(json);
         return NULL;
     }
-    int tag_count = req_tags.val ? 0 : cJSON_GetArraySize(req_tags.val);
+    int tag_count = cJSON_GetArraySize(req_tags.val);
     if (tag_count > 9999) {
         cJSON_Delete(json);
         return NULL;
