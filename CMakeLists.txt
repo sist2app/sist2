@@ -184,26 +184,17 @@ find_library(GUMBO_LIB NAMES gumbo)
 find_library(WPD_LIB NAMES wpd REQUIRED)
 find_library(WPD_STREAM_LIB NAMES wpd-stream REQUIRED)
 find_path(WPD_INCLUDE_DIR libwpd/libwpd.h REQUIRED)
-find_library(GOMP_LIB NAMES libgomp.a gomp
-        PATHS
-        /usr/lib/gcc/x86_64-linux-gnu/5/
-        /usr/lib/gcc/x86_64-linux-gnu/6/
-        /usr/lib/gcc/x86_64-linux-gnu/7/
-        /usr/lib/gcc/x86_64-linux-gnu/8/
-        /usr/lib/gcc/x86_64-linux-gnu/9/
-        /usr/lib/gcc/x86_64-linux-gnu/10/
-        /usr/lib/gcc/x86_64-linux-gnu/11/
-        /usr/lib/gcc/x86_64-linux-gnu/12/
-
-        /usr/lib/gcc/aarch64-linux-gnu/5/
-        /usr/lib/gcc/aarch64-linux-gnu/6/
-        /usr/lib/gcc/aarch64-linux-gnu/7/
-        /usr/lib/gcc/aarch64-linux-gnu/8/
-        /usr/lib/gcc/aarch64-linux-gnu/9/
-        /usr/lib/gcc/aarch64-linux-gnu/10/
-        /usr/lib/gcc/aarch64-linux-gnu/11/
-        /usr/lib/gcc/aarch64-linux-gnu/12/
+# openblas is built with OpenMP threading, so the static archive has to come along. Asking the
+# compiler beats guessing: the path holds its version, and it answers for whatever gcc is installed.
+execute_process(
+        COMMAND ${CMAKE_C_COMPILER} -print-file-name=libgomp.a
+        OUTPUT_VARIABLE GOMP_LIB
+        OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+if (NOT IS_ABSOLUTE "${GOMP_LIB}")
+    find_library(GOMP_LIB NAMES libgomp.a gomp REQUIRED)
+endif ()
+
 find_package(Leptonica CONFIG REQUIRED)
 find_package(libraw CONFIG REQUIRED)
 find_package(Freetype REQUIRED)

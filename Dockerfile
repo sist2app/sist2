@@ -2,12 +2,26 @@
 
 #   docker buildx build --target artifact -o type=local,dest=. .   -> static binary only
 #   docker buildx build .                                          -> runtime image
-FROM alpine:3.22 AS build
+#
+# Two builds of the same source: the portable binary is static musl, the image is glibc. Mime
+# detection spends most of its time in libmagic's regexes, and musl's TRE runs them ~1.5x slower
+# than glibc does, which is worth ~1.5x on a scan of files without a usable extension.
+
+FROM node:22-slim AS frontend
+
+WORKDIR /build
+COPY . .
+
+RUN cd sist2-vue && npm install && npm run build
+RUN cd sist2-admin && npm install && npm run build
+
+
+FROM alpine:3.22 AS build-musl
 
 RUN apk add --no-cache \
     build-base ninja-build git curl zip unzip tar pkgconf linux-headers bash \
     python3 py3-pip autoconf autoconf-archive automake libtool nasm yasm gettext-dev perl bison flex \
-    texinfo gfortran nodejs npm \
+    texinfo gfortran \
     coreutils diffutils findutils grep gawk sed bc zlib-dev \
     && ln -sf /usr/lib/ninja-build/bin/ninja /usr/local/bin/ninja
 
@@ -40,8 +54,8 @@ RUN --mount=type=cache,target=/root/.cache/vcpkg \
 
 COPY . .
 
-RUN cd sist2-vue && npm install && npm run build
-RUN cd sist2-admin && npm install && npm run build
+# The frontend is embedded into the binary, so it has to exist before cmake runs
+COPY --from=frontend /build/sist2-vue/dist sist2-vue/dist
 
 RUN case "${TARGETARCH}" in \
         amd64) platform=x64_linux_musl; triplet=x64-linux-release ;; \
@@ -61,8 +75,65 @@ RUN case "${TARGETARCH}" in \
     && cmake --build build -j "$(nproc)" \
     && strip build/sist2
 
+
 FROM scratch AS artifact
-COPY --from=build /build/build/sist2 /sist2
+COPY --from=build-musl /build/build/sist2 /sist2
+
+
+# Same steps against glibc. The base matches the runtime image, so the binary links against the
+# libc it will run on.
+FROM ubuntu:24.04 AS build-glibc
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        build-essential ninja-build git curl zip unzip tar pkg-config ca-certificates \
+        python3 python3-pip autoconf autoconf-archive automake libtool nasm yasm gettext perl \
+        bison flex texinfo gfortran bc zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Same cmake as the musl build, and vcpkg builds its own tool rather than downloading one
+ENV VCPKG_FORCE_SYSTEM_BINARIES=1
+RUN pip install --break-system-packages --no-cache-dir cmake==4.4.2
+
+RUN git clone https://github.com/microsoft/vcpkg /vcpkg \
+    && git -C /vcpkg checkout 9e593bb18ea69cc5095e012465dcd675a822ed0d \
+    && /vcpkg/bootstrap-vcpkg.sh -disableMetrics
+
+WORKDIR /build
+
+ARG TARGETARCH
+COPY vcpkg.json .
+COPY overlay-ports overlay-ports
+RUN --mount=type=cache,target=/root/.cache/vcpkg \
+    case "${TARGETARCH}" in \
+        amd64) triplet=x64-linux-release ;; \
+        arm64) triplet=arm64-linux-release ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && /vcpkg/vcpkg install --triplet="${triplet}" --host-triplet="${triplet}" \
+        --x-manifest-root=/build --x-install-root=/build/vcpkg_installed
+
+COPY . .
+
+COPY --from=frontend /build/sist2-vue/dist sist2-vue/dist
+
+# No SIST_STATIC: a fully static glibc binary fails to link (the ifunc references in static
+# libm), so every dependency but libc itself is still linked in statically.
+RUN case "${TARGETARCH}" in \
+        amd64) platform=x64_linux; triplet=x64-linux-release ;; \
+        arm64) platform=arm64_linux; triplet=arm64-linux-release ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && cmake -B build \
+        "-DSIST_PLATFORM=${platform}" \
+        "-DVCPKG_TARGET_TRIPLET=${triplet}" \
+        "-DVCPKG_HOST_TRIPLET=${triplet}" \
+        -DSIST_DEBUG=off \
+        -DSIST_DEBUG_INFO=on \
+        -DBUILD_TESTS=off \
+        -DVCPKG_INSTALLED_DIR=/build/vcpkg_installed \
+        -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake \
+    && cmake --build build -j "$(nproc)" \
+    && strip build/sist2
 
 
 FROM ubuntu:24.04 AS runtime
@@ -94,6 +165,6 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python && \
     python -m pip install --no-cache --break-system-packages \
         git+https://github.com/sist2app/sist2-python.git@2.1
 
-COPY --from=build /build/build/sist2 /root/sist2
-COPY --from=build /build/sist2-admin/server/ /root/sist2-admin/server/
-COPY --from=build /build/sist2-admin/frontend/dist/ /root/sist2-admin/frontend/dist/
+COPY --from=build-glibc /build/build/sist2 /root/sist2
+COPY --from=frontend /build/sist2-admin/server/ /root/sist2-admin/server/
+COPY --from=frontend /build/sist2-admin/frontend/dist/ /root/sist2-admin/frontend/dist/
