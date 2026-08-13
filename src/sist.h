@@ -61,7 +61,7 @@ static const int VersionPatch = 1;
 #define SIST_PLATFORM unknown
 #endif
 
-#define EXPECTED_MONGOOSE_VERSION "7.17"
+#define EXPECTED_MONGOOSE_VERSION "7.22"
 
 #define Q(x) #x
 #define QUOTE(x) Q(x)
