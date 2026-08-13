@@ -485,6 +485,14 @@ database_summary_stats_t database_fts_get_date_range(database_t *db) {
     return stats;
 }
 
+// The ranked subquery has no sort_var alias, and only ever sorts ascending.
+static const char *get_ranked_after_where(char **after) {
+    if (after == NULL) {
+        return NULL;
+    }
+    return "(rank, doc.ROWID) > (?3, ?4)";
+}
+
 char *get_after_where(char **after, UNUSED(fts_sort_t sort), int sort_asc) {
     if (after == NULL) {
         return NULL;
@@ -579,7 +587,52 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
     char *sql;
     char *agg_sql;
 
-    if (query_where) {
+    // FTS5 only applies its top-N ranking optimisation to exactly `ORDER BY rank
+    // LIMIT n`. Wrapping rank in round(), or adding the ROWID tiebreaker, makes
+    // SQLite score and sort every match instead: 6.5s versus 0.7s for a term that
+    // hits half of a 517k document index. So the ranking runs in a subquery that
+    // keeps that exact shape, and everything expensive per row — the JSON, the
+    // embedding join, the snippets — happens for the N rows it returns.
+    const int ranked = (sort == FTS_SORT_SCORE && query_where != NULL && sort_asc);
+
+    if (ranked) {
+        const char *ranked_after = get_ranked_after_where(after);
+        char *ranked_where = build_where_clause(path_where, size_where, date_where, index_id_where,
+                                                mime_where, query_where, ranked_after, tags_where);
+
+        asprintf(
+                &sql,
+                "SELECT"
+                // %!.20g, not %g: SQLite caps %g at 16 significant digits whatever
+                // precision is asked for, and a cursor that does not round-trip
+                // exactly makes the next page repeat or skip rows.
+                " %s, format('%%!.20g', top.rank_var) as sort_var, doc.ROWID"
+                " FROM (SELECT search.ROWID as sid, rank as rank_var"
+                "        FROM search"
+                "        INNER JOIN document_index doc on doc.ROWID = search.ROWID"
+                "        WHERE %s"
+                "        ORDER BY rank"
+                "        LIMIT ?2) top"
+                " INNER JOIN document_index doc on doc.ROWID = top.sid"
+                " LEFT JOIN embedding emb on emb.id = doc.id"
+                "%s"
+                " ORDER BY top.rank_var, doc.ROWID",
+                json_object_sql,
+                ranked_where,
+                // snippet() needs the search table, and it needs the MATCH with it
+                highlight ? " INNER JOIN search on search.ROWID = top.sid AND search MATCH ?1" : "");
+
+        free(ranked_where);
+
+        if (fetch_aggregations) {
+            asprintf(&agg_sql,
+                     "SELECT count(*), sum(size)"
+                     " FROM search"
+                     "  INNER JOIN document_index doc on doc.ROWID = search.ROWID"
+                     " WHERE search MATCH ?1"
+                     " AND %s", agg_where);
+        }
+    } else if (query_where) {
         asprintf(
                 &sql,
                 "SELECT"
