@@ -52,6 +52,7 @@ void elastic_cleanup() {
     }
 
     destroy_indexer(Indexer);
+    web_thread_cleanup();
 }
 
 void print_json(cJSON *document, const char id_str[SIST_SID_LEN]) {

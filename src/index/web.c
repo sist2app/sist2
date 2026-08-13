@@ -149,19 +149,40 @@ response_t *web_get(const char *url, int timeout, int insecure) {
     return resp;
 }
 
+// A bulk request per batch means thousands of them in a row against the same host: the handle is
+// kept so that curl can hand the next one an already-open connection.
+static __thread CURL *PostHandle = NULL;
+static __thread struct curl_slist *PostHeaders = NULL;
+
+void web_thread_cleanup() {
+    if (PostHandle != NULL) {
+        curl_easy_cleanup(PostHandle);
+        curl_slist_free_all(PostHeaders);
+        PostHandle = NULL;
+        PostHeaders = NULL;
+    }
+}
+
 response_t *web_post(const char *url, const char *data, int insecure) {
 
     response_t *resp = malloc(sizeof(response_t));
 
-    CURL *curl;
     dyn_buffer_t buffer = dyn_buffer_create();
 
-    curl = curl_easy_init();
+    if (PostHandle == NULL) {
+        PostHandle = curl_easy_init();
+        PostHeaders = curl_slist_append(NULL, "Content-Type: application/json");
+
+        curl_easy_setopt(PostHandle, CURLOPT_WRITEFUNCTION, write_cb);
+        curl_easy_setopt(PostHandle, CURLOPT_POST, 1);
+        curl_easy_setopt(PostHandle, CURLOPT_USERAGENT, "sist2");
+        curl_easy_setopt(PostHandle, CURLOPT_HTTPHEADER, PostHeaders);
+    }
+
+    CURL *curl = PostHandle;
+
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *) (&buffer));
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
-    curl_easy_setopt(curl, CURLOPT_POST, 1);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "sist2");
     if (insecure) {
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
@@ -170,10 +191,7 @@ response_t *web_post(const char *url, const char *data, int insecure) {
     char err_buffer[CURL_ERROR_SIZE + 1] = {0};
     curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, err_buffer);
 
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, "Content-Type: application/json");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t) strlen(data));
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
 
     curl_easy_perform(curl);
@@ -186,8 +204,7 @@ response_t *web_post(const char *url, const char *data, int insecure) {
         LOG_ERRORF("web.c", "CURL Error: %s", err_buffer);
     }
 
-    curl_easy_cleanup(curl);
-    curl_slist_free_all(headers);
+    curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, NULL);
 
     return resp;
 }

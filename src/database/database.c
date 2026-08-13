@@ -502,36 +502,48 @@ database_iterator_t *database_create_document_iterator(database_t *db, long long
 
     sqlite3_stmt *stmt;
 
-    CRASH_IF_NOT_SQLITE_OK(
-            sqlite3_prepare_v2(
-                    db->db,
-                    "WITH doc (id, j) AS ("
-                    "SELECT"
-                    " document.id,"
-                    " json_set(document.json_data,"
-                    "  '$._id', document.id,"
-                    "  '$.index', (SELECT id FROM descriptor),"
-                    "  '$.size', document.size,"
-                    "  '$.mtime', document.mtime,"
-                    "  '$.mime', mim.name,"
-                    "  '$.thumbnail', document.thumbnail_count,"
-                    "  '$.tag', json_group_array(t.tag))"
-                    " FROM document"
-                    "  LEFT JOIN mime mim ON mim.id = document.mime"
-                    "  LEFT JOIN tag t ON t.id = document.id"
-                    " WHERE document.version > ?"
-                    " GROUP BY document.id)"
-                    "SELECT CASE"
-                    " WHEN emb.embedding IS NULL THEN j"
-                    " ELSE json_set(j,"
-                    "  '$.emb', json_group_object(m.path, json(emb_to_json(emb.embedding))),"
-                    "  '$.embedding', 1"
-                    "     ) END"
-                    " FROM doc"
-                    " LEFT JOIN embedding emb ON doc.id = emb.id"
-                    " LEFT JOIN model m ON emb.model_id = m.id"
-                    " GROUP BY doc.id",
-                    -1, &stmt, NULL));
+    // Grouping by document id makes a table scan look cheaper than the version index to the query
+    // planner, which is true for a full pass and very wrong for the handful of rows a rescan wrote
+    const char *source = min_version > 0
+                         ? " FROM document INDEXED BY document_version_idx"
+                         : " FROM document";
+
+    if (min_version > 0) {
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+                db->db, "CREATE INDEX IF NOT EXISTS document_version_idx ON document(version);",
+                NULL, NULL, NULL));
+    }
+
+    char *sql = sqlite3_mprintf(
+            "WITH doc (id, j) AS ("
+            "SELECT"
+            " document.id,"
+            " json_set(document.json_data,"
+            "  '$._id', document.id,"
+            "  '$.index', (SELECT id FROM descriptor),"
+            "  '$.size', document.size,"
+            "  '$.mtime', document.mtime,"
+            "  '$.mime', mim.name,"
+            "  '$.thumbnail', document.thumbnail_count,"
+            "  '$.tag', json_group_array(t.tag))"
+            "%s"
+            "  LEFT JOIN mime mim ON mim.id = document.mime"
+            "  LEFT JOIN tag t ON t.id = document.id"
+            " WHERE document.version > ?"
+            " GROUP BY document.id)"
+            "SELECT CASE"
+            " WHEN emb.embedding IS NULL THEN j"
+            " ELSE json_set(j,"
+            "  '$.emb', json_group_object(m.path, json(emb_to_json(emb.embedding))),"
+            "  '$.embedding', 1"
+            "     ) END"
+            " FROM doc"
+            " LEFT JOIN embedding emb ON doc.id = emb.id"
+            " LEFT JOIN model m ON emb.model_id = m.id"
+            " GROUP BY doc.id", source);
+
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL));
+    sqlite3_free(sql);
 
     sqlite3_bind_int64(stmt, 1, min_version);
 

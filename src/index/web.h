@@ -30,6 +30,9 @@ typedef struct {
 
 response_t *web_get(const char *url, int timeout, int insecure);
 response_t *web_post(const char * url, const char * data, int insecure);
+
+/** Release the POST handle this thread has been reusing */
+void web_thread_cleanup();
 void web_post_async_poll(subreq_ctx_t* req);
 subreq_ctx_t *web_post_async(const char *url, char *data, int insecure);
 response_t *web_put(const char *url, const char *data, int insecure);
