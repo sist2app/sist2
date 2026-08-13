@@ -6,6 +6,11 @@
 set -e
 cd "$(dirname "$0")/.."
 
+if ! docker buildx version > /dev/null 2>&1; then
+  echo "docker buildx is required (apt install docker-buildx, or docker-buildx-plugin from Docker's repository)" >&2
+  exit 1
+fi
+
 arch=$(uname -m)
 case "$arch" in
   x86_64) name=x64 ;;
