@@ -56,6 +56,8 @@ treemap_row_t database_treemap_iter(database_iterator_t *iter) {
 }
 
 void database_generate_stats(database_t *db, double treemap_threshold) {
+    database_flush_writes(db);
+
 
     LOG_INFO("database.c", "Generating stats");
 

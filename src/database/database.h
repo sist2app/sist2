@@ -45,6 +45,9 @@ typedef struct database {
     database_type_t type;
     sqlite3 *db;
 
+    // Documents and thumbnails written since the last commit; see database_flush_writes()
+    int uncommitted_writes;
+
     // Prepared statements
     sqlite3_stmt *select_thumbnail_stmt;
     sqlite3_stmt *treemap_merge_up_update_stmt;
@@ -107,6 +110,8 @@ void database_write_index_descriptor(database_t *db, index_descriptor_t *desc);
 index_descriptor_t *database_read_index_descriptor(database_t *db);
 
 int database_write_document(database_t *db, document_t *doc, const char *json_data);
+
+void database_flush_writes(database_t *db);
 
 database_iterator_t *database_create_document_iterator(database_t *db);
 
