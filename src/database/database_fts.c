@@ -415,7 +415,9 @@ const char *path_where_clause(const char *path) {
         return NULL;
     }
 
-    return "(path = @path or path GLOB @path_glob)";
+    // Qualified: the fts5 search table also has a path column, and an unqualified
+    // reference is ambiguous in every query that joins the two.
+    return "(doc.path = @path or doc.path GLOB @path_glob)";
 }
 
 const char *get_sort_var(fts_sort_t sort) {
