@@ -518,9 +518,12 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
         }
     }
 
-    char path_glob[PATH_MAX * 2];
-    snprintf(path_glob, sizeof(path_glob), "%s/*", path);
     const char *path_where = path_where_clause(path);
+
+    char path_glob[PATH_MAX * 2] = {0};
+    if (path_where) {
+        snprintf(path_glob, sizeof(path_glob), "%s/*", path);
+    }
     const char *size_where = size_where_clause(size_min, size_max);
     const char *date_where = date_where_clause(date_min, date_max);
     char *index_id_where = index_ids_where_clause(index_ids);
