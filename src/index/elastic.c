@@ -149,11 +149,19 @@ void *create_bulk_buffer(int max, int *count, size_t *buf_len, int legacy) {
             buf_cur += line_len;
 
         } else if (line->type == ES_BULK_LINE_DELETE) {
-            snprintf(
-                    action_str, sizeof(action_str),
-                    "{\"delete\":{\"_id\":\"%s\",\"_index\":\"%s\"}}\n",
-                    line->sid, Indexer->es_index
-            );
+            if (legacy) {
+                snprintf(
+                        action_str, sizeof(action_str),
+                        "{\"delete\":{\"_id\":\"%s\",\"_type\":\"_doc\",\"_index\":\"%s\"}}\n",
+                        line->sid, Indexer->es_index
+                );
+            } else {
+                snprintf(
+                        action_str, sizeof(action_str),
+                        "{\"delete\":{\"_id\":\"%s\",\"_index\":\"%s\"}}\n",
+                        line->sid, Indexer->es_index
+                );
+            }
 
             size_t action_str_len = strlen(action_str);
             GROW_BUF(action_str_len);
@@ -248,6 +256,7 @@ void _elastic_flush(int max) {
 
         if (max <= 1) {
             LOG_ERRORF("elastic.c", "Single document too large, giving up: {%s}", Indexer->line_head->sid);
+            __atomic_fetch_add(&IndexCtx.dropped, 1, __ATOMIC_RELAXED);
             free_response(r);
             free(buf);
             free_queue(1);
@@ -276,6 +285,7 @@ void _elastic_flush(int max) {
     } else if (r->status_code != 200) {
         print_errors(r);
         LOG_ERRORF("elastic.c", "Dropped %d documents after a <%d> response", Indexer->queued, r->status_code);
+        __atomic_fetch_add(&IndexCtx.dropped, Indexer->queued, __ATOMIC_RELAXED);
         free_queue(Indexer->queued);
 
     } else {
@@ -284,6 +294,7 @@ void _elastic_flush(int max) {
 
         if (rejected != 0) {
             LOG_ERRORF("elastic.c", "Elasticsearch rejected %d of %d documents", rejected, count);
+            __atomic_fetch_add(&IndexCtx.dropped, rejected, __ATOMIC_RELAXED);
         }
 
         LOG_DEBUGF("elastic.c", "Indexed %d documents (%zukB) <%d>", count - rejected, buf_len / 1024,
@@ -430,6 +441,30 @@ es_version_t *elastic_get_version(const char *es_url, int insecure) {
     return version;
 }
 
+/** The bundled mappings, minus what this Elasticsearch version has no handler for. Caller frees. */
+static char *elastic_mappings(es_version_t *es_version) {
+    cJSON *mappings = cJSON_Parse(mappings_json);
+    cJSON *properties = cJSON_GetObjectItem(mappings, "properties");
+
+    if (!HAS_DENSE_VECTOR(es_version)) {
+        // The embedding fields are dense_vector, which only exists from 7.0 on. Dropping them costs
+        // this index embeddings search and nothing else.
+        cJSON *property = properties->child;
+        while (property != NULL) {
+            cJSON *next = property->next;
+            if (strncmp(property->string, "emb.", 4) == 0) {
+                cJSON_DeleteItemFromObject(properties, property->string);
+            }
+            property = next;
+        }
+    }
+
+    char *json = cJSON_PrintUnformatted(mappings);
+    cJSON_Delete(mappings);
+
+    return json;
+}
+
 void elastic_init(int force_reset, const char *user_mappings, const char *user_settings) {
 
     es_version_t *es_version = elastic_get_version(IndexCtx.es_url, IndexCtx.es_insecure_ssl);
@@ -496,20 +531,25 @@ void elastic_init(int force_reset, const char *user_mappings, const char *user_s
         }
         free_response(r);
 
+        // The analysis settings above only go in while the index is closed, but a mapping only goes
+        // in while it is open: Elasticsearch 6 answers index_closed_exception, 7 lets it through.
+        snprintf(url, sizeof(url), "%s/%s/_open", IndexCtx.es_url, IndexCtx.es_index);
+        r = web_post(url, "", IndexCtx.es_insecure_ssl);
+        LOG_INFOF("elastic.c", "Open index <%d>", r->status_code);
+        free_response(r);
+
         mappings_url(url, sizeof(url));
 
-        r = web_put(url, user_mappings ? user_mappings : mappings_json, IndexCtx.es_insecure_ssl);
+        char *mappings = user_mappings ? NULL : elastic_mappings(es_version);
+
+        r = web_put(url, user_mappings ? user_mappings : mappings, IndexCtx.es_insecure_ssl);
         LOG_INFOF("elastic.c", "Update ES mappings <%d>", r->status_code);
         if (r->status_code != 200) {
             print_error(r);
             LOG_FATAL("elastic.c", "Could not update user mappings");
         }
         free_response(r);
-
-        snprintf(url, sizeof(url), "%s/%s/_open", IndexCtx.es_url, IndexCtx.es_index);
-        r = web_post(url, "", IndexCtx.es_insecure_ssl);
-        LOG_INFOF("elastic.c", "Open index <%d>", r->status_code);
-        free_response(r);
+        cJSON_free(mappings);
     }
 }
 

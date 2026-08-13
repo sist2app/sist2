@@ -380,7 +380,14 @@ void sist2_index(index_args_t *args) {
 
     if (IndexCtx.needs_es_connection) {
         finish_indexer(desc->id);
-        elastic_set_indexed_version(desc->id, source_version);
+
+        // Saving the version would make the next run skip the documents this one failed to push
+        if (IndexCtx.dropped == 0) {
+            elastic_set_indexed_version(desc->id, source_version);
+        } else {
+            LOG_WARNINGF("main.c", "%d documents did not make it in, the next run will push them again",
+                         IndexCtx.dropped);
+        }
     }
     free(desc);
 }

@@ -24,6 +24,8 @@ typedef struct {
 
 #define IS_SUPPORTED_ES_VERSION(es_version) ((es_version) != NULL && VERSION_GE((es_version), 6, 8) && VERSION_LT((es_version), 9, 0))
 #define IS_LEGACY_VERSION(es_version) ((es_version) != NULL && VERSION_LT((es_version), 7, 14))
+// dense_vector fields, and the mappings that declare them, only exist from 7.0 on
+#define HAS_DENSE_VECTOR(es_version) ((es_version) != NULL && VERSION_GE((es_version), 7, 0))
 #define HAS_KNN(es_version) ((es_version) != NULL && VERSION_GE((es_version), 8, 0))
 
 

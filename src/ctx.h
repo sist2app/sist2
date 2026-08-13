@@ -75,6 +75,8 @@ typedef struct {
      * Set to false when using --print
      */
     int needs_es_connection;
+    /** Documents Elasticsearch did not take, summed across the indexing threads */
+    int dropped;
 } IndexCtx_t;
 
 typedef struct {
