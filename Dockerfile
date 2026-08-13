@@ -22,25 +22,32 @@ RUN git clone https://github.com/microsoft/vcpkg /vcpkg \
 
 WORKDIR /build
 
-# Dependencies first: this layer is the expensive one and only rebuilds when the manifest changes
+# Dependencies first: this layer is the expensive one and only rebuilds when the manifest changes.
+# The -release triplets skip the debug half of every port, which nothing in the image links against.
+ARG TARGETARCH
 COPY vcpkg.json .
 COPY overlay-ports overlay-ports
 RUN --mount=type=cache,target=/root/.cache/vcpkg \
-    /vcpkg/vcpkg install --x-manifest-root=/build --x-install-root=/build/vcpkg_installed
+    case "${TARGETARCH}" in \
+        amd64) triplet=x64-linux-release ;; \
+        arm64) triplet=arm64-linux-release ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && /vcpkg/vcpkg install --triplet="${triplet}" --x-manifest-root=/build --x-install-root=/build/vcpkg_installed
 
 COPY . .
 
 RUN cd sist2-vue && npm install && npm run build
 RUN cd sist2-admin && npm install && npm run build
 
-ARG TARGETARCH
 RUN case "${TARGETARCH}" in \
-        amd64) platform=x64_linux_musl ;; \
-        arm64) platform=arm64_linux_musl ;; \
+        amd64) platform=x64_linux_musl; triplet=x64-linux-release ;; \
+        arm64) platform=arm64_linux_musl; triplet=arm64-linux-release ;; \
         *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
     && cmake -B build \
         "-DSIST_PLATFORM=${platform}" \
+        "-DVCPKG_TARGET_TRIPLET=${triplet}" \
         -DSIST_DEBUG=off \
         -DSIST_DEBUG_INFO=on \
         -DBUILD_TESTS=off \
