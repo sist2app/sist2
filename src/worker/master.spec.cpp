@@ -76,6 +76,27 @@ protected:
         return result;
     }
 
+    std::string checksum(const std::string &path) {
+        sqlite3 *db;
+        if (sqlite3_open(index.c_str(), &db) != SQLITE_OK) {
+            return "";
+        }
+
+        sqlite3_stmt *stmt;
+        sqlite3_prepare_v2(db, "SELECT json_data ->> 'checksum' FROM document WHERE path = ?", -1, &stmt, nullptr);
+        sqlite3_bind_text(stmt, 1, path.c_str(), -1, SQLITE_STATIC);
+
+        std::string result;
+        if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_type(stmt, 0) != SQLITE_NULL) {
+            result = (const char *) sqlite3_column_text(stmt, 0);
+        }
+
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+
+        return result;
+    }
+
     /** Only the text files created by SetUp(), so that the archive and its members do not count */
     int text_file_count() {
         return count("parent IS NULL AND path LIKE '%.txt'");
@@ -172,4 +193,25 @@ TEST_F(ScanMasterTest, IncrementalScanKeepsUnchangedArchiveMembers) {
     // And again, to make sure the second pass is stable too
     ASSERT_EQ(scan("", 4, "--incremental"), 0);
     ASSERT_EQ(document_count(), documents);
+}
+
+/**
+ * The same bytes must hash the same however they were read: straight off the disk, after libmagic
+ * peeked at the head, or out of an archive.
+ */
+TEST_F(ScanMasterTest, ChecksumDoesNotDependOnHowTheFileWasRead) {
+    const std::string content = "the gzip member content marker\n";
+
+    std::ofstream(dir / "files" / "on-disk.txt") << content;
+    // No known extension, so the mime type comes from libmagic reading the head first
+    std::ofstream(dir / "files" / "on-disk.qqq") << content;
+    fs::copy(fs::path(SIST2_TEST_FILES_DIR) / "arc" / "text.txt.gz", dir / "files" / "text.txt.gz");
+
+    ASSERT_EQ(scan("", 4, "--checksums"), 0);
+
+    const std::string expected = checksum("on-disk.txt");
+
+    ASSERT_FALSE(expected.empty());
+    ASSERT_EQ(checksum("on-disk.qqq"), expected);
+    ASSERT_EQ(checksum("text.txt.gz#/text.txt"), expected);
 }

@@ -113,6 +113,12 @@ int arc_read_rewindable(struct vfile *f, void *buf, size_t size) {
         return -1;
     }
 
+    // The parser reads these bytes again from the rewind buffer, where they are not digested
+    if (bytes_read != 0 && f->calculate_checksum) {
+        f->has_checksum = TRUE;
+        safe_digest_update(f->sha1_ctx, (unsigned char *) buf, bytes_read);
+    }
+
     f->rewind_buffer = malloc(size);
     f->rewind_buffer_size = (int) size;
     f->rewind_buffer_cursor = 0;
@@ -200,7 +206,7 @@ scan_code_t parse_archive(scan_arc_ctx_t *ctx, vfile_t *f, document_t *doc, pcre
 
     } else {
 
-        parse_job_t *sub_job = malloc(sizeof(parse_job_t));
+        parse_job_t *sub_job = calloc(1, sizeof(parse_job_t));
 
         sub_job->vfile.close = arc_close;
         sub_job->vfile.read = arc_read;
@@ -285,6 +291,10 @@ scan_code_t parse_archive(scan_arc_ctx_t *ctx, vfile_t *f, document_t *doc, pcre
                     sub_job->ext = (int) strlen(sub_job->filepath);
                 }
 
+                // sub_job is reused for every entry
+                sub_job->vfile.has_checksum = FALSE;
+                sub_job->vfile.read_offset = 0;
+                sub_job->vfile.digested_bytes = 0;
                 sub_job->vfile.sha1_ctx = EVP_MD_CTX_new();
                 EVP_DigestInit(sub_job->vfile.sha1_ctx, EVP_sha1());
 

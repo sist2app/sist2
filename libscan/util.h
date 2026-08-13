@@ -359,7 +359,7 @@ static inline void safe_digest_update(EVP_MD_CTX *ctx, void *buf, size_t size) {
 }
 
 static inline parse_job_t *create_parse_job(const char *filepath, int mtime, size_t st_size) {
-    parse_job_t *job = (parse_job_t *) malloc(sizeof(parse_job_t));
+    parse_job_t *job = (parse_job_t *) calloc(1, sizeof(parse_job_t));
 
     job->parent[0] = '\0';
 
@@ -384,9 +384,6 @@ static inline parse_job_t *create_parse_job(const char *filepath, int mtime, siz
 
     job->vfile.fd = -1;
     job->vfile.is_fs_file = TRUE;
-    job->vfile.has_checksum = FALSE;
-    job->vfile.rewind_buffer_size = 0;
-    job->vfile.rewind_buffer = NULL;
 
     return job;
 }

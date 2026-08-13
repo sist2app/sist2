@@ -151,6 +151,9 @@ typedef struct vfile {
 
     EVP_MD_CTX *sha1_ctx;
     unsigned char sha1_digest[SHA1_DIGEST_LENGTH];
+    // Reading a file twice (mime detection, then parsing) must not digest its head twice
+    long read_offset;
+    long digested_bytes;
 
     void *rewind_buffer;
     int rewind_buffer_size;
