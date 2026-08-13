@@ -168,7 +168,7 @@ cJSON *database_get_stats(database_t *db, database_stat_type_d type);
 
 void database_fts_attach(database_t *db, const char *fts_database_path);
 
-void database_fts_index(database_t *db);
+void database_fts_index(database_t *db, int rebuild);
 
 void database_fts_optimize(database_t *db);
 

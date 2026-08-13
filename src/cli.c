@@ -446,6 +446,8 @@ int sqlite_index_args_validate(sqlite_index_args_t *args, int argc, const char *
 
     LOG_DEBUGF("cli.c", "arg index_path=%s", args->index_path);
     LOG_DEBUGF("cli.c", "arg search_index_path=%s", args->search_index_path);
+    LOG_DEBUGF("cli.c", "arg rebuild=%d", args->rebuild);
+    LOG_DEBUGF("cli.c", "arg optimize=%d", args->optimize);
 
     return 0;
 }

@@ -43,12 +43,146 @@ int database_fts_get_max_path_depth(database_t *db) {
     return max_depth;
 }
 
-void database_fts_index(database_t *db) {
+static long long fts_scalar(database_t *db, const char *sql, long long fallback) {
+    sqlite3_stmt *stmt;
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL));
 
-    LOG_INFO("database_fts.c", "Creating content table");
+    long long value = fallback;
+    int ret = sqlite3_step(stmt);
+    CRASH_IF_STMT_FAIL(ret);
 
-    CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+    if (ret == SQLITE_ROW && sqlite3_column_type(stmt, 0) != SQLITE_NULL) {
+        value = sqlite3_column_int64(stmt, 0);
+    }
+
+    sqlite3_finalize(stmt);
+
+    return value;
+}
+
+static void fts_exec_with_version(database_t *db, const char *sql, long long version) {
+    sqlite3_stmt *stmt;
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL));
+    sqlite3_bind_int64(stmt, 1, version);
+    CRASH_IF_STMT_FAIL(sqlite3_step(stmt));
+    sqlite3_finalize(stmt);
+}
+
+static void fts_set_state(database_t *db, long long version, int dirty, long long documents) {
+    sqlite3_stmt *stmt;
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
             db->db,
+            "INSERT INTO fts.index_state (index_id, version, dirty, documents)"
+            " VALUES ((SELECT id FROM descriptor), ?, ?, ?)"
+            " ON CONFLICT (index_id) DO UPDATE SET version=excluded.version, dirty=excluded.dirty,"
+            "  documents=excluded.documents",
+            -1, &stmt, NULL));
+    sqlite3_bind_int64(stmt, 1, version);
+    sqlite3_bind_int(stmt, 2, dirty);
+    sqlite3_bind_int64(stmt, 3, documents);
+    CRASH_IF_STMT_FAIL(sqlite3_step(stmt));
+    sqlite3_finalize(stmt);
+}
+
+void database_fts_index(database_t *db, int rebuild) {
+
+    // An index database created by an older version does not have it, and finding the changed
+    // documents without it means scanning the whole document table
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+            db->db, "CREATE INDEX IF NOT EXISTS document_version_idx ON document(version);",
+            NULL, NULL, NULL));
+
+    long long source_version = fts_scalar(db, "SELECT max(id) FROM version", 0);
+    long long indexed_version = fts_scalar(
+            db,
+            "SELECT version FROM fts.index_state"
+            " WHERE index_id = (SELECT id FROM descriptor) AND dirty = 0",
+            0);
+    long long own_documents = fts_scalar(
+            db, "SELECT documents FROM fts.index_state WHERE index_id = (SELECT id FROM descriptor)", 0);
+    long long all_documents = fts_scalar(db, "SELECT sum(documents) FROM fts.index_state", 0);
+
+    // Documents keep the version of the scan that last wrote them, so anything above the version
+    // this search index was built from is what needs to be re-tokenised.
+    int incremental = !rebuild && indexed_version > 0 && indexed_version <= source_version;
+
+    if (!incremental) {
+        indexed_version = 0;
+    }
+
+    fts_set_state(db, indexed_version, TRUE, own_documents);
+
+    long long changed = 0;
+
+    if (incremental) {
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+                db->db,
+                "CREATE TEMP TABLE fts_changed (id INTEGER PRIMARY KEY);", NULL, NULL, NULL));
+
+        fts_exec_with_version(
+                db,
+                "INSERT INTO fts_changed (id)"
+                " SELECT ((SELECT id FROM descriptor) << 32) | id FROM document WHERE version > ?",
+                indexed_version);
+
+        changed = fts_scalar(db, "SELECT count(*) FROM fts_changed", 0);
+
+        // Deleting a row one at a time costs more than re-tokenising it, so past a certain share of
+        // the index it is cheaper to throw the whole search table away and start over.
+        if (changed * 2 > all_documents) {
+            LOG_DEBUGF("database_fts.c", "%lld of %lld documents changed, rebuilding instead",
+                       changed, all_documents);
+            incremental = FALSE;
+            indexed_version = 0;
+
+            CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, "DROP TABLE fts_changed;", NULL, NULL, NULL));
+        }
+    }
+
+    if (!incremental) {
+        changed = fts_scalar(db, "SELECT count(*) FROM document WHERE version > 0", 0);
+    }
+
+    LOG_INFOF("database_fts.c", "Creating content table (%s, source version %lld, indexed version %lld)",
+              incremental ? "incremental" : "full", source_version, indexed_version);
+
+    long long new_documents = 0;
+
+    if (incremental) {
+        new_documents = fts_scalar(
+                db,
+                "SELECT count(*) FROM fts_changed"
+                " WHERE NOT EXISTS (SELECT 1 FROM fts.document_index d WHERE d.id = fts_changed.id)", 0);
+
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+                db->db,
+                "INSERT OR IGNORE INTO fts_changed (id)"
+                " SELECT ((SELECT id FROM descriptor) << 32) | id FROM delete_list;", NULL, NULL, NULL));
+
+        changed = fts_scalar(db, "SELECT count(*) FROM fts_changed", 0);
+
+        if (changed == 0) {
+            LOG_INFO("database_fts.c", "Search index is up to date");
+
+            CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, "DROP TABLE fts_changed;", NULL, NULL, NULL));
+            fts_set_state(db, source_version, FALSE, own_documents);
+            return;
+        }
+
+        LOG_DEBUG("database_fts.c", "Removing changed documents from the search index");
+
+        // The search table has external content, so removing a row means handing fts5 the values it
+        // was indexed with. They are still in document_index, which is only updated below.
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+                db->db,
+                "INSERT INTO search(search, rowid, name, content, title, path)"
+                " SELECT 'delete', id, name, content, title, path FROM document_view"
+                " WHERE id IN (SELECT id FROM fts_changed);",
+                NULL, NULL, NULL));
+    }
+
+    fts_exec_with_version(
+            db,
             "WITH docs AS ("
             " SELECT "
             "  ((SELECT id FROM descriptor) << 32) | document.id as id,"
@@ -62,13 +196,14 @@ void database_fts_index(database_t *db) {
             "  document.json_data"
             " FROM document"
             " LEFT JOIN mime m ON m.id=document.mime"
+            " WHERE document.version > ?"
             " )"
             " INSERT"
             " INTO fts.document_index (id, index_id, size, name, path, mtime, mime, thumbnail_count, json_data)"
             " SELECT * FROM docs WHERE true"
             " on conflict (id) do update set "
             "  size=excluded.size, mtime=excluded.mtime, mime=excluded.mime, json_data=excluded.json_data;",
-            NULL, NULL, NULL));
+            indexed_version);
 
     LOG_DEBUG("database_fts.c", "Copying embeddings");
 
@@ -77,11 +212,12 @@ void database_fts_index(database_t *db) {
             "REPLACE INTO fts.model (id, size)"
             " SELECT id, size FROM model", NULL, NULL, NULL));
 
-    CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
-            db->db,
+    fts_exec_with_version(
+            db,
             "REPLACE INTO fts.embedding (id, model_id, start, end, embedding)"
             " SELECT (SELECT id FROM descriptor) << 32 | id, model_id, start, end, embedding FROM embedding "
-            " WHERE TRUE ON CONFLICT (id, model_id, start) DO NOTHING;", NULL, NULL, NULL));
+            " WHERE id IN (SELECT id FROM document WHERE version > ?)"
+            " ON CONFLICT (id, model_id, start) DO NOTHING;", indexed_version);
 
     // TODO: delete old embeddings
 
@@ -90,9 +226,11 @@ void database_fts_index(database_t *db) {
     CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
             db->db,
             "DELETE FROM fts.document_index"
-            " WHERE id IN (SELECT id FROM delete_list)"
-            "  AND index_id = (SELECT id FROM descriptor);",
+            " WHERE index_id = (SELECT id FROM descriptor)"
+            "  AND id IN (SELECT ((SELECT id FROM descriptor) << 32) | id FROM delete_list);",
             NULL, NULL, NULL));
+
+    long long deleted_documents = sqlite3_changes(db->db);
 
     LOG_DEBUG("database_fts.c", "Generating summary stats");
     CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
@@ -132,8 +270,8 @@ void database_fts_index(database_t *db) {
     CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
             db->db,
             "INSERT INTO path_tmp (path, index_id, count, depth)"
-            " SELECT path, index_id, count(*), CASE WHEN length(json_data->>'path') == 0 THEN 0"
-            " ELSE 1 + length(json_data->>'path') - length(REPLACE(json_data->>'path', '/', ''))"
+            " SELECT path, index_id, count(*), CASE WHEN length(path) == 0 THEN 0"
+            " ELSE 1 + length(path) - length(REPLACE(path, '/', ''))"
             " END as depth FROM document_index WHERE depth > 0"
             " GROUP BY path", NULL, NULL, NULL));
 
@@ -154,6 +292,8 @@ void database_fts_index(database_t *db) {
         CRASH_IF_STMT_FAIL(sqlite3_step(stmt));
 
         LOG_DEBUGF("database_fts.c", "Path index depth %d (%d)", i, sqlite3_changes(db->db));
+
+        sqlite3_finalize(stmt);
     }
 
     CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
@@ -164,15 +304,33 @@ void database_fts_index(database_t *db) {
 
     LOG_DEBUG("database_fts.c", "Generating search index");
 
-    CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
-            db->db, "INSERT INTO search(search) VALUES ('delete-all')",
-            NULL, NULL, NULL));
+    if (incremental) {
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+                db->db,
+                "INSERT INTO search(rowid, name, content, title, path) "
+                "SELECT id, name, content, title, path from document_view "
+                "WHERE id IN (SELECT id FROM fts_changed)",
+                NULL, NULL, NULL));
+    } else {
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+                db->db, "INSERT INTO search(search) VALUES ('delete-all')",
+                NULL, NULL, NULL));
 
-    CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
-            db->db,
-            "INSERT INTO search(rowid, name, content, title, path) "
-            "SELECT id, name, content, title, path from document_view",
-            NULL, NULL, NULL));
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+                db->db,
+                "INSERT INTO search(rowid, name, content, title, path) "
+                "SELECT id, name, content, title, path from document_view",
+                NULL, NULL, NULL));
+    }
+
+    if (incremental) {
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, "DROP TABLE fts_changed;", NULL, NULL, NULL));
+    }
+
+    // A full run indexed every document of this index, so the changed set is the document count.
+    long long documents = incremental ? own_documents + new_documents - deleted_documents : changed;
+
+    fts_set_state(db, source_version, FALSE, documents);
 }
 
 void database_fts_optimize(database_t *db) {

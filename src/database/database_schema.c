@@ -17,9 +17,24 @@ const char *FtsDatabaseSchema =
         "   json_data TEXT NOT NULL"
         ")"STRICT";"
         ""
+        // Every row carries its json_data, so the stats/mime/path aggregates below read gigabytes
+        // unless they can be answered from an index that holds nothing else.
+        "CREATE INDEX IF NOT EXISTS document_index_mtime_idx ON document_index(mtime);"
+        "CREATE INDEX IF NOT EXISTS document_index_mime_idx ON document_index(index_id, mime);"
+        "CREATE INDEX IF NOT EXISTS document_index_path_idx ON document_index(path, index_id);"
+        ""
         "CREATE TABLE IF NOT EXISTS stats ("
         "   mtime_min INTEGER,"
         "   mtime_max INTEGER"
+        ")"STRICT";"
+        ""
+        // Highest source version that made it into the search index, per index. dirty=1 means an
+        // update is in flight, so the next run cannot trust the contents and rebuilds instead.
+        "CREATE TABLE IF NOT EXISTS index_state ("
+        "   index_id INTEGER PRIMARY KEY,"
+        "   version INTEGER NOT NULL,"
+        "   dirty INTEGER NOT NULL,"
+        "   documents INTEGER NOT NULL"
         ")"STRICT";"
         ""
         "CREATE TABLE IF NOT EXISTS path_index ("
@@ -127,6 +142,8 @@ const char *IndexDatabaseSchema =
         "   json_data TEXT CHECK ( json_data IS NULL OR json_valid(json_data) )"
         ")"STRICT";"
         "CREATE UNIQUE INDEX document_path_idx ON document(path);"
+        // What an incremental search index build selects on
+        "CREATE INDEX document_version_idx ON document(version);"
         "CREATE TABLE marked ("
         "   id INTEGER PRIMARY KEY,"
         "   marked INTEGER NOT NULL,"

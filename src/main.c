@@ -385,8 +385,11 @@ void sist2_sqlite_index(sqlite_index_args_t *args) {
 
     database_fts_attach(db, args->search_index_path);
 
-    database_fts_index(db);
-    database_fts_optimize(db);
+    database_fts_index(db, args->rebuild);
+
+    if (args->optimize) {
+        database_fts_optimize(db);
+    }
 
     database_close(db, FALSE);
 }
@@ -568,6 +571,10 @@ int main(int argc, const char *argv[]) {
             OPT_GROUP("sqlite-index options"),
             OPT_STRING(0, "search-index", &common_search_index,
                        "Path to search index. Will be created if it does not exist yet."),
+            OPT_BOOLEAN(0, "rebuild", &sqlite_index_args->rebuild,
+                        "Rebuild the whole search index instead of only applying the changes since the last run."),
+            OPT_BOOLEAN(0, "optimize", &sqlite_index_args->optimize,
+                        "Merge the search index into a single b-tree when done. Slow, and rarely worth it."),
 
             OPT_GROUP("Web options"),
             OPT_STRING(0, "es-url", &common_es_url, "Elasticsearch url. DEFAULT: http://localhost:9200"),
