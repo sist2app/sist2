@@ -339,7 +339,10 @@ fts_search_paths_req_t *get_search_paths_req(struct mg_http_message *hm) {
     fts_search_paths_req_t *req = malloc(sizeof(fts_search_paths_req_t));
 
     req->index_id = req_index_id.val ? req_index_id.val->valueint : 0;
-    req->prefix = req_prefix.val ? strdup(req_prefix.val->valuestring) : NULL;
+    // An empty prefix means the root of the tree, same as no prefix at all
+    req->prefix = req_prefix.val && req_prefix.val->valuestring[0] != '\0'
+                  ? strdup(req_prefix.val->valuestring)
+                  : NULL;
     req->min_depth = req_min_depth.val->valueint;
     req->max_depth = req_max_depth.val->valueint;
 
