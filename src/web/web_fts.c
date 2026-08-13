@@ -273,7 +273,9 @@ fts_search_req_t *get_search_req(struct mg_http_message *hm) {
                                   : DEFAULT_HIGHLIGHT_CONTEXT_SIZE;
     req->model = req_model.val ? req_model.val->valueint : 0;
 
-    if (req_search_in_path.val->valueint == FALSE && req_query.val) {
+    int search_in_path = req_search_in_path.val ? req_search_in_path.val->valueint : FALSE;
+
+    if (search_in_path == FALSE && req_query.val) {
         if (asprintf(&req->query, "- path : %s", req_query.val->valuestring) == -1) {
             cJSON_Delete(json);
             return NULL;
