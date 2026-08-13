@@ -370,6 +370,11 @@ char *build_where_clause(const char *path_where, const char *size_where, const c
 char *index_ids_where_clause(int *index_ids) {
     int param_count = int_array_length(index_ids);
 
+    if (param_count == 0) {
+        // Always the first term of the where clause, so it cannot be omitted
+        return strdup("1");
+    }
+
     char *clause = malloc(13 + 2 + 6 * param_count);
 
     strcpy(clause, "index_id IN (");
