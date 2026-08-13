@@ -21,6 +21,14 @@ void database_fts_attach(database_t *db, const char *fts_database_path) {
 
     CRASH_IF_STMT_FAIL(sqlite3_step(stmt));
     sqlite3_finalize(stmt);
+
+    // Unqualified PRAGMAs only reach the main database, so the attached search
+    // index keeps the default synchronous=FULL and fsyncs its way through the
+    // whole FTS build.
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, "PRAGMA fts.synchronous = OFF;",
+                                        NULL, NULL, NULL));
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, "PRAGMA fts.journal_mode = MEMORY;",
+                                        NULL, NULL, NULL));
 }
 
 int database_fts_get_max_path_depth(database_t *db) {
