@@ -171,10 +171,13 @@ void *create_bulk_buffer(int max, int *count, size_t *buf_len, int legacy) {
     return buf;
 }
 
-void print_errors(response_t *r) {
+/** Number of documents Elasticsearch rejected within an otherwise successful bulk request */
+int print_errors(response_t *r) {
     char *tmp = malloc(r->size + 1);
     memcpy(tmp, r->body, r->size);
     *(tmp + r->size) = '\0';
+
+    int rejected = 0;
 
     cJSON *ret_json = cJSON_Parse(tmp);
     cJSON *errors = cJSON_GetObjectItem(ret_json, "errors");
@@ -190,6 +193,8 @@ void print_errors(response_t *r) {
             int status = cJSON_GetObjectItem(cJSON_GetObjectItem(err, "index"), "status")->valueint;
 
             if (status != 201 && status != 200) {
+                rejected += 1;
+
                 char *str = cJSON_Print(err);
                 LOG_ERRORF("elastic.c", "%s\n", str);
                 cJSON_free(str);
@@ -198,6 +203,8 @@ void print_errors(response_t *r) {
     }
     cJSON_Delete(ret_json);
     free(tmp);
+
+    return rejected;
 }
 
 void print_error(response_t *r) {
@@ -217,8 +224,8 @@ void print_error(response_t *r) {
 
 void _elastic_flush(int max) {
 
+    // Every indexing thread flushes its own queue, so an empty one is business as usual
     if (max == 0) {
-        LOG_WARNING("elastic.c", "calling _elastic_flush with 0 in queue");
         return;
     }
 
@@ -265,12 +272,19 @@ void _elastic_flush(int max) {
 
     } else if (r->status_code != 200) {
         print_errors(r);
+        LOG_ERRORF("elastic.c", "Dropped %d documents after a <%d> response", Indexer->queued, r->status_code);
         free_queue(Indexer->queued);
 
     } else {
 
-        print_errors(r);
-        LOG_DEBUGF("elastic.c", "Indexed %d documents (%zukB) <%d>", count, buf_len / 1024, r->status_code);
+        const int rejected = print_errors(r);
+
+        if (rejected != 0) {
+            LOG_ERRORF("elastic.c", "Elasticsearch rejected %d of %d documents", rejected, count);
+        }
+
+        LOG_DEBUGF("elastic.c", "Indexed %d documents (%zukB) <%d>", count - rejected, buf_len / 1024,
+                   r->status_code);
         free_queue(max);
 
         if (Indexer->queued != 0) {
