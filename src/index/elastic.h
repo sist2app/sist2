@@ -57,6 +57,11 @@ void finish_indexer(int index_id);
 
 void elastic_init(int force_reset, const char* user_mappings, const char* user_settings);
 
+/** Source version this Elasticsearch index was last filled from, 0 if it holds nothing yet */
+long long elastic_get_indexed_version(int index_id);
+
+void elastic_set_indexed_version(int index_id, long long version);
+
 cJSON *elastic_get_document(const char *id_str);
 
 char *elastic_get_status();

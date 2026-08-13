@@ -136,6 +136,11 @@ _staging/
 ```bash
 sist2 index --force-reset --batch-size 1000 --es-url http://localhost:9200 ./my_index.sist2
 sist2 index ./my_index.sist2
+
+# Only the documents written by a later scan are pushed again. Use --force-reset to
+# recreate the Elasticsearch index and push everything.
+sist2 scan --incremental -o ./my_index.sist2 /path/to/files
+sist2 index ./my_index.sist2
 ```
 
 #### Index documents to SQLite search backend

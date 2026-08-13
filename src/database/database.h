@@ -101,6 +101,8 @@ void database_close(database_t *, int optimize);
 
 void database_increment_version(database_t *db);
 
+long long database_get_version(database_t *db);
+
 void database_write_thumbnail(database_t *db, int doc_id, int num, void *data, size_t data_size);
 
 void *database_read_thumbnail(database_t *db, int doc_id, int num, size_t *return_value_len);
@@ -113,7 +115,7 @@ int database_write_document(database_t *db, document_t *doc, const char *json_da
 
 void database_flush_writes(database_t *db);
 
-database_iterator_t *database_create_document_iterator(database_t *db);
+database_iterator_t *database_create_document_iterator(database_t *db, long long min_version);
 
 void emb_to_json_func(sqlite3_context *ctx, int argc, sqlite3_value **argv);
 

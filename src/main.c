@@ -336,7 +336,15 @@ void sist2_index(index_args_t *args) {
 
     db = database_create(args->index_path, INDEX_DATABASE);
     database_open(db);
-    database_iterator_t *iterator = database_create_document_iterator(db);
+
+    long long source_version = database_get_version(db);
+    long long indexed_version = IndexCtx.needs_es_connection ? elastic_get_indexed_version(desc->id) : 0;
+
+    if (indexed_version > 0) {
+        LOG_INFOF("main.c", "Pushing the documents written since version %lld", indexed_version);
+    }
+
+    database_iterator_t *iterator = database_create_document_iterator(db, indexed_version);
     database_document_iter_foreach(json, iterator) {
         char sid[SIST_SID_LEN];
         int doc_id = cJSON_GetObjectItem(json, "_id")->valueint;
@@ -372,6 +380,7 @@ void sist2_index(index_args_t *args) {
 
     if (IndexCtx.needs_es_connection) {
         finish_indexer(desc->id);
+        elastic_set_indexed_version(desc->id, source_version);
     }
     free(desc);
 }

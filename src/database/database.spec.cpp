@@ -105,7 +105,7 @@ TEST_F(DatabaseTest, DocumentIteratorReturnsWrittenDocuments) {
     document_t doc = make_document("folder/file.txt");
     database_write_document(db, &doc, R"({"name": "file.txt", "extension": "txt"})");
 
-    database_iterator_t *iter = database_create_document_iterator(db);
+    database_iterator_t *iter = database_create_document_iterator(db, 0);
 
     cJSON *row = database_document_iter(iter);
 

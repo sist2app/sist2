@@ -498,7 +498,7 @@ int database_delete_list_iter(database_iterator_t *iter) {
     return 0;
 }
 
-database_iterator_t *database_create_document_iterator(database_t *db) {
+database_iterator_t *database_create_document_iterator(database_t *db, long long min_version) {
 
     sqlite3_stmt *stmt;
 
@@ -519,6 +519,7 @@ database_iterator_t *database_create_document_iterator(database_t *db) {
                     " FROM document"
                     "  LEFT JOIN mime mim ON mim.id = document.mime"
                     "  LEFT JOIN tag t ON t.id = document.id"
+                    " WHERE document.version > ?"
                     " GROUP BY document.id)"
                     "SELECT CASE"
                     " WHEN emb.embedding IS NULL THEN j"
@@ -531,6 +532,8 @@ database_iterator_t *database_create_document_iterator(database_t *db) {
                     " LEFT JOIN model m ON emb.model_id = m.id"
                     " GROUP BY doc.id",
                     -1, &stmt, NULL));
+
+    sqlite3_bind_int64(stmt, 1, min_version);
 
     database_iterator_t *iter = malloc(sizeof(database_iterator_t));
 
@@ -792,6 +795,17 @@ int database_get_parent_id(database_t *db, int doc_id) {
 void database_increment_version(database_t *db) {
     CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
             db->db, "INSERT INTO version DEFAULT VALUES", NULL, NULL, NULL));
+}
+
+long long database_get_version(database_t *db) {
+    sqlite3_stmt *stmt;
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(db->db, "SELECT max(id) FROM version", -1, &stmt, NULL));
+    CRASH_IF_STMT_FAIL(sqlite3_step(stmt));
+
+    long long version = sqlite3_column_int64(stmt, 0);
+    sqlite3_finalize(stmt);
+
+    return version;
 }
 
 void database_sync_mime_table(database_t *db) {

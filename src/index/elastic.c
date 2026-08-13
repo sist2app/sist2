@@ -28,6 +28,8 @@ void elastic_flush();
 
 void print_error(response_t *r);
 
+static void mappings_url(char *url, size_t url_size);
+
 void destroy_indexer(es_indexer_t *indexer) {
 
     if (indexer == NULL) {
@@ -493,12 +495,7 @@ void elastic_init(int force_reset, const char *user_mappings, const char *user_s
         }
         free_response(r);
 
-        if (IS_LEGACY_VERSION(es_version)) {
-            snprintf(url, sizeof(url), "%s/%s/_mappings/_doc?include_type_name=true", IndexCtx.es_url,
-                     IndexCtx.es_index);
-        } else {
-            snprintf(url, sizeof(url), "%s/%s/_mappings", IndexCtx.es_url, IndexCtx.es_index);
-        }
+        mappings_url(url, sizeof(url));
 
         r = web_put(url, user_mappings ? user_mappings : mappings_json, IndexCtx.es_insecure_ssl);
         LOG_INFOF("elastic.c", "Update ES mappings <%d>", r->status_code);
@@ -513,6 +510,108 @@ void elastic_init(int force_reset, const char *user_mappings, const char *user_s
         LOG_INFOF("elastic.c", "Open index <%d>", r->status_code);
         free_response(r);
     }
+}
+
+static void mappings_url(char *url, size_t url_size) {
+    if (IS_LEGACY_VERSION(IndexCtx.es_version)) {
+        snprintf(url, url_size, "%s/%s/_mappings/_doc?include_type_name=true",
+                 IndexCtx.es_url, IndexCtx.es_index);
+    } else {
+        snprintf(url, url_size, "%s/%s/_mappings", IndexCtx.es_url, IndexCtx.es_index);
+    }
+}
+
+// The _meta section of the mappings, or NULL. It is where the versions this index was filled from
+// are kept: it lives and dies with the Elasticsearch index, so a deleted index means a full push.
+static cJSON *elastic_get_meta() {
+    char url[4096];
+    snprintf(url, sizeof(url), "%s/%s/_mapping", IndexCtx.es_url, IndexCtx.es_index);
+
+    response_t *r = web_get(url, 30, IndexCtx.es_insecure_ssl);
+
+    cJSON *meta = NULL;
+
+    if (r->status_code == 200) {
+        char *tmp = malloc(r->size + 1);
+        memcpy(tmp, r->body, r->size);
+        *(tmp + r->size) = '\0';
+        cJSON *json = cJSON_Parse(tmp);
+        free(tmp);
+
+        cJSON *index = cJSON_GetObjectItem(json, IndexCtx.es_index);
+        cJSON *mappings = index == NULL ? NULL : cJSON_GetObjectItem(index, "mappings");
+        cJSON *doc_type = mappings == NULL ? NULL : cJSON_GetObjectItem(mappings, "_doc");
+
+        if (doc_type != NULL) {
+            mappings = doc_type;
+        }
+
+        if (mappings != NULL) {
+            meta = cJSON_DetachItemFromObject(mappings, "_meta");
+        }
+
+        cJSON_Delete(json);
+    }
+
+    free_response(r);
+
+    return meta;
+}
+
+long long elastic_get_indexed_version(int index_id) {
+    cJSON *meta = elastic_get_meta();
+
+    if (meta == NULL) {
+        return 0;
+    }
+
+    char index_id_str[32];
+    snprintf(index_id_str, sizeof(index_id_str), "%d", index_id);
+
+    const cJSON *versions = cJSON_GetObjectItem(meta, "sist2_versions");
+    const cJSON *version = versions == NULL ? NULL : cJSON_GetObjectItem(versions, index_id_str);
+
+    long long indexed_version = version == NULL ? 0 : (long long) version->valuedouble;
+
+    cJSON_Delete(meta);
+
+    return indexed_version;
+}
+
+void elastic_set_indexed_version(int index_id, long long version) {
+    cJSON *meta = elastic_get_meta();
+
+    if (meta == NULL) {
+        meta = cJSON_CreateObject();
+    }
+
+    cJSON *versions = cJSON_GetObjectItem(meta, "sist2_versions");
+    if (versions == NULL) {
+        versions = cJSON_AddObjectToObject(meta, "sist2_versions");
+    }
+
+    char index_id_str[32];
+    snprintf(index_id_str, sizeof(index_id_str), "%d", index_id);
+
+    cJSON_DeleteItemFromObject(versions, index_id_str);
+    cJSON_AddNumberToObject(versions, index_id_str, (double) version);
+
+    cJSON *body = cJSON_CreateObject();
+    cJSON_AddItemToObject(body, "_meta", meta);
+    char *body_str = cJSON_PrintUnformatted(body);
+
+    char url[4096];
+    mappings_url(url, sizeof(url));
+
+    response_t *r = web_put(url, body_str, IndexCtx.es_insecure_ssl);
+    if (r->status_code != 200) {
+        print_error(r);
+        LOG_WARNING("elastic.c", "Could not save index version, the next run will push every document");
+    }
+
+    free_response(r);
+    cJSON_free(body_str);
+    cJSON_Delete(body);
 }
 
 cJSON *elastic_get_document(const char *id_str) {
