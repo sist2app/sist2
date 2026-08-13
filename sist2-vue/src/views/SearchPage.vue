@@ -234,8 +234,10 @@ export default Vue.extend({
                         return true;
                     }
 
-                    const isDupe = !this.docChecksums.has(hit._source.checksum);
-                    this.docChecksums.add(hit._source.checksum);
+                    // A checksum only covers the bytes the parser read, so pair it with the size
+                    const key = `${hit._source.checksum}:${hit._source.size}`;
+                    const isDupe = !this.docChecksums.has(key);
+                    this.docChecksums.add(key);
                     return isDupe;
                 });
             }
