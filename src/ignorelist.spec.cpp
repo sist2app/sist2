@@ -20,11 +20,18 @@ protected:
     std::string root = temp_path("ignorelist-root");
     std::string ignore_file = root + "/.sist2ignore";
     ignorelist_t *ignorelist = nullptr;
+    std::string original_tmpdir;
+    bool had_tmpdir = false;
 
     void SetUp() override {
         std::filesystem::create_directories(root);
 
         // ignorelist_create() puts its scratch git repository in $TMPDIR
+        const char *tmpdir = getenv("TMPDIR");
+        had_tmpdir = tmpdir != nullptr;
+        if (had_tmpdir) {
+            original_tmpdir = tmpdir;
+        }
         setenv("TMPDIR", root.c_str(), TRUE);
 
         ScanCtx.index.desc.root_len = (int) (root.size() + 1);
@@ -34,6 +41,14 @@ protected:
     void TearDown() override {
         ignorelist_destroy(ignorelist);
         std::filesystem::remove_all(root);
+
+        // Left pointing at the deleted directory, temp_directory_path() throws in
+        // every later suite.
+        if (had_tmpdir) {
+            setenv("TMPDIR", original_tmpdir.c_str(), TRUE);
+        } else {
+            unsetenv("TMPDIR");
+        }
     }
 
     void write_rules(const std::string &rules) {
