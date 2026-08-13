@@ -100,7 +100,7 @@ int get_mime(parse_job_t *job) {
         return 0;
     }
 
-    char *buf[MAGIC_BUF_SIZE];
+    char buf[MAGIC_BUF_SIZE];
     int bytes_read = job->vfile.read_rewindable(&job->vfile, buf, MAGIC_BUF_SIZE);
     if (bytes_read < 0) {
         if (job->vfile.is_fs_file) {
