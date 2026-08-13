@@ -165,11 +165,10 @@ jobs:
             artifacts/SHA256SUMS
           generate_release_notes: true
           body: |
-            Docker images:
+            Docker image:
 
             ```
             docker pull sist2app/sist2:${{ steps.version.outputs.version }}
-            docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
             ```
 
             The Linux binaries are fully static (musl) and run on any glibc or musl distribution.
