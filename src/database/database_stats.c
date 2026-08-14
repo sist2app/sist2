@@ -58,6 +58,11 @@ treemap_row_t database_treemap_iter(database_iterator_t *iter) {
 void database_generate_stats(database_t *db, double treemap_threshold) {
     database_flush_writes(db);
 
+    // An index database created by an older version does not have it
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+            db->db,
+            "CREATE INDEX IF NOT EXISTS document_stats_idx ON document(parent, path, size, mtime, mime);",
+            NULL, NULL, NULL));
 
     LOG_INFO("database.c", "Generating stats");
 

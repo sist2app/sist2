@@ -138,6 +138,9 @@ const char *IndexDatabaseSchema =
         "CREATE UNIQUE INDEX document_path_idx ON document(path);"
         // What an incremental search index build selects on
         "CREATE INDEX document_version_idx ON document(version);"
+        // Covers every aggregate database_generate_stats() computes, so none of them has to read
+        // the json_data of all documents to reach four integers
+        "CREATE INDEX document_stats_idx ON document(parent, path, size, mtime, mime);"
         "CREATE TABLE marked ("
         "   id INTEGER PRIMARY KEY,"
         "   marked INTEGER NOT NULL,"
