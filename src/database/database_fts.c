@@ -312,6 +312,13 @@ void database_fts_index(database_t *db, int rebuild) {
                 "WHERE id IN (SELECT id FROM fts_changed)",
                 NULL, NULL, NULL));
     } else {
+        // Merging while the whole corpus is being inserted is wasted work: the segments it merges
+        // are superseded seconds later. Off for the bulk load, back to the fts5 default after it,
+        // so the incremental runs that follow keep the segment count in check.
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+                db->db, "INSERT INTO search(search, rank) VALUES ('automerge', 0)",
+                NULL, NULL, NULL));
+
         CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
                 db->db, "INSERT INTO search(search) VALUES ('delete-all')",
                 NULL, NULL, NULL));
@@ -320,6 +327,10 @@ void database_fts_index(database_t *db, int rebuild) {
                 db->db,
                 "INSERT INTO search(rowid, name, content, title, path) "
                 "SELECT id, name, content, title, path from document_view",
+                NULL, NULL, NULL));
+
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
+                db->db, "INSERT INTO search(search, rank) VALUES ('automerge', 4)",
                 NULL, NULL, NULL));
     }
 
