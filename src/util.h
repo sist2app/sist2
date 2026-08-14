@@ -112,7 +112,9 @@ static inline int parse_sid(sist_id_t *sid, const char doc_sid_str[SIST_SID_LEN]
         return FALSE;
     }
 
-    char tmp[9];
+    // strtol reads to the terminator, so leaving the ninth byte to the stack makes the value
+    // depend on whatever was there
+    char tmp[9] = {0};
 
     memcpy(tmp, doc_sid_str, 8);
     sid->index_id = (int) strtol(tmp, NULL, 16);
