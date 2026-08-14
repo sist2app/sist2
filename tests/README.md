@@ -16,6 +16,7 @@ Suites that have no single owning source file live here instead:
 | `tests/support/`           | `ScanTest`/`ArcTest` fixtures, parser context factories, corpus helpers |
 | `tests/corpus/smoke.spec.cpp` | Parses every file of the test corpus with the parser its extension maps to |
 | `tests/corpus/fuzz.spec.cpp`  | Feeds mangled files to the parsers                                  |
+| `tests/fuzz/`                 | libFuzzer targets, built by hand (see below)                        |
 
 Spec files are globbed with `CONFIGURE_DEPENDS`, so a new one is picked up by a plain `make` —
 no CMake edit needed.
@@ -26,6 +27,27 @@ Two sets of binaries are built, each in a plain, an ASan and a UBSan variant:
 |----------------------------------------------|---------------|----------------------------------------|
 | `scan_test`, `scan_a_test`, `scan_ub_test`   | `scan`        | `libscan/**/*.spec.cpp`, `tests/corpus` |
 | `sist2_test`, `sist2_a_test`, `sist2_ub_test`| `sist2_core`  | `src/**/*.spec.cpp`                    |
+
+## Fuzzing
+
+`tests/corpus/fuzz.spec.cpp` and the `Fuzz*` specs run inside the normal suite, including its ASan
+and UBSan binaries, so a plain `ctest` covers them. Turn the rounds up with:
+
+```bash
+./build/sist2_a_test --gtest_filter='Fuzz*' --gtest_repeat=100
+```
+
+`tests/fuzz/` holds coverage-guided targets for code that reads untrusted input. They need clang
+and are not part of the CMake build:
+
+```bash
+clang -g -O1 -fsanitize=fuzzer,address,undefined -fno-sanitize-recover=all \
+    -I. -o /tmp/highlight_fuzz src/web/highlight.c tests/fuzz/highlight_fuzz.c
+/tmp/highlight_fuzz -max_total_time=60 /tmp/highlight-corpus
+```
+
+The target asserts the invariants, not just the absence of a crash: the mark tags it finds must be
+balanced and unnested, and the output with the tags removed must be a run of bytes from the input.
 
 ## Build
 

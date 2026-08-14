@@ -8,6 +8,10 @@
 #define DEFAULT_CONTEXT_WORDS 30
 #define MAX_CONTEXT_WORDS 1000
 
+// Only words count towards the window, so a document that is one long run of punctuation would
+// otherwise be copied whole, once per hit on the page
+#define MAX_HIGHLIGHT_BYTES 16384
+
 /**
  * Word characters, as close to fts5's unicode61 tokenizer as byte comparisons get: every non-ASCII
  * byte belongs to a word, so UTF-8 sequences stay whole. Case folding is ASCII-only, so a query
@@ -115,7 +119,12 @@ typedef struct {
     size_t capacity;
 } out_buf_t;
 
-static void out_append(out_buf_t *out, const char *data, size_t len) {
+/** Appends, and returns 0 once the output has reached its cap */
+static int out_append(out_buf_t *out, const char *data, size_t len) {
+    if (out->len + len > MAX_HIGHLIGHT_BYTES) {
+        return 0;
+    }
+
     while (out->len + len + 1 > out->capacity) {
         out->capacity *= 2;
         out->buf = realloc(out->buf, out->capacity);
@@ -124,10 +133,12 @@ static void out_append(out_buf_t *out, const char *data, size_t len) {
     memcpy(out->buf + out->len, data, len);
     out->len += len;
     out->buf[out->len] = '\0';
+
+    return 1;
 }
 
 char *highlight_text(const char *text, char *const *terms, int context_words) {
-    if (text == NULL || *text == '\0') {
+    if (text == NULL || *text == '\0' || terms == NULL) {
         return NULL;
     }
 
@@ -180,7 +191,9 @@ char *highlight_text(const char *text, char *const *terms, int context_words) {
 
     while (*cur != '\0' && words < context_words) {
         if (!is_word_byte((unsigned char) *cur)) {
-            out_append(&out, cur, 1);
+            if (!out_append(&out, cur, 1)) {
+                break;
+            }
             cur += 1;
             continue;
         }
@@ -190,12 +203,20 @@ char *highlight_text(const char *text, char *const *terms, int context_words) {
             cur += 1;
         }
 
-        if (word_matches(word, cur - word, terms)) {
+        // The word and the tags around it go in together, so the output never ends mid-markup
+        const size_t word_len = cur - word;
+        const int matched = word_matches(word, word_len, terms);
+
+        if (out.len + word_len + (matched ? 13 : 0) > MAX_HIGHLIGHT_BYTES) {
+            break;
+        }
+
+        if (matched) {
             out_append(&out, "<mark>", 6);
-            out_append(&out, word, cur - word);
+            out_append(&out, word, word_len);
             out_append(&out, "</mark>", 7);
         } else {
-            out_append(&out, word, cur - word);
+            out_append(&out, word, word_len);
         }
 
         words += 1;
