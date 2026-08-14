@@ -109,6 +109,7 @@ add_library(
         src/index/web.c src/index/web.h
         src/web/serve.c src/web/serve.h
         src/web/web_util.c src/web/web_util.h
+        src/web/highlight.c src/web/highlight.h
         src/index/elastic.c src/index/elastic.h
         src/util.c src/util.h
         src/ctx.c src/ctx.h

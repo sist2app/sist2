@@ -112,6 +112,8 @@ TEST_F(SqliteIndexTest, FullBuild) {
 
     EXPECT_EQ(matches("alpha"), 8);
     EXPECT_EQ(query("SELECT count(*) FROM document_index"), 8);
+    // The text lives in the index database, not in a second copy here
+    EXPECT_EQ(query("SELECT count(*) FROM document_index WHERE json_data ->> 'content' IS NOT NULL"), 0);
     EXPECT_TRUE(integrity_ok());
 }
 
@@ -178,8 +180,7 @@ TEST_F(SqliteIndexTest, InterruptedRunIsRebuilt) {
     // What a run that died halfway through leaves behind: the search index cannot be trusted, so the
     // next run has to rebuild it instead of applying changes on top
     ASSERT_TRUE(exec("UPDATE index_state SET dirty = 1;"
-                     "INSERT INTO search(search, rowid, name, content, title, path)"
-                     " SELECT 'delete', id, name, content, title, path FROM document_view;"));
+                     "DELETE FROM search WHERE rowid IN (SELECT id FROM document_index);"));
     ASSERT_EQ(matches("alpha"), 0);
 
     ASSERT_EQ(sqlite_index(), 0);

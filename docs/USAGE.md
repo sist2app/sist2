@@ -144,6 +144,11 @@ sist2 index ./my_index.sist2
 ```
 
 #### Index documents to SQLite search backend
+The search index holds no copy of the documents' text: the words are indexed, and the text they
+came from is read back from the index files when a search result needs a highlighted excerpt. Both
+files have to be reachable when `sist2 web` runs. A search index created by sist2 4.0.2 or older
+cannot be updated in place — delete it and let this command rebuild it.
+
 ```bash
 # The search index will be created if it does not exist already
 sist2 sqlite-index ./index1.sist2 --search-index search.sist2

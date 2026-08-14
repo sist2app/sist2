@@ -331,6 +331,7 @@ static void database_finalize_statements(database_t *db) {
             &db->write_document_stmt,
             &db->write_thumbnail_stmt,
             &db->get_document,
+            &db->get_content,
             &db->get_parent_id,
             &db->get_models,
             &db->get_embedding,
@@ -807,6 +808,29 @@ int database_get_parent_id(database_t *db, int doc_id) {
 void database_increment_version(database_t *db) {
     CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
             db->db, "INSERT INTO version DEFAULT VALUES", NULL, NULL, NULL));
+}
+
+/** Extracted text of a document, or NULL when it has none. Caller frees. */
+char *database_get_content(database_t *db, int doc_id) {
+    if (db->get_content == NULL) {
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
+                db->db, "SELECT json_data ->> 'content' FROM document WHERE id = ?", -1,
+                &db->get_content, NULL));
+    }
+
+    sqlite3_bind_int(db->get_content, 1, doc_id);
+
+    char *content = NULL;
+    if (sqlite3_step(db->get_content) == SQLITE_ROW) {
+        const char *text = (const char *) sqlite3_column_text(db->get_content, 0);
+        if (text != NULL) {
+            content = strdup(text);
+        }
+    }
+
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->get_content));
+
+    return content;
 }
 
 long long database_get_version(database_t *db) {

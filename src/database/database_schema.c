@@ -90,22 +90,16 @@ const char *FtsDatabaseSchema =
         "  WHERE id = OLD.id;"
         " END;"
         ""
-        "CREATE VIEW IF NOT EXISTS document_view (id, name, content, title, path)"
-        " AS"
-        " SELECT id,"
-        "  json_data->>'name',"
-        "  json_data->>'content',"
-        "  json_data->>'title',"
-        "  json_data->>'path'"
-        " FROM document_index;"
-        ""
+        // Contentless: the text is in the index database this was built from, and storing it a
+        // second time doubles the search index. contentless_delete lets rows be deleted by rowid,
+        // without handing fts5 the values it indexed.
         "CREATE VIRTUAL TABLE IF NOT EXISTS search USING fts5 ("
         "   name,"
         "   content,"
         "   title,"
         "   path,"
-        "   content='document_view',"
-        "   content_rowid='id'"
+        "   content='',"
+        "   contentless_delete=1"
         ");"
         // name^8, content^3, title^8, path^5
         "INSERT INTO search(search, rank) VALUES('rank', 'bm25(8, 3, 8, 5)');"

@@ -58,6 +58,7 @@ typedef struct database {
     sqlite3_stmt *write_document_stmt;
     sqlite3_stmt *write_thumbnail_stmt;
     sqlite3_stmt *get_document;
+    sqlite3_stmt *get_content;
     sqlite3_stmt *get_parent_id;
     sqlite3_stmt *get_models;
     sqlite3_stmt *get_embedding;
@@ -102,6 +103,8 @@ void database_close(database_t *, int optimize);
 void database_increment_version(database_t *db);
 
 long long database_get_version(database_t *db);
+
+char *database_get_content(database_t *db, int doc_id);
 
 void database_write_thumbnail(database_t *db, int doc_id, int num, void *data, size_t data_size);
 
