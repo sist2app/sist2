@@ -106,6 +106,9 @@ protected:
     /** Open a corpus file, relative to the corpus root. Fails the test if it is missing. */
     void load(const std::string &relative_path);
 
+    /** Open any file by path, for tests that write the file they need */
+    void load_path(const std::string &path);
+
     /** Read from memory instead of the filesystem. The buffer must outlive the test body. */
     void load_mem(const void *buf, size_t len);
 

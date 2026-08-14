@@ -8,6 +8,10 @@
 
 #define MAX_DECOMPRESSED_SIZE_RATIO 40.0
 
+// Archives inside archives inside archives: legitimate nesting is a handful deep, and anything
+// past that is a file built to make the scan never end
+#define MAX_ARC_DEPTH 16
+
 static const char *COMPRESSION_EXTENSIONS[] = {
         ".gz", ".tgz", ".bz2", ".tbz2", ".xz", ".txz", ".zst", ".tzst",
         ".lz", ".lz4", ".lzma", ".lzo", ".Z", ".uu", ".rpm"
@@ -16,18 +20,23 @@ static const char *COMPRESSION_EXTENSIONS[] = {
 /**
  * Name of the single member of a compressed stream: the file name without its compression
  * extension, so that the member keeps the extension the parsers dispatch on.
+ *
+ * Returns FALSE when there was no compression extension to strip, which means the member is
+ * named exactly like the file it came out of.
  */
-static void arc_raw_entry_name(const char *filepath, char *buf, size_t buf_size) {
+static int arc_raw_entry_name(const char *filepath, char *buf, size_t buf_size) {
     const char *name = strrchr(filepath, '/');
     name = name == NULL ? filepath : name + 1;
 
     size_t name_len = strlen(name);
+    int stripped = FALSE;
 
     for (size_t i = 0; i < sizeof(COMPRESSION_EXTENSIONS) / sizeof(COMPRESSION_EXTENSIONS[0]); i++) {
         size_t ext_len = strlen(COMPRESSION_EXTENSIONS[i]);
 
         if (name_len > ext_len && strcmp(name + name_len - ext_len, COMPRESSION_EXTENSIONS[i]) == 0) {
             name_len -= ext_len;
+            stripped = TRUE;
             break;
         }
     }
@@ -38,6 +47,19 @@ static void arc_raw_entry_name(const char *filepath, char *buf, size_t buf_size)
 
     memcpy(buf, name, name_len);
     buf[name_len] = '\0';
+
+    return stripped;
+}
+
+/** How many archives had to be opened to reach this file */
+static int arc_depth(const char *filepath) {
+    int depth = 0;
+
+    for (const char *p = filepath; (p = strstr(p, "#/")) != NULL; p += 2) {
+        depth += 1;
+    }
+
+    return depth;
 }
 
 void arc_close(struct vfile *f) {
@@ -170,6 +192,11 @@ scan_code_t parse_archive(scan_arc_ctx_t *ctx, vfile_t *f, document_t *doc, pcre
     struct archive *a = NULL;
     struct archive_entry *entry = NULL;
 
+    if (arc_depth(f->filepath) >= MAX_ARC_DEPTH) {
+        CTX_LOG_ERRORF(f->filepath, "Skipped, archives nested more than %d deep", MAX_ARC_DEPTH);
+        return SCAN_OK;
+    }
+
     arc_data_t arc_data;
     arc_data.f = f;
 
@@ -248,8 +275,9 @@ scan_code_t parse_archive(scan_arc_ctx_t *ctx, vfile_t *f, document_t *doc, pcre
                 }
 
                 // The name the raw format falls back to when the compression header has none
+                int self_named = FALSE;
                 if (archive_format(a) == ARCHIVE_FORMAT_RAW && strcmp(entry_name, "data") == 0) {
-                    arc_raw_entry_name(f->filepath, raw_name, sizeof(raw_name));
+                    self_named = !arc_raw_entry_name(f->filepath, raw_name, sizeof(raw_name));
                     entry_name = raw_name;
                 }
 
@@ -285,9 +313,12 @@ scan_code_t parse_archive(scan_arc_ctx_t *ctx, vfile_t *f, document_t *doc, pcre
                 }
 
                 char *p = strrchr(sub_job->filepath, '.');
-                if (p != NULL && (p - sub_job->filepath) > (long) strlen(f->filepath)) {
+                if (!self_named && p != NULL && (p - sub_job->filepath) > (long) strlen(f->filepath)) {
                     sub_job->ext = (int) (p - sub_job->filepath + 1);
                 } else {
+                    // A member named exactly like the file it came out of keeps its extension, so
+                    // dispatching on it again lands right back here. Its type comes from its
+                    // content instead — the extension was wrong about the file being an archive.
                     sub_job->ext = (int) strlen(sub_job->filepath);
                 }
 

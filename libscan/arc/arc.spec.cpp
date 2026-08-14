@@ -1,4 +1,7 @@
 #include "tests/support/scan_fixture.h"
+#include "tests/support/temp_path.h"
+
+#include <fstream>
 
 /** Reads every entry to completion without parsing it */
 static void drain_entry(parse_job_t *job) {
@@ -144,4 +147,58 @@ TEST_F(ArcRecurseTest, SuspiciousMemberDoesNotStopTheArchive) {
 
     ASSERT_EQ(sub_docs.size(), 1);
     ASSERT_TRUE(strstr(sub_docs.last()->filepath, "#/after.txt") != nullptr) << sub_docs.last()->filepath;
+}
+
+/**
+ * A file named like an archive but holding something else is read by the raw format, which names
+ * its single member after the file. That member must not keep the extension that sent it here, or
+ * every one of them is opened as an archive again, forever.
+ */
+TEST_F(ArcRecurseTest, MislabeledArchiveMemberHasNoExtension) {
+    static const char text[] = "this is not an archive";
+
+    scan_text_ctx_t text_ctx = make_text_ctx();
+    int member_ext = -1;
+
+    recurse_into([&](parse_job_t *job, document_t *sub_doc) {
+        strcpy(sub_doc->filepath, job->filepath);
+        member_ext = job->ext;
+        parse_text(&text_ctx, &job->vfile, sub_doc);
+    });
+
+    const std::string path = temp_path("mislabeled.zip");
+    const std::string name = path.substr(path.rfind('/') + 1);
+    std::ofstream(path) << text;
+
+    load_path(path);
+
+    parse_archive(&ctx, &f, &doc, nullptr, nullptr);
+
+    ASSERT_EQ(sub_docs.size(), 1);
+    // The raw format has no name for its member, so it is named after the file
+    ASSERT_EQ(std::string(sub_docs.last()->filepath), path + "#/" + name);
+    // Points at the terminator, so the mime comes from the content
+    ASSERT_EQ(member_ext, (int) strlen(sub_docs.last()->filepath));
+    ASSERT_STREQ(get_meta(sub_docs.last(), MetaContent)->str_val, text);
+
+    unlink(path.c_str());
+}
+
+/** A member with a compression extension stripped keeps whatever extension is underneath */
+TEST_F(ArcRecurseTest, CompressedStreamMemberKeepsItsExtension) {
+    scan_text_ctx_t text_ctx = make_text_ctx();
+    int member_ext = -1;
+
+    recurse_into([&](parse_job_t *job, document_t *sub_doc) {
+        strcpy(sub_doc->filepath, job->filepath);
+        member_ext = job->ext;
+        parse_text(&text_ctx, &job->vfile, sub_doc);
+    });
+
+    load("arc/text.txt.gz");
+
+    parse_archive(&ctx, &f, &doc, nullptr, nullptr);
+
+    ASSERT_EQ(sub_docs.size(), 1);
+    ASSERT_STREQ(sub_docs.last()->filepath + member_ext, "txt");
 }

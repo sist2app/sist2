@@ -342,8 +342,10 @@ static int mem_read(vfile_t *f, void *buf, size_t size) {
 }
 
 void ScanTest::load(const std::string &relative_path) {
-    const std::string path = test_file(relative_path);
+    load_path(test_file(relative_path));
+}
 
+void ScanTest::load_path(const std::string &path) {
     struct stat info = {};
     stat(path.c_str(), &info);
 
