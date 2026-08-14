@@ -196,6 +196,33 @@ TEST_F(ScanMasterTest, IncrementalScanKeepsUnchangedArchiveMembers) {
 }
 
 /**
+ * An unchanged file is skipped before anything opens it, so a file that cannot be read right now —
+ * permissions, a lock, a network share having a bad day — keeps its place in the index instead of
+ * being taken for a file that is gone.
+ */
+TEST_F(ScanMasterTest, IncrementalScanKeepsAnUnreadableUnchangedFile) {
+    // Without an extension to go on, the media type comes from the content, which is the only case
+    // where anything opens a file the scan is about to skip
+    const fs::path unreadable = dir / "files" / "no-extension";
+    write_file(unreadable);
+
+    ASSERT_EQ(scan(""), 0);
+
+    const int documents = document_count();
+    ASSERT_EQ(count("path LIKE '%no-extension'"), 1);
+
+    fs::permissions(unreadable, fs::perms::none);
+
+    ASSERT_EQ(scan("", 4, "--incremental"), 0);
+
+    EXPECT_EQ(document_count(), documents);
+    EXPECT_EQ(count("path LIKE '%no-extension'"), 1);
+
+    // TearDown() has to be able to delete it
+    fs::permissions(unreadable, fs::perms::owner_read | fs::perms::owner_write);
+}
+
+/**
  * The same bytes must hash the same however they were read: straight off the disk, after libmagic
  * peeked at the head, or out of an archive.
  */
