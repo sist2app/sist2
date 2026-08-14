@@ -78,6 +78,13 @@ typedef struct scan_master {
 
     queue_t *queue;
 
+    /**
+     * The loop thread's connection, reachable from the producer thread so that it can decide
+     * whether a file is worth queueing. Both use it, each through its own statement, which
+     * serialized sqlite3 allows.
+     */
+    database_t *index_db;
+
     int print_progress;
     /** Written by the producer thread, read by the loop thread */
     pthread_mutex_t counter_mutex;
@@ -552,11 +559,21 @@ scan_master_t *scan_master_create(const int worker_count, const int print_progre
     // This thread is the only writer the index database ever sees
     ProcData.index_db = database_create(ScanCtx.index.path, INDEX_DATABASE);
     database_open(ProcData.index_db);
+    master->index_db = ProcData.index_db;
 
     return master;
 }
 
 void scan_master_submit(scan_master_t *master, const char *path, const int mtime, const int64_t size) {
+
+    // A file that has not changed since the last scan is marked here and goes no further. Handing
+    // it to a worker instead costs a job, a round trip over the pipes and a wake-up, all to reach
+    // the same answer — and that is the whole cost of a scan that finds nothing to do.
+    if (ScanCtx.incremental && database_mark_walked_document(
+            master->index_db, path + ScanCtx.index.desc.root_len, mtime)) {
+        return;
+    }
+
     scan_job_t *job = malloc(sizeof(scan_job_t));
 
     job->path = strdup(path);

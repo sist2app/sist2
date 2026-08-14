@@ -9,11 +9,22 @@
 #include <time.h>
 
 
+static void batch_lock(database_t *db);
+
+static void batch_unlock(database_t *db);
+
+static void batch_write_begin(database_t *db);
+
+static void batch_write_end(database_t *db);
+
+static void flush_writes(database_t *db);
+
 database_t *database_create(const char *filename, database_type_t type) {
     database_t *db = calloc(1, sizeof(database_t));
 
     strcpy(db->filename, filename);
     db->type = type;
+    pthread_mutex_init(&db->write_mutex, NULL);
 
     return db;
 }
@@ -139,6 +150,11 @@ void database_open(database_t *db) {
                 "UPDATE marked SET marked=1 WHERE id=(SELECT ROWID FROM document WHERE path=?) AND mtime=? RETURNING id",
                 -1,
                 &db->mark_document_stmt, NULL));
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
+                db->db,
+                "UPDATE marked SET marked=1 WHERE id=(SELECT ROWID FROM document WHERE path=?) AND mtime=? RETURNING id",
+                -1,
+                &db->mark_walked_document_stmt, NULL));
         CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
                 db->db,
                 "INSERT INTO document (path, parent, mime, mtime, size, thumbnail_count, json_data, version) "
@@ -327,6 +343,7 @@ static void database_finalize_statements(database_t *db) {
             &db->treemap_merge_up_update_stmt,
             &db->treemap_merge_up_delete_stmt,
             &db->mark_document_stmt,
+            &db->mark_walked_document_stmt,
             &db->mark_written_document_stmt,
             &db->write_document_stmt,
             &db->write_thumbnail_stmt,
@@ -654,19 +671,24 @@ void database_incremental_scan_end(database_t *db) {
     ));
 }
 
-int database_mark_document(database_t *db, const char *path, int mtime) {
-    sqlite3_bind_text(db->mark_document_stmt, 1, path, -1, SQLITE_STATIC);
-    sqlite3_bind_int(db->mark_document_stmt, 2, mtime);
+static int mark_document(database_t *db, sqlite3_stmt *stmt, const char *path, int mtime) {
+    batch_lock(db);
+    batch_write_begin(db);
 
-    int ret = sqlite3_step(db->mark_document_stmt);
+    sqlite3_bind_text(stmt, 1, path, -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 2, mtime);
+
+    int ret = sqlite3_step(stmt);
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(stmt));
+
+    batch_write_end(db);
+    batch_unlock(db);
 
     if (ret == SQLITE_ROW) {
-        CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->mark_document_stmt));
         return TRUE;
     }
 
     if (ret == SQLITE_DONE) {
-        CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->mark_document_stmt));
         return FALSE;
     }
 
@@ -674,9 +696,27 @@ int database_mark_document(database_t *db, const char *path, int mtime) {
     return FALSE;
 }
 
+int database_mark_document(database_t *db, const char *path, int mtime) {
+    return mark_document(db, db->mark_document_stmt, path, mtime);
+}
+
+/** For the walk thread, which decides whether a file is worth sending to a worker at all */
+int database_mark_walked_document(database_t *db, const char *path, int mtime) {
+    return mark_document(db, db->mark_walked_document_stmt, path, mtime);
+}
+
 // In autocommit each row is its own transaction, which creates, commits and unlinks a
 // rollback journal per document while the workers idle behind it.
 #define WRITE_BATCH_SIZE 1000
+
+/** Held across begin/statement/end, so that two threads cannot both open or close the batch */
+static void batch_lock(database_t *db) {
+    pthread_mutex_lock(&db->write_mutex);
+}
+
+static void batch_unlock(database_t *db) {
+    pthread_mutex_unlock(&db->write_mutex);
+}
 
 static void batch_write_begin(database_t *db) {
     if (db->uncommitted_writes == 0) {
@@ -687,21 +727,28 @@ static void batch_write_begin(database_t *db) {
 static void batch_write_end(database_t *db) {
     db->uncommitted_writes += 1;
     if (db->uncommitted_writes >= WRITE_BATCH_SIZE) {
-        database_flush_writes(db);
+        flush_writes(db);
     }
 }
 
 // Must be called before anything that cannot run inside a transaction (VACUUM) or
 // that reads the written rows from another connection.
-void database_flush_writes(database_t *db) {
+static void flush_writes(database_t *db) {
     if (db->uncommitted_writes > 0) {
         CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, "COMMIT;", NULL, NULL, NULL));
         db->uncommitted_writes = 0;
     }
 }
 
+void database_flush_writes(database_t *db) {
+    batch_lock(db);
+    flush_writes(db);
+    batch_unlock(db);
+}
+
 int database_write_document(database_t *db, document_t *doc, const char *json_data) {
 
+    batch_lock(db);
     batch_write_begin(db);
 
     const char *rel_path = doc->filepath + ScanCtx.index.desc.root_len;
@@ -732,12 +779,14 @@ int database_write_document(database_t *db, document_t *doc, const char *json_da
     CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->mark_written_document_stmt));
 
     batch_write_end(db);
+    batch_unlock(db);
 
     return id;
 }
 
 
 void database_write_thumbnail(database_t *db, int doc_id, int num, void *data, size_t data_size) {
+    batch_lock(db);
     batch_write_begin(db);
 
     sqlite3_bind_int(db->write_thumbnail_stmt, 1, doc_id);
@@ -748,6 +797,7 @@ void database_write_thumbnail(database_t *db, int doc_id, int num, void *data, s
     CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->write_thumbnail_stmt));
 
     batch_write_end(db);
+    batch_unlock(db);
 }
 
 

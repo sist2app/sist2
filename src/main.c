@@ -204,6 +204,7 @@ void initialize_scan_context(scan_args_t *args) {
     ScanCtx.msdoc_ctx.msdoc_mime = mime_get_mime_by_string("application/msword");
 
     ScanCtx.threads = args->threads;
+    ScanCtx.incremental = args->incremental;
     ScanCtx.depth = args->depth;
     ScanCtx.job_timeout = args->job_timeout;
 

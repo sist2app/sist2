@@ -1,6 +1,7 @@
 #ifndef SIST2_DATABASE_H
 #define SIST2_DATABASE_H
 
+#include <pthread.h>
 #include <sqlite3.h>
 #include <cjson/cJSON.h>
 #include "src/sist.h"
@@ -47,6 +48,8 @@ typedef struct database {
 
     // Documents and thumbnails written since the last commit; see database_flush_writes()
     int uncommitted_writes;
+    /** The walk thread marks unchanged files while the loop thread writes the changed ones */
+    pthread_mutex_t write_mutex;
 
     // Prepared statements
     sqlite3_stmt *select_thumbnail_stmt;
@@ -54,6 +57,8 @@ typedef struct database {
     sqlite3_stmt *treemap_merge_up_delete_stmt;
 
     sqlite3_stmt *mark_document_stmt;
+    /** Same statement, for the walk thread: two threads may not step one statement */
+    sqlite3_stmt *mark_walked_document_stmt;
     sqlite3_stmt *mark_written_document_stmt;
     sqlite3_stmt *write_document_stmt;
     sqlite3_stmt *write_thumbnail_stmt;
@@ -140,6 +145,8 @@ void database_incremental_scan_begin(database_t *db);
 void database_incremental_scan_end(database_t *db);
 
 int database_mark_document(database_t *db, const char *id, int mtime);
+
+int database_mark_walked_document(database_t *db, const char *id, int mtime);
 
 database_iterator_t *database_create_treemap_iterator(database_t *db, long threshold);
 
