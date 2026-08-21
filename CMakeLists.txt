@@ -28,6 +28,8 @@ project(sist2)
 set(CMAKE_C_STANDARD 11)
 
 add_compile_definitions(
+        # Before any system header is included, or glibc hides asprintf & co.
+        _GNU_SOURCE
         "SIST_PLATFORM=${SIST_PLATFORM}"
 )
 

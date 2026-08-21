@@ -32,7 +32,7 @@ const char *TESS_DATAPATHS[] = {
 
 
 scan_args_t *scan_args_create() {
-    scan_args_t *args = calloc(sizeof(scan_args_t), 1);
+    scan_args_t *args = calloc(1, sizeof(scan_args_t));
 
     args->depth = -1;
 
@@ -618,16 +618,16 @@ int web_args_validate(web_args_t *args, int argc, const char **argv) {
 }
 
 index_args_t *index_args_create() {
-    index_args_t *args = calloc(sizeof(index_args_t), 1);
+    index_args_t *args = calloc(1, sizeof(index_args_t));
     return args;
 }
 
 sqlite_index_args_t *sqlite_index_args_create() {
-    sqlite_index_args_t *args = calloc(sizeof(sqlite_index_args_t), 1);
+    sqlite_index_args_t *args = calloc(1, sizeof(sqlite_index_args_t));
     return args;
 }
 
 web_args_t *web_args_create() {
-    web_args_t *args = calloc(sizeof(web_args_t), 1);
+    web_args_t *args = calloc(1, sizeof(web_args_t));
     return args;
 }

@@ -793,7 +793,7 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
         sort = FTS_SORT_ID;
     }
 
-    char *agg_where;
+    char *agg_where = NULL;
     char *where = build_where_clause(path_where, size_where, date_where, index_id_where, mime_where, query_where,
                                      after_where, tags_where);
     if (fetch_aggregations) {
@@ -810,7 +810,7 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
                                   "'$.embedding', (CASE WHEN emb.id IS NOT NULL THEN 1 ELSE 0 END))";
 
     char *sql;
-    char *agg_sql;
+    char *agg_sql = NULL;
 
     // FTS5 only applies its top-N ranking optimisation to exactly `ORDER BY rank
     // LIMIT n`. Wrapping rank in round(), or adding the ROWID tiebreaker, makes
