@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.19)
 
 option(SIST_DEBUG "Build a debug executable" on)
 option(SIST_FAST "Enable more optimisation flags" off)
@@ -403,16 +403,32 @@ if (NOT MAGIC_MGC OR NOT EXISTS ${MAGIC_MGC})
     message(FATAL_ERROR "magic.mgc not found; pass -DMAGIC_MGC=/path/to/magic.mgc or set the MAGIC_MGC environment variable")
 endif ()
 
+# magic.mgc is ~10MB of the binary uncompressed; it is embedded gzipped and inflated on
+# first use instead, which only the processes that actually do mime detection pay for.
+set(MAGIC_MGC_GZ ${GENERATED_DIR}/magic.mgc.gz)
+file(SIZE ${MAGIC_MGC} MAGIC_MGC_SIZE)
+
+add_custom_command(
+        OUTPUT ${MAGIC_MGC_GZ}
+        COMMAND ${CMAKE_COMMAND} -DINPUT=${MAGIC_MGC} -DOUTPUT=${MAGIC_MGC_GZ}
+        -P ${CMAKE_SOURCE_DIR}/scripts/gzip_file.cmake
+        DEPENDS ${MAGIC_MGC} ${CMAKE_SOURCE_DIR}/scripts/gzip_file.cmake
+        COMMENT "Compressing magic.mgc"
+)
+add_custom_target(magic_mgc_gz DEPENDS ${MAGIC_MGC_GZ})
+add_dependencies(sist2_core magic_mgc_gz)
+
 target_compile_definitions(
         sist2_core PRIVATE
         SIST2_ROOT="${CMAKE_SOURCE_DIR}"
-        MAGIC_MGC_PATH="${MAGIC_MGC}"
+        MAGIC_MGC_GZ_PATH="${MAGIC_MGC_GZ}"
+        MAGIC_MGC_SIZE=${MAGIC_MGC_SIZE}
 )
 
 # The compiler emits no depfile entries for .incbin'd files — declare them here
 set_source_files_properties(src/web/web_util.c PROPERTIES OBJECT_DEPENDS "${WEB_ASSETS}")
 set_source_files_properties(src/index/elastic.c PROPERTIES OBJECT_DEPENDS "${SCHEMA_ASSETS}")
-set_source_files_properties(src/parsing/magic_util.c PROPERTIES OBJECT_DEPENDS "${MAGIC_MGC}")
+set_source_files_properties(src/parsing/magic_util.c PROPERTIES OBJECT_DEPENDS "${MAGIC_MGC_GZ}")
 
 target_link_libraries(
         sist2_core

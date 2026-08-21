@@ -3,14 +3,18 @@
 #include "mime.h"
 #include <magic.h>
 #include <pthread.h>
+#include <zlib.h>
 #include "src/embed.h"
 
-EMBED_FILE(magic_database_buffer, MAGIC_MGC_PATH);
+EMBED_FILE(magic_database_gz, MAGIC_MGC_GZ_PATH);
 
 // Loading the database compiles every regex it contains, which costs far more than the
 // mime lookup. A magic_t is not thread safe, so each thread keeps its own.
 static pthread_key_t MagicKey;
 static pthread_once_t MagicKeyOnce = PTHREAD_ONCE_INIT;
+
+// The database is embedded gzipped and shared by every thread once inflated.
+static void *MagicDatabase = NULL;
 
 static void magic_destroy(void *magic) {
     if (magic != NULL) {
@@ -18,8 +22,32 @@ static void magic_destroy(void *magic) {
     }
 }
 
+static void inflate_magic_database() {
+    MagicDatabase = malloc(MAGIC_MGC_SIZE);
+
+    z_stream stream = {
+            .next_in = (Bytef *) magic_database_gz,
+            .avail_in = magic_database_gz_size,
+            .next_out = MagicDatabase,
+            .avail_out = MAGIC_MGC_SIZE,
+    };
+
+    // 16 + MAX_WBITS selects the gzip wrapper
+    if (inflateInit2(&stream, 16 + MAX_WBITS) != Z_OK) {
+        LOG_FATAL("magic_util.c", "Could not initialise the libmagic database inflater");
+    }
+
+    int ret = inflate(&stream, Z_FINISH);
+    inflateEnd(&stream);
+
+    if (ret != Z_STREAM_END || stream.total_out != MAGIC_MGC_SIZE) {
+        LOG_FATALF("magic_util.c", "Could not inflate the libmagic database: (%d)", ret);
+    }
+}
+
 static void magic_key_init() {
     pthread_key_create(&MagicKey, magic_destroy);
+    inflate_magic_database();
 }
 
 static magic_t thread_magic() {
@@ -32,8 +60,8 @@ static magic_t thread_magic() {
 
     magic = magic_open(MAGIC_MIME_TYPE);
 
-    const char *magic_buffers[1] = {magic_database_buffer,};
-    size_t sizes[1] = {magic_database_buffer_size,};
+    const void *magic_buffers[1] = {MagicDatabase,};
+    size_t sizes[1] = {MAGIC_MGC_SIZE,};
 
     int load_ret = magic_load_buffers(magic, (void **) &magic_buffers, sizes, 1);
 
