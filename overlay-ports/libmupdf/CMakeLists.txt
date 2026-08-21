@@ -6,6 +6,7 @@ project(libmupdf)
 set(BIN2COFF_EXECUTABLE "bin2coff" CACHE STRING "Host executable for converter (Windows only)")
 
 option(ENABLE_OCR "Build with OCR" OFF)
+option(TOFU_CJK_LANG "Drop the Source Han Serif per-language CJK fonts (24MB) and fall back to Droid Sans Fallback Full" OFF)
 
 # dependencies
 
@@ -44,9 +45,14 @@ endif()
 
 # cf. FONT_BIN in Makefile
 # Legal notices should be picked by the portfile.
+if (TOFU_CJK_LANG)
+  set(han_fonts "")
+else()
+  set(han_fonts "${PROJECT_SOURCE_DIR}/resources/fonts/han/*.ttc")
+endif()
 file(GLOB fonts
   "${PROJECT_SOURCE_DIR}/resources/fonts/urw/*.cff"
-  "${PROJECT_SOURCE_DIR}/resources/fonts/han/*.ttc"
+  ${han_fonts}
   "${PROJECT_SOURCE_DIR}/resources/fonts/droid/DroidSansFallbackFull.ttf"
   "${PROJECT_SOURCE_DIR}/resources/fonts/droid/DroidSansFallback.ttf"
   "${PROJECT_SOURCE_DIR}/resources/fonts/noto/*.otf"
@@ -115,6 +121,7 @@ target_compile_definitions(libmupdf
     FZ_ENABLE_ODT_OUTPUT=0    # needs FZ_ENABLE_DOCX_OUTPUT
     MEMENTO_MUPDF_HACKS
     SHARE_JPEG
+    $<$<BOOL:${TOFU_CJK_LANG}>:TOFU_CJK_LANG>
     $<$<NOT:$<BOOL:${ENABLE_OCR}>>:OCR_DISABLED>
     $<$<BOOL:${ENABLE_OCR}>:HAVE_TESSERACT>
     $<$<BOOL:${ENABLE_OCR}>:HAVE_LEPTONICA>

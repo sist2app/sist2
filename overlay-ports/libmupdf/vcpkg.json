@@ -1,7 +1,7 @@
 {
   "name": "libmupdf",
   "version": "1.26.10",
-  "port-version": 4,
+  "port-version": 5,
   "description": "A lightweight PDF, XPS, and E-book library",
   "homepage": "https://mupdf.com/core",
   "documentation": "https://mupdf.readthedocs.io/",
@@ -34,6 +34,9 @@
         "leptonica",
         "tesseract"
       ]
+    },
+    "tofu-cjk-lang": {
+      "description": "Drop the 24MB Source Han Serif per-language CJK fonts, falling back to Droid Sans Fallback Full"
     }
   }
 }

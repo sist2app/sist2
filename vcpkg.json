@@ -40,7 +40,7 @@
     "libxml2",
     {
       "name": "libmupdf",
-      "features": ["ocr"]
+      "features": ["ocr", "tofu-cjk-lang"]
     },
     "mongoose",
     "libmagic",
