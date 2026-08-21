@@ -5,7 +5,14 @@
 #include "src/ctx.h"
 #include "src/parsing/parse.h"
 
+#include <pthread.h>
 #include <signal.h>
+
+/**
+ * Parsers recurse deep enough to overflow both musl's 128kB thread default and the 8MB the
+ * kernel gives the main stack, so the job loop gets a stack of its own.
+ */
+#define PARSE_STACK_SIZE (16 * 1024 * 1024)
 
 /** The document the next thumbnails belong to was dropped */
 static int last_document_dropped = FALSE;
@@ -131,7 +138,9 @@ static void maybe_misbehave_for_test(const char *path) {
     }
 }
 
-void worker_run() {
+static void *worker_loop(void *arg) {
+    (void) arg;
+
     DocumentSink = &WorkerSink;
 
     // A master that went away should end this process through the EOF path below, not through a
@@ -170,4 +179,20 @@ void worker_run() {
 
         send_frame(FRAME_DONE, NULL, 0);
     }
+
+    return NULL;
+}
+
+void worker_run() {
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setstacksize(&attr, PARSE_STACK_SIZE);
+
+    pthread_t thread;
+    if (pthread_create(&thread, &attr, worker_loop, NULL) != 0) {
+        LOG_FATAL("worker.c", "Could not start the job thread");
+    }
+    pthread_attr_destroy(&attr);
+
+    pthread_join(thread, NULL);
 }
