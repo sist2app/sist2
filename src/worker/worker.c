@@ -112,8 +112,9 @@ static const document_sink_t WorkerSink = {
 };
 
 /**
- * Test hooks: make the worker die, exit or hang on a chosen file. They stand in for the malformed
- * documents that make a parser segfault or spin, which are hard to keep around as fixtures.
+ * Test hooks: make the worker die, exit or hang on a chosen file, or delete it before parsing it.
+ * They stand in for the malformed documents that make a parser segfault or spin, and for the file
+ * that goes away mid-scan, which are hard to keep around as fixtures.
  */
 static int triggered_by(const char *variable, const char *path) {
     const char *trigger = getenv(variable);
@@ -135,6 +136,11 @@ static void maybe_misbehave_for_test(const char *path) {
         while (TRUE) {
             sleep(3600);
         }
+    }
+
+    // A file that is deleted after the walk queued it, as a download or a temporary file would be
+    if (triggered_by("SIST2_DELETE_ON_FILE", path)) {
+        unlink(path);
     }
 }
 

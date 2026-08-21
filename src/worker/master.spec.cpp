@@ -125,6 +125,25 @@ TEST_F(ScanMasterTest, IndexesEveryFile) {
     ASSERT_EQ(text_file_count(), FILE_COUNT + 1);
 }
 
+/** A file deleted between the walk and the parse does not take the scan down with it */
+TEST_F(ScanMasterTest, SurvivesAFileDeletedDuringTheScan) {
+    ASSERT_EQ(scan("SIST2_DELETE_ON_FILE=file-3.txt"), 0);
+
+    // The walk already had its name, size and mime, so it is indexed with no content
+    ASSERT_EQ(text_file_count(), FILE_COUNT + 1);
+    ASSERT_EQ(count("path LIKE '%file-3.txt' AND json_data ->> 'content' IS NULL"), 1);
+}
+
+/** The same file with nothing to guess its type from: mime detection is what reads it */
+TEST_F(ScanMasterTest, SurvivesAFileWithNoExtensionDeletedDuringTheScan) {
+    write_file(dir / "files" / "no-extension");
+
+    ASSERT_EQ(scan("SIST2_DELETE_ON_FILE=no-extension"), 0);
+
+    ASSERT_EQ(text_file_count(), FILE_COUNT + 1);
+    ASSERT_EQ(count("path LIKE '%no-extension'"), 0);
+}
+
 TEST_F(ScanMasterTest, SurvivesACrashingWorker) {
     // Every worker segfaults on this one file, the way a parser would on a malformed document
     ASSERT_EQ(scan(std::string("SIST2_CRASH_ON_FILE=") + CRASH_TRIGGER), 0);
