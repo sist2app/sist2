@@ -1,6 +1,8 @@
 // Generates mime_generated.c from mime.csv. Compiled and run at build time
 // (see CMakeLists.txt). Mime ids are persisted in .sist2 index files: the id
-// assignment scheme (counter in sorted-mime order + flag bits) must not change.
+// assignment scheme (counter in sorted-mime order + flag bits) must not change,
+// and a mime added to the csv has to carry a '+' so that it is numbered after
+// every mime that was there before it rather than in its sorted position.
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -17,6 +19,7 @@ typedef struct {
     char *exts[MAX_EXTS_PER_MIME];
     int ext_count;
     int noparse;
+    int added;
     char id[64];
 } mime_t;
 
@@ -115,9 +118,10 @@ static void parse_csv(const char *path) {
         }
 
         mime_t *m = &mimes[mime_count++];
-        m->noparse = line[0] == '!';
+        m->added = line[0] == '+';
+        m->noparse = line[m->added] == '!';
 
-        char *name = line + m->noparse;
+        char *name = line + m->added + m->noparse;
         char *comma = strchr(name, ',');
         if (comma == NULL) {
             die("missing comma: %s", line);
@@ -197,6 +201,17 @@ static int cmp_mime_name(const void *a, const void *b) {
     return strcmp((*(mime_t *const *) a)->name, (*(mime_t *const *) b)->name);
 }
 
+static void assign_id(mime_t *m, int *cnt) {
+    const char *suffix = m->noparse ? " | 0x80000000" : category_suffix(m->name);
+
+    if (suffix == NULL && strcmp(m->name, "application/x-empty") == 0) {
+        strcpy(m->id, "1");  // MIME_EMPTY
+        return;
+    }
+    snprintf(m->id, sizeof(m->id), "%d%s",
+             (major_id(m->name) << 16) + (*cnt)++, suffix == NULL ? "" : suffix);
+}
+
 static void assign_ids(void) {
     for (int i = 0; i < mime_count; i++) {
         sorted_mimes[i] = &mimes[i];
@@ -205,15 +220,17 @@ static void assign_ids(void) {
 
     int cnt = 1;
     for (int i = 0; i < mime_count; i++) {
-        mime_t *m = sorted_mimes[i];
-        const char *suffix = m->noparse ? " | 0x80000000" : category_suffix(m->name);
-
-        if (suffix == NULL && strcmp(m->name, "application/x-empty") == 0) {
-            strcpy(m->id, "1");  // MIME_EMPTY
-            continue;
+        if (!sorted_mimes[i]->added) {
+            assign_id(sorted_mimes[i], &cnt);
         }
-        snprintf(m->id, sizeof(m->id), "%d%s",
-                 (major_id(m->name) << 16) + cnt++, suffix == NULL ? "" : suffix);
+    }
+
+    // A mime numbered in name order would renumber every mime sorted after it, so the ones
+    // marked with '+' are numbered after all of those instead, in the order the csv lists them
+    for (int i = 0; i < mime_count; i++) {
+        if (mimes[i].added) {
+            assign_id(&mimes[i], &cnt);
+        }
     }
 }
 
