@@ -1,8 +1,10 @@
 #include "media.h"
 #include "../ocr/ocr.h"
 #include <ctype.h>
+#include <libavutil/pixdesc.h>
 
 #define MIN_SIZE 32
+#define MAX_TILE_GRID_PIXELS (64 * 1024 * 1024)
 #define AVIO_BUF_SIZE 8192
 #define IS_VIDEO(fmt) ( \
     (fmt)->iformat->name && strcmp((fmt)->iformat->name, "image2") != 0 \
@@ -34,7 +36,7 @@ const char *get_filepath_with_ext(document_t *doc, const char *filepath, const c
 
 
 __always_inline
-void *scale_frame(const AVCodecContext *decoder, const AVFrame *frame, int size) {
+void *scale_frame(const AVFrame *frame, enum AVCodecID codec_id, int size) {
 
     if (frame->pict_type == AV_PICTURE_TYPE_NONE) {
         return NULL;
@@ -43,7 +45,7 @@ void *scale_frame(const AVCodecContext *decoder, const AVFrame *frame, int size)
     int dstW;
     int dstH;
     if (frame->width <= size && frame->height <= size) {
-        if (decoder->codec_id == AV_CODEC_ID_MJPEG || decoder->codec_id == AV_CODEC_ID_PNG) {
+        if (codec_id == AV_CODEC_ID_MJPEG || codec_id == AV_CODEC_ID_PNG) {
             return STORE_AS_IS;
         }
 
@@ -67,7 +69,7 @@ void *scale_frame(const AVCodecContext *decoder, const AVFrame *frame, int size)
     AVFrame *scaled_frame = av_frame_alloc();
 
     struct SwsContext *sws_ctx = sws_getContext(
-            decoder->width, decoder->height, decoder->pix_fmt,
+            frame->width, frame->height, frame->format,
             dstW, dstH, AV_PIX_FMT_YUV420P,
             SIST_SWS_ALGO, 0, 0, 0
     );
@@ -79,7 +81,7 @@ void *scale_frame(const AVCodecContext *decoder, const AVFrame *frame, int size)
 
     sws_scale(sws_ctx,
               (const uint8_t *const *) frame->data, frame->linesize,
-              0, decoder->height,
+              0, frame->height,
               scaled_frame->data, scaled_frame->linesize
     );
 
@@ -454,13 +456,13 @@ static void ocr_image_cb(const char *text, UNUSED(size_t len)) {
 #define OCR_BYTES_PER_PIXEL 4
 #define OCR_PIXELS_PER_INCH 70
 
-void ocr_image(scan_media_ctx_t *ctx, document_t *doc, const AVCodecContext *decoder, AVFrame *frame) {
+void ocr_image(scan_media_ctx_t *ctx, document_t *doc, AVFrame *frame) {
 
     // Convert to RGB32
     AVFrame *rgb_frame = av_frame_alloc();
 
     struct SwsContext *sws_ctx = sws_getContext(
-            frame->width, frame->height, decoder->pix_fmt,
+            frame->width, frame->height, frame->format,
             frame->width, frame->height, OCR_PIXEL_FORMAT,
             SWS_LANCZOS, 0, 0, 0
     );
@@ -537,7 +539,7 @@ int decode_frame_and_save_thumbnail(scan_media_ctx_t *ctx, AVFormatContext *pFor
     }
 
     if (ctx->tesseract_lang != NULL && thumbnail_index == 0 && !meta_contains_key(doc->meta_head, MetaContent)) {
-        ocr_image(ctx, doc, decoder, frame_and_packet->frame);
+        ocr_image(ctx, doc, frame_and_packet->frame);
     }
 
     // NOTE: OCR'd content takes precedence over exif image description
@@ -546,7 +548,7 @@ int decode_frame_and_save_thumbnail(scan_media_ctx_t *ctx, AVFormatContext *pFor
     }
 
     // Scale frame
-    AVFrame *scaled_frame = scale_frame(decoder, frame_and_packet->frame, ctx->tn_size);
+    AVFrame *scaled_frame = scale_frame(frame_and_packet->frame, decoder->codec_id, ctx->tn_size);
 
     if (scaled_frame == NULL) {
         frame_and_packet_free(frame_and_packet);
@@ -596,6 +598,257 @@ int decode_frame_and_save_thumbnail(scan_media_ctx_t *ctx, AVFormatContext *pFor
     return return_value;
 }
 
+/**
+ * A picture can carry companion images next to the one it is of - an HDR gain map, a depth map -
+ * and those are greyscale, so they are only worth looking at when there is nothing else.
+ */
+static int is_auxiliary_video_stream(const AVStream *stream, int has_color_video_stream) {
+
+    if (stream->disposition & AV_DISPOSITION_DEPENDENT) {
+        return TRUE;
+    }
+
+    if (!has_color_video_stream) {
+        return FALSE;
+    }
+
+    const AVPixFmtDescriptor *pix_fmt = av_pix_fmt_desc_get(stream->codecpar->format);
+
+    return pix_fmt != NULL && pix_fmt->nb_components == 1;
+}
+
+static int format_has_color_video_stream(const AVFormatContext *pFormatCtx) {
+
+    for (unsigned int i = 0; i < pFormatCtx->nb_streams; i++) {
+        const AVStream *stream = pFormatCtx->streams[i];
+
+        if (stream->codecpar->codec_type != AVMEDIA_TYPE_VIDEO
+            || (stream->disposition & AV_DISPOSITION_DEPENDENT)) {
+            continue;
+        }
+
+        const AVPixFmtDescriptor *pix_fmt = av_pix_fmt_desc_get(stream->codecpar->format);
+        if (pix_fmt != NULL && pix_fmt->nb_components > 1) {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+static void append_encoded_thumbnail(scan_media_ctx_t *ctx, document_t *doc, AVFrame *scaled_frame) {
+
+    AVCodecContext *thumbnail_encoder = alloc_webp_encoder(scaled_frame->width, scaled_frame->height, ctx->tn_qscale);
+
+    avcodec_send_frame(thumbnail_encoder, scaled_frame);
+    avcodec_send_frame(thumbnail_encoder, NULL); // send EOF
+
+    AVPacket *thumbnail_packet = av_packet_alloc();
+    avcodec_receive_packet(thumbnail_encoder, thumbnail_packet);
+
+    doc->thumbnail_count = 1;
+    APPEND_THUMBNAIL(doc, thumbnail_packet->data, thumbnail_packet->size);
+
+    av_packet_free(&thumbnail_packet);
+    avcodec_free_context(&thumbnail_encoder);
+}
+
+static const AVStreamGroup *find_tile_grid(const AVFormatContext *pFormatCtx) {
+
+    for (unsigned int i = 0; i < pFormatCtx->nb_stream_groups; i++) {
+        const AVStreamGroup *group = pFormatCtx->stream_groups[i];
+
+        if (group->type == AV_STREAM_GROUP_PARAMS_TILE_GRID && group->nb_streams > 0
+            && group->params.tile_grid->nb_tiles > 0) {
+            return group;
+        }
+    }
+
+    return NULL;
+}
+
+/**
+ * Recent phones store a HEIF picture as a grid of separately coded tiles; the full image exists
+ * only as the stream group that says where each tile goes, so it has to be assembled here.
+ */
+static AVFrame *decode_tile_grid(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx,
+                                 const AVStreamGroup *group, document_t *doc) {
+
+    const AVStreamGroupTileGrid *grid = group->params.tile_grid;
+
+    if ((int64_t) grid->coded_width * grid->coded_height > MAX_TILE_GRID_PIXELS) {
+        CTX_LOG_WARNINGF(doc->filepath, "(media.c) Tile grid is too large to assemble: %dx%d",
+                         grid->coded_width, grid->coded_height);
+        return NULL;
+    }
+
+    int *tile_of_stream = malloc(sizeof(int) * pFormatCtx->nb_streams);
+    for (unsigned int i = 0; i < pFormatCtx->nb_streams; i++) {
+        tile_of_stream[i] = -1;
+    }
+    for (unsigned int i = 0; i < group->nb_streams && i < grid->nb_tiles; i++) {
+        tile_of_stream[group->streams[i]->index] = (int) i;
+    }
+
+    const AVCodecParameters *codecpar = group->streams[0]->codecpar;
+    const AVCodec *codec = avcodec_find_decoder(codecpar->codec_id);
+    AVCodecContext *decoder = avcodec_alloc_context3(codec);
+    decoder->thread_count = 1;
+    avcodec_parameters_to_context(decoder, codecpar);
+    avcodec_open2(decoder, codec, NULL);
+
+    AVFrame *canvas = av_frame_alloc();
+    canvas->format = AV_PIX_FMT_YUV420P;
+    canvas->width = grid->coded_width;
+    canvas->height = grid->coded_height;
+
+    if (av_frame_get_buffer(canvas, 0) != 0) {
+        CTX_LOG_ERRORF(doc->filepath, "(media.c) Could not allocate a %dx%d canvas for the tile grid",
+                       grid->coded_width, grid->coded_height);
+        av_frame_free(&canvas);
+        avcodec_free_context(&decoder);
+        free(tile_of_stream);
+        return NULL;
+    }
+
+    const ptrdiff_t canvas_linesize[4] = {
+            canvas->linesize[0], canvas->linesize[1], canvas->linesize[2], canvas->linesize[3]
+    };
+    av_image_fill_black(canvas->data, canvas_linesize, canvas->format, AVCOL_RANGE_MPEG,
+                        canvas->width, canvas->height);
+
+    AVFrame *tile = av_frame_alloc();
+    AVPacket *packet = av_packet_alloc();
+    struct SwsContext *sws_ctx = NULL;
+    unsigned int tiles_decoded = 0;
+
+    while (tiles_decoded < grid->nb_tiles && av_read_frame(pFormatCtx, packet) == 0) {
+
+        int tile_index = tile_of_stream[packet->stream_index];
+        if (tile_index == -1) {
+            av_packet_unref(packet);
+            continue;
+        }
+
+        // Every tile is a single coded picture, so the decoder only hands it over once it is drained
+        avcodec_send_packet(decoder, packet);
+        avcodec_send_packet(decoder, NULL);
+        int receive_ret = avcodec_receive_frame(decoder, tile);
+        avcodec_flush_buffers(decoder);
+        av_packet_unref(packet);
+
+        if (receive_ret != 0) {
+            CTX_LOG_DEBUGF(doc->filepath, "(media.c) Could not decode tile %d: %s",
+                           tile_index, av_err2str(receive_ret));
+            continue;
+        }
+
+        int x = grid->offsets[tile_index].horizontal;
+        int y = grid->offsets[tile_index].vertical;
+
+        if (x < 0 || y < 0 || x + tile->width > canvas->width || y + tile->height > canvas->height) {
+            CTX_LOG_DEBUGF(doc->filepath, "(media.c) Tile %d does not fit the canvas", tile_index);
+            av_frame_unref(tile);
+            continue;
+        }
+
+        sws_ctx = sws_getCachedContext(sws_ctx, tile->width, tile->height, tile->format,
+                                       tile->width, tile->height, canvas->format,
+                                       SWS_POINT, 0, 0, 0);
+
+        uint8_t *tile_dst[4] = {
+                canvas->data[0] + y * canvas->linesize[0] + x,
+                canvas->data[1] + (y / 2) * canvas->linesize[1] + (x / 2),
+                canvas->data[2] + (y / 2) * canvas->linesize[2] + (x / 2),
+                NULL
+        };
+
+        sws_scale(sws_ctx, (const uint8_t *const *) tile->data, tile->linesize, 0, tile->height,
+                  tile_dst, canvas->linesize);
+
+        if (tiles_decoded == 0) {
+            av_dict_copy(&canvas->metadata, tile->metadata, 0);
+        }
+
+        tiles_decoded += 1;
+        av_frame_unref(tile);
+    }
+
+    sws_freeContext(sws_ctx);
+    av_packet_free(&packet);
+    av_frame_free(&tile);
+    avcodec_free_context(&decoder);
+    free(tile_of_stream);
+
+    if (tiles_decoded == 0) {
+        CTX_LOG_ERROR(doc->filepath, "(media.c) Could not decode any tile of the image");
+        av_frame_free(&canvas);
+        return NULL;
+    }
+
+    if (tiles_decoded != grid->nb_tiles) {
+        CTX_LOG_WARNINGF(doc->filepath, "(media.c) Only %u of the %u tiles of the image could be decoded",
+                         tiles_decoded, grid->nb_tiles);
+    }
+
+    // The grid is coded in whole tiles; the picture is the crop of it that the file asks for
+    canvas->data[0] += grid->vertical_offset * canvas->linesize[0] + grid->horizontal_offset;
+    canvas->data[1] += (grid->vertical_offset / 2) * canvas->linesize[1] + (grid->horizontal_offset / 2);
+    canvas->data[2] += (grid->vertical_offset / 2) * canvas->linesize[2] + (grid->horizontal_offset / 2);
+    canvas->width = grid->width;
+    canvas->height = grid->height;
+    canvas->pict_type = AV_PICTURE_TYPE_I;
+
+    return canvas;
+}
+
+static void parse_tile_grid_image(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx,
+                                  const AVStreamGroup *group, document_t *doc) {
+
+    const AVStreamGroupTileGrid *grid = group->params.tile_grid;
+
+    const AVCodecDescriptor *desc = avcodec_descriptor_get(group->streams[0]->codecpar->codec_id);
+    if (desc != NULL) {
+        APPEND_STR_META(doc, MetaMediaVideoCodec, desc->name);
+    }
+
+    meta_line_t *meta_w = malloc(sizeof(meta_line_t));
+    meta_w->key = MetaWidth;
+    meta_w->long_val = grid->width;
+    APPEND_META(doc, meta_w);
+
+    meta_line_t *meta_h = malloc(sizeof(meta_line_t));
+    meta_h->key = MetaHeight;
+    meta_h->long_val = grid->height;
+    APPEND_META(doc, meta_h);
+
+    if (ctx->tn_count == 0 || grid->width <= MIN_SIZE || grid->height <= MIN_SIZE) {
+        return;
+    }
+
+    AVFrame *canvas = decode_tile_grid(ctx, pFormatCtx, group, doc);
+    if (canvas == NULL) {
+        return;
+    }
+
+    if (ctx->tesseract_lang != NULL && !meta_contains_key(doc->meta_head, MetaContent)) {
+        ocr_image(ctx, doc, canvas);
+    }
+
+    append_video_meta(ctx, pFormatCtx, canvas, doc, FALSE);
+
+    AVFrame *scaled_frame = scale_frame(canvas, group->streams[0]->codecpar->codec_id, ctx->tn_size);
+
+    if (scaled_frame != NULL && scaled_frame != STORE_AS_IS) {
+        append_encoded_thumbnail(ctx, doc, scaled_frame);
+
+        av_free(*scaled_frame->data);
+        av_frame_free(&scaled_frame);
+    }
+
+    av_frame_free(&canvas);
+}
+
 void parse_media_format_ctx(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, document_t *doc) {
 
     int video_stream = -1;
@@ -604,8 +857,24 @@ void parse_media_format_ctx(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, 
 
     avformat_find_stream_info(pFormatCtx, NULL);
 
+    const AVStreamGroup *tile_grid = find_tile_grid(pFormatCtx);
+    if (tile_grid != NULL) {
+        parse_tile_grid_image(ctx, pFormatCtx, tile_grid, doc);
+
+        avformat_close_input(&pFormatCtx);
+        avformat_free_context(pFormatCtx);
+        return;
+    }
+
+    const int has_color_video_stream = format_has_color_video_stream(pFormatCtx);
+
     for (int i = (int) pFormatCtx->nb_streams - 1; i >= 0; i--) {
         AVStream *stream = pFormatCtx->streams[i];
+
+        if (stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO
+            && is_auxiliary_video_stream(stream, has_color_video_stream)) {
+            continue;
+        }
 
         if (stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
             if (audio_stream == -1) {
@@ -940,7 +1209,7 @@ int store_image_thumbnail(scan_media_ctx_t *ctx, void *buf, size_t buf_len, docu
     }
 
     // Scale frame
-    AVFrame *scaled_frame = scale_frame(decoder, frame_and_packet->frame, ctx->tn_size);
+    AVFrame *scaled_frame = scale_frame(frame_and_packet->frame, decoder->codec_id, ctx->tn_size);
 
     if (scaled_frame == NULL) {
         frame_and_packet_free(frame_and_packet);
@@ -957,21 +1226,8 @@ int store_image_thumbnail(scan_media_ctx_t *ctx, void *buf, size_t buf_len, docu
         doc->thumbnail_count = 1;
         APPEND_THUMBNAIL(doc, frame_and_packet->packet->data, frame_and_packet->packet->size);
     } else {
-        // Encode frame to jpeg
-        AVCodecContext *jpeg_encoder = alloc_webp_encoder(scaled_frame->width, scaled_frame->height,
-                                                          ctx->tn_qscale);
-        avcodec_send_frame(jpeg_encoder, scaled_frame);
-        avcodec_send_frame(jpeg_encoder, NULL); // Send EOF
+        append_encoded_thumbnail(ctx, doc, scaled_frame);
 
-        AVPacket *jpeg_packet = av_packet_alloc();
-        avcodec_receive_packet(jpeg_encoder, jpeg_packet);
-
-        // Save thumbnail
-        doc->thumbnail_count = 1;
-        APPEND_THUMBNAIL(doc, jpeg_packet->data, jpeg_packet->size);
-
-        av_packet_free(&jpeg_packet);
-        avcodec_free_context(&jpeg_encoder);
         av_free(*scaled_frame->data);
         av_frame_free(&scaled_frame);
     }

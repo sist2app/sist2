@@ -62,6 +62,65 @@ TEST_F(MediaTest, ImageDimensions) {
     ASSERT_GT(meta(MetaHeight)->long_val, 0);
 }
 
+/**
+ * Mean distance of the thumbnail's chroma from neutral. A picture assembled from the wrong
+ * sub-image of a HEIF file - the greyscale gain map - comes back at 0.
+ */
+static double thumbnail_chroma(const document_t *doc) {
+    meta_line_t *thumbnail = get_meta(doc, MetaThumbnail);
+    EXPECT_NE(thumbnail, nullptr);
+
+    const AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_WEBP);
+    AVCodecContext *decoder = avcodec_alloc_context3(codec);
+    avcodec_open2(decoder, codec, nullptr);
+
+    AVPacket *packet = av_packet_alloc();
+    av_new_packet(packet, (int) thumbnail->size);
+    memcpy(packet->data, thumbnail->str_val, thumbnail->size);
+
+    AVFrame *frame = av_frame_alloc();
+    avcodec_send_packet(decoder, packet);
+    avcodec_send_packet(decoder, nullptr);
+    EXPECT_EQ(avcodec_receive_frame(decoder, frame), 0);
+
+    double total = 0;
+    long count = 0;
+    for (int plane = 1; plane <= 2; plane++) {
+        for (int y = 0; y < frame->height / 2; y++) {
+            for (int x = 0; x < frame->width / 2; x++) {
+                total += abs(frame->data[plane][y * frame->linesize[plane] + x] - 128);
+                count += 1;
+            }
+        }
+    }
+
+    av_frame_free(&frame);
+    av_packet_free(&packet);
+    avcodec_free_context(&decoder);
+
+    return count == 0 ? 0 : total / (double) count;
+}
+
+/** A HEIF picture stored as a grid of tiles is assembled, not read as one of its tiles */
+TEST_F(MediaTest, ImageTiledHeic) {
+    load("media/tiled.heic");
+
+    parse_media(&ctx, &f, &doc, "image/heic");
+
+    ASSERT_EQ(meta(MetaWidth)->long_val, 4032);
+    ASSERT_EQ(meta(MetaHeight)->long_val, 3024);
+    ASSERT_EQ(thumbnails_count(), 1);
+}
+
+/** The thumbnail of a tiled HEIF picture is the picture, not the greyscale gain map beside it */
+TEST_F(MediaTest, ImageTiledHeicIsNotTheGainMap) {
+    load("media/tiled.heic");
+
+    parse_media(&ctx, &f, &doc, "image/heic");
+
+    ASSERT_GT(thumbnail_chroma(&doc), 5);
+}
+
 /* Video */
 
 TEST_F(MediaTest, VidMkvSubDisabled) {
