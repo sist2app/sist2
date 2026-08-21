@@ -7,6 +7,10 @@
 
 #include <sqlite3.h>
 
+extern "C" {
+#include "src/database/database.h"
+}
+
 /*
  * End-to-end tests of the search index build: they run the real `sist2 scan` and
  * `sist2 sqlite-index` binaries and check what a query against the resulting index returns.
@@ -38,6 +42,8 @@ protected:
     }
 
     void write_file(const std::string &name, const std::string &content) {
+        fs::create_directories((dir / "files" / name).parent_path());
+
         std::ofstream file(dir / "files" / name);
         file << content << "\n";
         file.close();
@@ -105,6 +111,31 @@ protected:
 
     int mtime_offset = 0;
 };
+
+/** The folder tree of every index at once: no index id means no index filter, not no results */
+TEST_F(SqliteIndexTest, PathsOfEveryIndexAtOnce) {
+    write_file("sub/one.txt", "alpha");
+    write_file("sub/deeper/two.txt", "alpha");
+
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    const long long index_id = query("SELECT DISTINCT index_id FROM path_index");
+    ASSERT_GT(index_id, 0);
+
+    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_open(db);
+
+    cJSON *of_index = database_fts_get_paths(db, (int) index_id, 1, 3, nullptr, FALSE);
+    cJSON *of_every_index = database_fts_get_paths(db, 0, 1, 3, nullptr, FALSE);
+
+    EXPECT_EQ(cJSON_GetArraySize(of_index), 2);
+    EXPECT_EQ(cJSON_GetArraySize(of_every_index), cJSON_GetArraySize(of_index));
+
+    cJSON_Delete(of_index);
+    cJSON_Delete(of_every_index);
+    database_close(db, FALSE);
+}
 
 TEST_F(SqliteIndexTest, FullBuild) {
     ASSERT_EQ(scan(), 0);

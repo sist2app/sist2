@@ -230,7 +230,7 @@ void database_open(database_t *db) {
 
         CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
                 db->db, "SELECT path, count FROM path_index"
-                        " WHERE index_id=? AND depth BETWEEN ? AND ?"
+                        " WHERE (index_id=?1 OR ?1 IS NULL) AND depth BETWEEN ? AND ?"
                         " LIMIT 65536", -1,
                 &db->fts_search_paths, NULL));
 
