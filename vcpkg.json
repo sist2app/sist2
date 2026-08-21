@@ -49,7 +49,7 @@
     {
       "name": "ffmpeg",
       "default-features": false,
-      "features": ["avcodec", "avformat", "swscale", "swresample", "webp", "opus", "mp3lame", "vpx", "zlib"]
+      "features": ["avcodec", "avformat", "swscale", "swresample", "webp", "opus", "mp3lame", "vpx", "dav1d", "zlib"]
     },
     {
       "name": "libgit2",

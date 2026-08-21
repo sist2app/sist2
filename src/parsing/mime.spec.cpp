@@ -24,6 +24,15 @@ TEST(Mime, IdsAreStable) {
     ASSERT_EQ(mime_get_mime_by_string("text/plain"), 590195u);
 }
 
+/**
+ * A mime added to the csv carries a '+' and is numbered after every mime that was already there,
+ * so that it does not renumber the ones sorted after it.
+ */
+TEST(Mime, AddedMimesKeepTheOtherIdsStable) {
+    ASSERT_EQ(mime_get_mime_by_string("image/avif"), 524741u);
+    ASSERT_EQ(mime_get_mime_by_ext("avif"), mime_get_mime_by_string("image/avif"));
+}
+
 TEST(Mime, LookupByExtension) {
     ASSERT_EQ(mime_get_mime_by_ext("pdf"), mime_get_mime_by_string("application/pdf"));
     ASSERT_STREQ(mime_get_mime_text(mime_get_mime_by_ext("pdf")), "application/pdf");

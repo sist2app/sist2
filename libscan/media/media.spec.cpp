@@ -101,6 +101,26 @@ static double thumbnail_chroma(const document_t *doc) {
     return count == 0 ? 0 : total / (double) count;
 }
 
+TEST_F(MediaTest, ImageAvifDimensions) {
+    load("media/sample.avif");
+
+    parse_media(&ctx, &f, &doc, "image/avif");
+
+    ASSERT_EQ(meta(MetaWidth)->long_val, 640);
+    ASSERT_EQ(meta(MetaHeight)->long_val, 480);
+    ASSERT_STREQ(meta(MetaMediaVideoCodec)->str_val, "av1");
+}
+
+/** AVIF is AV1 in a HEIF container, so a thumbnail of one needs a software AV1 decoder */
+TEST_F(MediaTest, ImageAvifThumbnail) {
+    load("media/sample.avif");
+
+    parse_media(&ctx, &f, &doc, "image/avif");
+
+    ASSERT_EQ(thumbnails_count(), 1);
+    ASSERT_GT(thumbnail_chroma(&doc), 5);
+}
+
 /** A HEIF picture stored as a grid of tiles is assembled, not read as one of its tiles */
 TEST_F(MediaTest, ImageTiledHeic) {
     load("media/tiled.heic");
