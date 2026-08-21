@@ -8,13 +8,14 @@
 
 static inline int fs_read(struct vfile *f, void *buf, size_t size) {
     if (f->fd == -1) {
-        f->sha1_ctx = EVP_MD_CTX_new();
-        EVP_DigestInit_ex(f->sha1_ctx, EVP_sha1(), NULL);
-
         f->fd = open(f->filepath, O_RDONLY);
         if (f->fd == -1) {
-            EVP_MD_CTX_free(f->sha1_ctx);
             return -1;
+        }
+
+        if (f->calculate_checksum) {
+            f->sha1_ctx = EVP_MD_CTX_new();
+            EVP_DigestInit_ex(f->sha1_ctx, EVP_sha1(), NULL);
         }
     }
 
@@ -38,9 +39,11 @@ static inline int fs_read(struct vfile *f, void *buf, size_t size) {
 
 static inline void fs_close(struct vfile *f) {
     if (f->fd != -1) {
-        EVP_DigestFinal_ex(f->sha1_ctx, f->sha1_digest, NULL);
-        EVP_MD_CTX_free(f->sha1_ctx);
-        f->sha1_ctx = NULL;
+        if (f->sha1_ctx != NULL) {
+            EVP_DigestFinal_ex(f->sha1_ctx, f->sha1_digest, NULL);
+            EVP_MD_CTX_free(f->sha1_ctx);
+            f->sha1_ctx = NULL;
+        }
         close(f->fd);
         f->fd = -1;
     }
