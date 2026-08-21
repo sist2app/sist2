@@ -7,7 +7,72 @@
 #include "src/parsing/mime.h"
 
 #include <time.h>
+#include <sys/statvfs.h>
 
+
+/** Where SQLite puts the temporary files a large statement spills into */
+static const char *sqlite_temp_directory() {
+    const char *directory = sqlite3_temp_directory;
+
+    if (directory == NULL) {
+        directory = getenv("SQLITE_TMPDIR");
+    }
+    if (directory == NULL) {
+        directory = getenv("TMPDIR");
+    }
+
+    return directory == NULL ? "/tmp" : directory;
+}
+
+/** Logs how much room is left where path lives, at a level that is printed without --verbose */
+static void report_free_space(const char *what, const char *path) {
+    if (path == NULL || *path == '\0') {
+        return;
+    }
+
+    char directory[PATH_MAX];
+    snprintf(directory, sizeof(directory), "%s", path);
+
+    char *slash = strrchr(directory, '/');
+    if (slash == NULL) {
+        strcpy(directory, ".");
+    } else if (slash != directory) {
+        *slash = '\0';
+    } else {
+        *(slash + 1) = '\0';
+    }
+
+    struct statvfs stat;
+    if (statvfs(directory, &stat) != 0) {
+        return;
+    }
+
+    const double free_mib = (double) stat.f_bavail * (double) stat.f_frsize / (1024 * 1024);
+
+    LOG_FATALF_NO_EXIT("database.c", "The %s (%s) is on a filesystem with %.1f MiB free", what, path, free_mib);
+}
+
+void database_fatal_sqlite_error(database_t *db, const char *file, int line, int code) {
+
+    // "database or disk is full" names neither the database nor the disk, and the file that ran
+    // out of room is rarely the one being watched
+    if (code == SQLITE_FULL) {
+        report_free_space("index database", sqlite3_db_filename(db->db, "main"));
+        report_free_space("search index", sqlite3_db_filename(db->db, "fts"));
+        report_free_space("temporary file folder", sqlite_temp_directory());
+    }
+
+    // The connection's message is the specific one, but it describes whatever happened to the
+    // connection last: a code returned by a function that never touched it says "not an error"
+    const char *meaning = sqlite3_errstr(code);
+    const char *message = sqlite3_errmsg(db->db);
+
+    if (message == NULL || strcmp(message, meaning) == 0) {
+        LOG_FATALF("database.c", "Sqlite error @ %s:%d : (%d) %s", file, line, code, meaning);
+    } else {
+        LOG_FATALF("database.c", "Sqlite error @ %s:%d : (%d) %s: %s", file, line, code, meaning, message);
+    }
+}
 
 static void batch_lock(database_t *db);
 

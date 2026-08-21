@@ -164,17 +164,20 @@ database_stat_type_d database_get_stat_type_by_mnemonic(const char *name);
 
 cJSON *database_get_stats(database_t *db, database_stat_type_d type);
 
+/** Reports the error, with what went wrong on disk when that is what it was, and exits */
+void database_fatal_sqlite_error(database_t *db, const char *file, int line, int code);
+
 #define CRASH_IF_STMT_FAIL(x) do { \
         int return_value = x;                \
         if (return_value != SQLITE_DONE && return_value != SQLITE_ROW) {     \
-            LOG_FATALF("database.c", "Sqlite error @ %s:%d : (%d) %s", __BASE_FILE__, __LINE__, return_value, sqlite3_errmsg(db->db)); \
+            database_fatal_sqlite_error(db, __BASE_FILE__, __LINE__, return_value); \
         }                           \
     } while (0)
 
 #define CRASH_IF_NOT_SQLITE_OK(x) do { \
         int return_value = x;                \
         if (return_value != SQLITE_OK) {     \
-            LOG_FATALF("database.c", "Sqlite error @ %s:%d : (%d) %s", __BASE_FILE__, __LINE__, return_value, sqlite3_errmsg(db->db)); \
+            database_fatal_sqlite_error(db, __BASE_FILE__, __LINE__, return_value); \
         }                           \
     } while (0)
 

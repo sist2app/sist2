@@ -53,7 +53,7 @@ function(sist2_add_test)
         add_dependencies(${T_NAME} sist2)
         target_compile_definitions(${T_NAME} PRIVATE SIST2_BINARY="$<TARGET_FILE:sist2>")
     endif ()
-    target_link_libraries(${T_NAME} PRIVATE GTest::gtest GTest::gtest_main ${T_LIBRARIES})
+    target_link_libraries(${T_NAME} PRIVATE GTest::gtest GTest::gmock GTest::gtest_main ${T_LIBRARIES})
 
     if (T_SANITIZER)
         target_compile_options(${T_NAME} PRIVATE -fsanitize=${T_SANITIZER})
