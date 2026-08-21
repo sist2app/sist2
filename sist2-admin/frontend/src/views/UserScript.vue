@@ -3,8 +3,18 @@
         <BackButton to="/1"/>
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4 class="mb-0">[{{ script.name }}] User Script</h4>
-            <button class="btn btn-danger" @click="deleteScript()">Delete</button>
+            <div>
+                <button class="btn btn-secondary me-2" @click="startRename()">Rename</button>
+                <button class="btn btn-danger" @click="deleteScript()">Delete</button>
+            </div>
         </div>
+
+        <form class="input-group mb-3" v-if="newName !== null" @submit.prevent="rename()">
+            <input class="form-control" v-model="newName" ref="newNameInput" placeholder="New script name"
+                   maxlength="16">
+            <button class="btn btn-primary" type="submit" :disabled="!validName(newName)">Save</button>
+            <button class="btn btn-secondary" type="button" @click="newName = null">Cancel</button>
+        </form>
 
         <div class="alert alert-danger" v-if="error">{{ error }}</div>
         <div class="alert alert-success" v-if="taskQueued">Task queued. Check the Tasks page to monitor the
@@ -55,7 +65,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from "vue";
+import { nextTick, onMounted, ref, watch } from "vue";
 
 import BackButton from "../components/BackButton.vue";
 import JobSelect from "../components/JobSelect.vue";
@@ -63,21 +73,55 @@ import { api } from "../api.js";
 import { navigate, route } from "../router.js";
 
 const SAVE_DEBOUNCE = 500;
+const NAME_REGEX = /^[a-zA-Z0-9-_,.; ]+$/;
 
 const script = ref(null);
 const error = ref(null);
 const taskQueued = ref(false);
 const testJob = ref(null);
+const newName = ref(null);
+const newNameInput = ref(null);
 
 let saveTimeout = null;
 
 async function save() {
+    window.clearTimeout(saveTimeout);
     try {
         await api.put(`/api/user_script/${encodeURIComponent(script.value.name)}`, script.value);
         error.value = null;
     } catch (e) {
         error.value = e.message;
     }
+}
+
+function validName(name) {
+    return NAME_REGEX.test(name);
+}
+
+async function startRename() {
+    newName.value = script.value.name;
+    await nextTick();
+    newNameInput.value.select();
+}
+
+async function rename() {
+    // Flush pending edits; they would otherwise be saved under the old name
+    await save();
+    if (error.value !== null) {
+        return;
+    }
+
+    const name = newName.value;
+    try {
+        await api.post(`/api/user_script/${encodeURIComponent(script.value.name)}/rename`, { name: name });
+    } catch (e) {
+        error.value = e.message;
+        return;
+    }
+
+    window.clearTimeout(saveTimeout);
+    newName.value = null;
+    navigate(`/user_script/${encodeURIComponent(name)}`);
 }
 
 async function testRun() {

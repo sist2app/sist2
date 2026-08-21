@@ -31,7 +31,7 @@ import {
     startFrontend,
     stopFrontend
 } from "./frontends.js";
-import { SCRIPT_TEMPLATES, createScriptFromTemplate, deleteScriptDir } from "./scripts.js";
+import { SCRIPT_TEMPLATES, createScriptFromTemplate, deleteScriptDir, renameScriptDir } from "./scripts.js";
 import {
     UserScriptTask,
     deleteTaskLogs,
@@ -58,6 +58,13 @@ export function detectTesseractLangs() {
             .map((line) => line.trim())
             .filter((line) => line !== "");
     });
+}
+
+const NAME_REGEX = /^[a-zA-Z0-9-_,.; ]+$/;
+
+// A user script name is used as a folder name under SCRIPT_FOLDER
+function validScriptName(name) {
+    return typeof name === "string" && NAME_REGEX.test(name) && name !== "." && name !== "..";
 }
 
 function getJobOr404(name) {
@@ -370,6 +377,9 @@ export function createRouter() {
     });
 
     router.post("/api/user_script/:name", ({ params, query }) => {
+        if (!validScriptName(params.name)) {
+            throw new HttpError(400, "invalid name");
+        }
         if (userScriptRepository.get(params.name) !== null) {
             throw new HttpError(409, "user script already exists");
         }
@@ -397,6 +407,35 @@ export function createRouter() {
 
         userScriptRepository.update(script);
         return script;
+    });
+
+    router.post("/api/user_script/:name/rename", ({ params, body }) => {
+        const script = userScriptRepository.get(params.name);
+        if (script === null) {
+            throw new HttpError(404, "user script not found");
+        }
+
+        const newName = body === null ? undefined : body.name;
+        if (!validScriptName(newName)) {
+            throw new HttpError(400, "invalid name");
+        }
+        if (newName === params.name) {
+            return script;
+        }
+        if (userScriptRepository.get(newName) !== null) {
+            throw new HttpError(409, "user script already exists");
+        }
+
+        // A queued or running task holds the script directory
+        const busy = taskQueue.tasks()
+            .some((task) => task instanceof UserScriptTask && task.userScript.name === params.name);
+        if (busy) {
+            throw new HttpError(400, "in use (task)");
+        }
+
+        userScriptRepository.rename(params.name, newName);
+        renameScriptDir(script, newName);
+        return userScriptRepository.get(newName);
     });
 
     router.delete("/api/user_script/:name", ({ params }) => {

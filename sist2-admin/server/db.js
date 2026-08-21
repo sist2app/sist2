@@ -302,6 +302,17 @@ export const userScriptRepository = {
     delete(name) {
         connection.prepare("DELETE FROM user_script WHERE name = :name").run({ name: name });
     },
+    rename(name, newName) {
+        const params = { name: name, new_name: newName };
+        transaction(() => {
+            // Checked at commit, so the job rows can follow the script row
+            connection.exec("PRAGMA defer_foreign_keys = ON");
+            connection.prepare("UPDATE user_script SET name = :new_name WHERE name = :name").run(params);
+            connection
+                .prepare("UPDATE job_user_script SET script_name = :new_name WHERE script_name = :name")
+                .run(params);
+        });
+    },
     jobsReferencing(scriptName) {
         const rows = connection
             .prepare("SELECT job_name FROM job_user_script WHERE script_name = :script_name")

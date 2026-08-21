@@ -66,6 +66,13 @@ export function scriptExecutable(script) {
     return path.join(scriptDir(script), "run.sh");
 }
 
+export function renameScriptDir(script, newName) {
+    const dir = scriptDir(script);
+    if (fs.existsSync(dir)) {
+        fs.renameSync(dir, scriptDir({ name: newName }));
+    }
+}
+
 export function deleteScriptDir(script) {
     fs.rmSync(scriptDir(script), {
         recursive: true,
