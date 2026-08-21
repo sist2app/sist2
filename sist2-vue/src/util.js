@@ -355,3 +355,20 @@ export function sid(doc) {
 
     return indexId.toString(16).padStart(8, "0") + "." + docId.toString(16).padStart(8, "0");
 }
+
+/** One bucket of the date histogram covers a month, the way the scan aggregates mtimes */
+const DATE_HISTOGRAM_BUCKET_SECONDS = 2629800;
+
+/**
+ * Bars of the file modification time histogram, oldest first. Every bucket the index reports is
+ * a bar: dropping the shorter ones leaves a chart that is empty whenever the counts are level.
+ */
+export function dateHistogramBins(data) {
+    return data
+        .map(d => ({
+            length: Number(d.count),
+            x0: Number(d.bucket),
+            x1: Number(d.bucket) + DATE_HISTOGRAM_BUCKET_SECONDS
+        }))
+        .sort((a, b) => a.x0 - b.x0);
+}

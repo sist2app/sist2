@@ -7,19 +7,13 @@
 <script>
 import * as d3 from "d3";
 import Sist2Api from "@/Sist2Api";
+import {dateHistogramBins} from "@/util";
 
 const formatSI = d3.format("~s");
 
 
 function dateHistogram(data, svg, title) {
-  let bins = data.map(d => {
-    return {
-      length: Number(d.count),
-      x0: Number(d.bucket),
-      x1: Number(d.bucket) + 2629800
-    }
-  });
-  bins.sort((a, b) => a.length - b.length);
+  const bins = dateHistogramBins(data);
 
   const margin = {
     top: 50,
@@ -27,9 +21,6 @@ function dateHistogram(data, svg, title) {
     bottom: 70,
     left: 40
   };
-
-  const thresh = d3.quantile(bins, 0.9, d => d.length);
-  bins = bins.filter(d => d.length > thresh);
 
   const width = 550;
   const height = 450;
