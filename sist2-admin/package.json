@@ -9,6 +9,7 @@
     "scripts": {
         "dev": "vite",
         "build": "vite build",
+        "test": "node --test \"server/**/*.spec.js\"",
         "serve": "node server/main.js"
     },
     "dependencies": {
