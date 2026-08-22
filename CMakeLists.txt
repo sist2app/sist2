@@ -221,6 +221,18 @@ target_compile_options(scan PRIVATE ${SIST_WARNING_OPTIONS})
 target_compile_options(sist2_core PRIVATE ${SIST_WARNING_OPTIONS})
 target_compile_options(sist2 PRIVATE ${SIST_WARNING_OPTIONS})
 
+#
+# Hardening (optimized builds; the debug build gets -fstack-protector alongside ASan below)
+#
+# libscan parses files nobody vetted, in a process that keeps running afterwards, so the
+# optimized binary is exactly the one that needs the checks. _FORTIFY_SOURCE is undefined
+# first because the distro gcc predefines it at -O and would warn about the redefinition.
+set(SIST_HARDENING_OPTIONS
+        -fstack-protector-strong
+        -U_FORTIFY_SOURCE
+        -D_FORTIFY_SOURCE=2
+)
+
 if (SIST_DEBUG)
     set(SIST_SANITIZE_OPTIONS
             -g
@@ -250,9 +262,9 @@ elseif (SIST_FAST)
     set(SIST_OPTIMIZE_OPTIONS
             -Ofast
             -march=native
-            -fno-stack-protector
             -fomit-frame-pointer
             -freciprocal-math
+            ${SIST_HARDENING_OPTIONS}
     )
     target_compile_options(scan PRIVATE ${SIST_OPTIMIZE_OPTIONS})
     target_compile_options(sist2_core PRIVATE ${SIST_OPTIMIZE_OPTIONS})
@@ -261,8 +273,8 @@ else ()
     target_compile_definitions(scan PRIVATE NDEBUG)
     set(SIST_OPTIMIZE_OPTIONS
             -Ofast
-            -fno-stack-protector
             -fomit-frame-pointer
+            ${SIST_HARDENING_OPTIONS}
     )
     target_compile_options(scan PRIVATE ${SIST_OPTIMIZE_OPTIONS})
     target_compile_options(sist2_core PRIVATE ${SIST_OPTIMIZE_OPTIONS})
