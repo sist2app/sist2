@@ -143,14 +143,13 @@ export default Vue.extend({
     font-size: 80%;
 }
 
-.theme-black .version-badge {
-    color: #eee !important;
-    background: none;
-}
-
 .version-badge {
     color: #222 !important;
     background: none;
+}
+
+.theme-black .version-badge {
+    color: #eee !important;
 }
 
 .list-group-item {
@@ -179,20 +178,19 @@ export default Vue.extend({
     color: inherit;
 }
 
+/* Only the border color: the shorthand would put back the top border that
+   .list-group-item + .list-group-item drops, drawing 2px seams between rows. */
 .theme-black .list-group-item {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.theme-black .list-group-item:first-child {
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: #212121;
+    color: #e0e0e0;
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 .theme-black .list-group-item.active {
     z-index: 2;
     background-color: inherit;
     color: inherit;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 0;
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .theme-black .list-group {

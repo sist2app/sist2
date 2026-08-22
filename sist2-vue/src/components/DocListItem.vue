@@ -139,6 +139,11 @@ export default {
     border: none;
 }
 
+.theme-black .list-group-item {
+    background: #212121;
+    color: #e0e0e0;
+}
+
 .path-row {
     display: -ms-flexbox;
     display: flex;

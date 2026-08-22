@@ -28,22 +28,3 @@ export default Vue.extend({
     }
 });
 </script>
-
-<style>
-
-.theme-black .list-group-item {
-    background: #212121;
-    color: #e0e0e0;
-
-    border-bottom: none;
-    border-left: none;
-    border-right: none;
-    border-radius: 0;
-    padding: .25rem 0.5rem;
-}
-
-.theme-black .list-group-item:first-child {
-    border-top: none;
-}
-
-</style>
