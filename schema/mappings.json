@@ -1,4 +1,5 @@
 {
+  "date_detection": false,
   "properties": {
     "_tie": {
       "type": "keyword",
@@ -155,9 +156,6 @@
     "exif_model": {
       "type": "text"
     },
-    "exif:software": {
-      "type": "text"
-    },
     "exif_exposure_time": {
       "type": "keyword"
     },
@@ -242,6 +240,23 @@
     "emb.1024.*": {
       "type": "dense_vector",
       "dims": 1024
+    },
+    "exif_software": {
+      "type": "text"
+    },
+    "exif_description": {
+      "type": "text"
+    },
+    "exif_datetime": {
+      "type": "keyword",
+      "index": false
+    },
+    "media_comment": {
+      "type": "text"
+    },
+    "bitrate": {
+      "type": "long",
+      "index": false
     }
   }
 }
