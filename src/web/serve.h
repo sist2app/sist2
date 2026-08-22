@@ -10,4 +10,7 @@
 
 void serve(const char *listen_address);
 
+/** Body of the Elasticsearch _update request that adds or removes one tag. Caller frees. */
+char *tag_script_body(const char *source, const char *tag);
+
 #endif
