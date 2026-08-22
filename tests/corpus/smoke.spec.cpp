@@ -127,6 +127,19 @@ TEST_P(CorpusSmokeTest, Parses) {
     load(relative_path);
 
     parse_by_extension(extension_of(relative_path));
+
+    // A key found twice is serialized as the same JSON field twice, which Elasticsearch rejects.
+    // Thumbnails are the one meta line a document is allowed to repeat.
+    std::map<int, int> keys;
+    for (meta_line_t *meta = doc.meta_head; meta != nullptr; meta = meta->next) {
+        if (meta->key != MetaThumbnail) {
+            keys[meta->key] += 1;
+        }
+    }
+
+    for (const auto &[key, count]: keys) {
+        EXPECT_EQ(count, 1) << "meta key " << key << " was produced " << count << " times";
+    }
 }
 
 INSTANTIATE_TEST_SUITE_P(
