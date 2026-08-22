@@ -1,5 +1,12 @@
 <template>
-  <div id="mimeTree"></div>
+  <div>
+    <div class="d-flex justify-content-end">
+      <b-button variant="link" @click="selectAll()">{{ $t("mimePicker.selectAll") }}</b-button>
+      <b-button variant="link" @click="selectNone()">{{ $t("mimePicker.selectNone") }}</b-button>
+      <b-button variant="link" @click="invertSelection()">{{ $t("mimePicker.invert") }}</b-button>
+    </div>
+    <div id="mimeTree"></div>
+  </div>
 </template>
 
 <script>
@@ -39,6 +46,31 @@ export default {
         return;
       }
 
+      this.$store.commit("setSelectedMimeTypes", getSelectedTreeNodes(this.mimeTree));
+    },
+    selectAll() {
+      this.bulkSelect((node) => node.select());
+    },
+    selectNone() {
+      this.bulkSelect((node) => node.deselect());
+    },
+    invertSelection() {
+      this.bulkSelect((node) => node.selected() ? node.deselect() : node.select());
+    },
+    /** Applies fn to every media type, then searches once rather than once per checkbox */
+    bulkSelect(fn) {
+      if (this.mimeTree === null || this.updateBusy) {
+        return;
+      }
+      this.updateBusy = true;
+
+      this.mimeTree.recurseDown((node) => {
+        if (!node.hasChildren()) {
+          fn(node);
+        }
+      });
+
+      this.updateBusy = false;
       this.$store.commit("setSelectedMimeTypes", getSelectedTreeNodes(this.mimeTree));
     },
     updateTree() {

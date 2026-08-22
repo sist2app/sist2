@@ -173,6 +173,11 @@ export default {
             sizeHistogram: "File size distribution",
             noStats: "No statistics for this index.",
         },
+        mimePicker: {
+            selectAll: "Select All",
+            selectNone: "Select None",
+            invert: "Invert",
+        },
         indexPicker: {
             selectNone: "Select None",
             selectAll: "Select All",
@@ -351,6 +356,11 @@ export default {
             dateHistogram: "Änderungszeiten",
             sizeHistogram: "Dateigrößen",
             noStats: "Keine Statistiken für diesen Index.",
+        },
+        mimePicker: {
+            selectAll: "alle auswählen",
+            selectNone: "keinen auswählen",
+            invert: "umkehren",
         },
         indexPicker: {
             selectNone: "keinen auswählen",
@@ -533,6 +543,11 @@ export default {
             sizeHistogram: "Distribution des tailles de fichier",
             noStats: "Aucune statistique pour cet index.",
         },
+        mimePicker: {
+            selectAll: "Sélectionner tout",
+            selectNone: "Ne rien sélectionner",
+            invert: "Inverser",
+        },
         indexPicker: {
             selectNone: "Ne rien sélectionner",
             selectAll: "Sélectionner tout",
@@ -711,6 +726,11 @@ export default {
             dateHistogram: "文件修改时间分布",
             sizeHistogram: "文件大小分布",
             noStats: "此索引没有统计数据。",
+        },
+        mimePicker: {
+            selectAll: "全选",
+            selectNone: "清空",
+            invert: "反选",
         },
         indexPicker: {
             selectNone: "清空",
