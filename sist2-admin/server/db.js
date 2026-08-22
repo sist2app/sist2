@@ -349,9 +349,22 @@ export const taskHistoryRepository = {
             .prepare(`${selectSql("task_done", TASK_DONE_COLUMNS)} ORDER BY started DESC`)
             .all();
     },
+    finish(row) {
+        connection
+            .prepare("UPDATE task_done SET ended = :ended, return_code = :return_code WHERE id = :id")
+            .run(row);
+    },
+    // A row with no return code is a task that is still running; one left over from a previous
+    // process never will, so it is written off when the queue starts again.
+    writeOffUnfinished(returnCode) {
+        connection
+            .prepare("UPDATE task_done SET return_code = :return_code WHERE return_code IS NULL")
+            .run({ return_code: returnCode });
+    },
     doneIds() {
         const done = new Set();
-        for (const row of connection.prepare("SELECT id FROM task_done").all()) {
+        const rows = connection.prepare("SELECT id FROM task_done WHERE return_code IS NOT NULL").all();
+        for (const row of rows) {
             done.add(row.id);
         }
         return done;

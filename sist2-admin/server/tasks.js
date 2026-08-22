@@ -14,6 +14,7 @@ import { restartRunningFrontends } from "./frontends.js";
 
 const QUEUE_TICK_INTERVAL = 1000;
 const SKIPPED_RETURN_CODE = -1;
+const INTERRUPTED_RETURN_CODE = -2;
 
 function createProgress() {
     return {
@@ -326,6 +327,7 @@ class TaskQueue {
     }
 
     start() {
+        taskHistoryRepository.writeOffUnfinished(INTERRUPTED_RETURN_CODE);
         this._interval = setInterval(() => this._tick(), QUEUE_TICK_INTERVAL);
     }
 
@@ -389,6 +391,18 @@ class TaskQueue {
         task.started = new Date().toISOString();
         logger.info(`Started task ${task.displayName}`);
 
+        // Written now rather than on completion so that a task which never finishes still
+        // leaves a trace, with its log, of having run
+        taskHistoryRepository.insert({
+            id: task.id,
+            name: task.displayName,
+            job_name: task.jobName,
+            started: task.started,
+            ended: null,
+            return_code: null,
+            has_logs: 1
+        });
+
         task.run()
             .catch((e) => {
                 logger.error(`Task ${task.displayName} crashed: ${e.stack}`);
@@ -406,14 +420,10 @@ class TaskQueue {
         }
         task.closeLog();
 
-        taskHistoryRepository.insert({
+        taskHistoryRepository.finish({
             id: task.id,
-            name: task.displayName,
-            job_name: task.jobName,
-            started: task.started,
             ended: task.ended,
-            return_code: returnCode,
-            has_logs: 1
+            return_code: returnCode
         });
 
         const job = jobRepository.get(task.jobName);

@@ -39,11 +39,12 @@
             </tr>
             </thead>
             <tbody>
-            <tr v-for="row in page" :key="row.id" :class="{'table-danger': row.return_code !== 0}">
+            <tr v-for="row in page" :key="row.id"
+                :class="{'table-danger': row.return_code !== null && row.return_code !== 0}">
                 <td>{{ row.name }}</td>
                 <td>{{ formatDate(row.started) }}</td>
                 <td>{{ humanDuration(row.started, row.ended) }}</td>
-                <td>{{ row.return_code === 0 ? "ok" : `failed (${row.return_code})` }}</td>
+                <td>{{ status(row) }}</td>
                 <td>
                     <template v-if="row.has_logs === 1">
                         <a class="btn btn-sm btn-outline-primary" :href="`#/log/${row.id}`">View</a>
@@ -96,6 +97,21 @@ function percent(task) {
 
 function formatCount(value) {
     return value.toLocaleString();
+}
+
+function status(row) {
+    switch (row.return_code) {
+        case null:
+            return "running";
+        case 0:
+            return "ok";
+        case -1:
+            return "skipped";
+        case -2:
+            return "interrupted";
+        default:
+            return `failed (${row.return_code})`;
+    }
 }
 
 async function poll() {
