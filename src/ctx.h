@@ -101,6 +101,7 @@ typedef struct {
     char *tagline;
     struct index_t indices[256];
     char lang[10];
+    char theme[8];
     int dev;
     int search_backend;
 } WebCtx_t;

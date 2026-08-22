@@ -94,6 +94,7 @@ typedef struct web_args {
     char *tag_credentials;
     char *tagline;
     char *lang;
+    char *theme;
     char auth_user[256];
     char auth_pass[256];
     int auth0_enabled;

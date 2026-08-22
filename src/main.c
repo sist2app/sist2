@@ -434,6 +434,7 @@ void sist2_web(web_args_t *args) {
     WebCtx.auth0_domain = args->auth0_domain;
     WebCtx.auth0_audience = args->auth0_audience;
     strcpy(WebCtx.lang, args->lang);
+    strcpy(WebCtx.theme, args->theme);
 
     if (args->search_backend == SQLITE_SEARCH_BACKEND) {
         WebCtx.search_db = database_create(args->search_index_path, FTS_DATABASE);
@@ -617,6 +618,7 @@ int main(int argc, const char *argv[]) {
             OPT_STRING(0, "tagline", &web_args->tagline, "Tagline in navbar"),
             OPT_BOOLEAN(0, "dev", &web_args->dev, "Serve html & js files from disk (for development)"),
             OPT_STRING(0, "lang", &web_args->lang, "Default UI language. Can be changed by the user"),
+            OPT_STRING(0, "theme", &web_args->theme, "Default UI theme (light|black). Can be changed by the user"),
 
             OPT_END(),
     };

@@ -347,6 +347,7 @@ void index_info(struct mg_connection *nc) {
     cJSON_AddBoolToObject(json, "esVersionLegacy", IS_LEGACY_VERSION(WebCtx.es_version));
     cJSON_AddBoolToObject(json, "esVersionHasKnn", HAS_KNN(WebCtx.es_version));
     cJSON_AddStringToObject(json, "lang", WebCtx.lang);
+    cJSON_AddStringToObject(json, "theme", WebCtx.theme);
 
     cJSON_AddBoolToObject(json, "auth0Enabled", WebCtx.auth0_enabled);
     if (WebCtx.auth0_enabled) {

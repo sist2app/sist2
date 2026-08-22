@@ -1,0 +1,1 @@
+ALTER TABLE frontend ADD COLUMN web_theme TEXT NOT NULL DEFAULT 'light';

@@ -33,6 +33,7 @@ export default new Vuex.Store({
         optLangIsDefault: true,
         optHideDuplicates: true,
         optTheme: "light",
+        optThemeIsDefault: true,
         optDisplay: "grid",
         optFeaturedFields: "",
 
@@ -156,7 +157,11 @@ export default new Vuex.Store({
         setUiLightboxCaptions: (state, val) => state.uiLightboxCaptions = val,
         setUiSqliteMode: (state, val) => state.uiSqliteMode = val,
 
-        setOptTheme: (state, val) => state.optTheme = val,
+        setOptTheme: (state, val) => {
+            state.optTheme = val;
+            state.optThemeIsDefault = false;
+        },
+        _setDefaultOptTheme: (state, val) => state.optTheme = val,
         setOptDisplay: (state, val) => state.optDisplay = val,
         setOptColumns: (state, val) => state.optColumns = val,
         setOptHighlight: (state, val) => state.optHighlight = val,
@@ -211,6 +216,10 @@ export default new Vuex.Store({
 
             if (store.state.optLangIsDefault) {
                 store.commit("setOptLang", val.lang);
+            }
+
+            if (store.state.optThemeIsDefault) {
+                store.commit("_setDefaultOptTheme", val.theme);
             }
         },
         loadFromArgs({commit}, route) {
@@ -311,8 +320,10 @@ export default new Vuex.Store({
                     window.location.reload();
                 }
 
+                // Only what was actually saved: an option added in a newer version keeps its
+                // default instead of turning into undefined
                 Object.keys(state).forEach((key) => {
-                    if (key.startsWith("opt")) {
+                    if (key.startsWith("opt") && key in conf) {
                         (state)[key] = conf[key];
                     }
                 });

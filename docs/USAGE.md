@@ -75,6 +75,7 @@ Web options
     --tagline=<str>                   Tagline in navbar
     --dev                             Serve html & js files from disk (for development)
     --lang=<str>                      Default UI language. Can be changed by the user
+    --theme=<str>                     Default UI theme (light|black). Can be changed by the user
 
 Made by simon987 <me@simon987.net>. Released under GPL-3.0
 ```

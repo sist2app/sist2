@@ -14,6 +14,15 @@
                     </select>
                 </div>
                 <div class="col-md-6 mb-2 d-flex flex-column justify-content-end">
+                    <label class="form-label">UI Theme</label>
+                    <select class="form-select" v-model="options.theme">
+                        <option value="light">light</option>
+                        <option value="black">black</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-2 d-flex flex-column justify-content-end">
                     <label class="form-label">Listen address</label>
                     <input class="form-control" v-model="options.bind">
                 </div>

@@ -112,7 +112,8 @@ export function webArgs(webOptions, backend, indices, auth0PublicKeyFile) {
         "web",
         `--bind=${options.bind}`,
         `--tagline=${options.tagline}`,
-        `--lang=${options.lang}`
+        `--lang=${options.lang}`,
+        `--theme=${options.theme}`
     ];
 
     if (backend.backend_type === "sqlite") {
