@@ -22,6 +22,14 @@
             </div>
         </div>
 
+        <p class="text-muted" v-if="job.index_path === null">
+            No index file yet. It is created the first time the job runs.
+        </p>
+        <p class="text-muted" v-else>
+            Index file: <code>{{ job.index_path }}</code>
+            <span v-if="indexFileSize !== null"> ({{ humanSize(indexFileSize) }})</span>
+        </p>
+
         <div class="alert alert-danger" v-if="error">{{ error }}</div>
         <div class="alert alert-success" v-if="taskQueued">Task queued. Check the Tasks page to monitor the
             status.</div>
@@ -58,6 +66,7 @@ import SearchBackendSelect from "../components/SearchBackendSelect.vue";
 import UserScriptPicker from "../components/UserScriptPicker.vue";
 import { api } from "../api.js";
 import { navigate, route } from "../router.js";
+import { humanSize } from "../util.js";
 
 const SAVE_DEBOUNCE = 500;
 
@@ -65,6 +74,7 @@ const job = ref(null);
 const error = ref(null);
 const taskQueued = ref(false);
 const runMenuOpen = ref(false);
+const indexFileSize = ref(null);
 
 let saveTimeout = null;
 
@@ -111,6 +121,11 @@ onMounted(async () => {
     document.addEventListener("click", closeRunMenu);
 
     job.value = await api.get(`/api/job/${encodeURIComponent(route.params.name)}`);
+
+    if (job.value.index_path !== null) {
+        const files = await api.get("/api/index_file");
+        indexFileSize.value = files.find((file) => file.name === job.value.index_path)?.size ?? null;
+    }
 
     watch(
         job,
