@@ -33,13 +33,18 @@ static void report_free_space(const char *what, const char *path) {
     char directory[PATH_MAX];
     snprintf(directory, sizeof(directory), "%s", path);
 
-    char *slash = strrchr(directory, '/');
-    if (slash == NULL) {
-        strcpy(directory, ".");
-    } else if (slash != directory) {
-        *slash = '\0';
-    } else {
-        *(slash + 1) = '\0';
+    // A database is a file, so its filesystem is the one its folder is on; a temporary file
+    // folder is already the folder
+    struct stat info;
+    if (stat(directory, &info) != 0 || !S_ISDIR(info.st_mode)) {
+        char *slash = strrchr(directory, '/');
+        if (slash == NULL) {
+            strcpy(directory, ".");
+        } else if (slash == directory) {
+            *(slash + 1) = '\0';
+        } else {
+            *slash = '\0';
+        }
     }
 
     struct statvfs stat;

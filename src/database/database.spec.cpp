@@ -66,6 +66,15 @@ protected:
     }
 };
 
+/** What SQLite would use for its temporary files, the way database.c looks it up */
+static const char *temp_directory() {
+    const char *directory = getenv("SQLITE_TMPDIR");
+    if (directory == nullptr) {
+        directory = getenv("TMPDIR");
+    }
+    return directory == nullptr ? "/tmp" : directory;
+}
+
 /**
  * A full disk is the one SQLite error a user can act on, but only if the message says which file
  * ran out of room: the index, the search index and the temporary files are often on three
@@ -76,7 +85,7 @@ TEST_F(DatabaseTest, AFullDiskErrorNamesTheFilesAndTheirFreeSpace) {
                  ::testing::AllOf(
                          ::testing::HasSubstr("index database"),
                          ::testing::HasSubstr("MiB free"),
-                         ::testing::HasSubstr("temporary file folder"),
+                         ::testing::HasSubstr("temporary file folder (" + std::string(temp_directory()) + ")"),
                          ::testing::HasSubstr("(13) database or disk is full")));
 }
 
