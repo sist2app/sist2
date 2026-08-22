@@ -98,6 +98,7 @@ export default Vue.extend({
         docIds: new Set(),
         docChecksums: new Set(),
         searchBusy: false,
+        searchQueued: false,
         Sist2Query: Sist2Query,
         showHelp: false,
         showEsConnectionError: false
@@ -132,6 +133,9 @@ export default Vue.extend({
                     "setEmbedding"
                 ].includes(mutation.type)) {
                     if (this.searchBusy) {
+                        // What is typed while a search is running is what the user is waiting
+                        // for; dropping it leaves the page answering a query they moved on from
+                        this.searchQueued = true;
                         return;
                     }
 
@@ -204,14 +208,27 @@ export default Vue.extend({
             Sist2Api.search().then(async (resp) => {
                 await this.handleSearch(resp);
                 this.searchBusy = false;
+                this.searchQueuedNow();
             }).catch(err => {
                 console.log(err)
-                if (err.response.status === 500 && this.$store.state.optQueryMode === "advanced") {
+                // A search that fails has to release the page, or nothing is ever searched again
+                this.searchBusy = false;
+                this.searchQueuedNow();
+
+                if (err.response && err.response.status === 500 && this.$store.state.optQueryMode === "advanced") {
                     this.showSyntaxErrorToast();
                 } else {
                     this.showErrorToast();
                 }
             });
+        },
+        searchQueuedNow() {
+            if (!this.searchQueued) {
+                return;
+            }
+
+            this.searchQueued = false;
+            this.search(true);
         },
         async clearResults() {
             this.docs = [];
