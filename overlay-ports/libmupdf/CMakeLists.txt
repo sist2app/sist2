@@ -13,6 +13,7 @@ option(TOFU_CJK_LANG "Drop the Source Han Serif per-language CJK fonts (24MB) an
 find_package(freetype CONFIG REQUIRED)
 find_package(harfbuzz CONFIG REQUIRED)
 find_package(JPEG REQUIRED)
+find_package(lcms2 CONFIG REQUIRED)
 find_package(OpenJPEG CONFIG REQUIRED)
 find_package(unofficial-gumbo CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
@@ -116,7 +117,7 @@ target_compile_definitions(libmupdf
     $<$<BOOL:${BUILD_SHARED_LIBS}>:FZ_DLL>
     FZ_ENABLE_BROTLI=0        # needs brotli
     FZ_ENABLE_DOCX_OUTPUT=0   # needs https://github.com/ArtifexSoftware/extract
-    FZ_ENABLE_ICC=0           # needs lcsm2
+    FZ_ENABLE_ICC=1
     FZ_ENABLE_JS=0            # needs mujs
     FZ_ENABLE_ODT_OUTPUT=0    # needs FZ_ENABLE_DOCX_OUTPUT
     MEMENTO_MUPDF_HACKS
@@ -132,6 +133,7 @@ target_link_libraries(libmupdf
     harfbuzz::harfbuzz
     ${JBIG2DEC_LIBRARY}
     JPEG::JPEG
+    lcms2::lcms2
     openjp2
     unofficial::gumbo::gumbo
     ZLIB::ZLIB
