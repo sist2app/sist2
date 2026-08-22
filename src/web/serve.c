@@ -60,7 +60,7 @@ void get_embedding(struct mg_connection *nc, struct mg_http_message *hm) {
 
     database_t *db = web_get_database(sid.index_id);
     if (db == NULL) {
-        LOG_DEBUGF("serve.c", "Could not get database for index: %s", sid.index_id);
+        LOG_DEBUGF("serve.c", "Could not get database for index: %d", sid.index_id);
         HTTP_REPLY_NOT_FOUND
         return;
     }

@@ -288,12 +288,12 @@ int scan_args_validate(scan_args_t *args, int argc, const char **argv) {
             args->list_file = fopen(args->list_path, "r");
 
             if (args->list_file == NULL) {
-                LOG_FATALF("main.c", "List file could not be opened: %s (%s)", args->list_path, errno);
+                LOG_FATALF("main.c", "List file could not be opened: %s (%s)", args->list_path, strerror(errno));
             }
         }
     }
 
-    LOG_DEBUGF("cli.c", "arg tn_quality=%f", args->tn_quality);
+    LOG_DEBUGF("cli.c", "arg tn_quality=%d", args->tn_quality);
     LOG_DEBUGF("cli.c", "arg tn_size=%d", args->tn_size);
     LOG_DEBUGF("cli.c", "arg tn_count=%d", args->tn_count);
     LOG_DEBUGF("cli.c", "arg content_size=%d", args->content_size);

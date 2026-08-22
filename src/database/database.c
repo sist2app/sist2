@@ -443,7 +443,7 @@ static void database_finalize_statements(database_t *db) {
 }
 
 void database_close(database_t *db, int optimize) {
-    LOG_DEBUGF("database.c", "Closing database %s (%p)", db->filename, db->db);
+    LOG_DEBUGF("database.c", "Closing database %s (%p)", db->filename, (void *) db->db);
 
     if (db->db) {
         database_flush_writes(db);

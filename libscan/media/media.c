@@ -1113,7 +1113,7 @@ void parse_media_vfile(scan_media_ctx_t *ctx, struct vfile *f, document_t *doc, 
     }
 
     if (io_ctx == NULL) {
-        CTX_LOG_DEBUGF(f->filepath, "Reading media file without seek support", f->st_size);
+        CTX_LOG_DEBUG(f->filepath, "Reading media file without seek support");
         io_ctx = avio_alloc_context(buffer, AVIO_BUF_SIZE, 0, f, vfile_read, NULL, NULL);
     }
 

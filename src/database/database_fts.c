@@ -789,7 +789,7 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
     if (embedding) {
         int model_embedding_size = database_fts_get_model_size(db, model);
         if (model_embedding_size != embedding_size) {
-            LOG_WARNINGF("database_fts.c", "Received invalid embedding size for model %s: %d, expected %d",
+            LOG_WARNINGF("database_fts.c", "Received invalid embedding size for model %d: %d, expected %d",
                          model, embedding_size, model_embedding_size);
             return NULL;
         }

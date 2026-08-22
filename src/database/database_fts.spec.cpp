@@ -9,6 +9,7 @@
 
 extern "C" {
 #include "src/database/database.h"
+#include "src/ctx.h"
 }
 
 /*
@@ -134,6 +135,33 @@ TEST_F(SqliteIndexTest, PathsOfEveryIndexAtOnce) {
 
     cJSON_Delete(of_index);
     cJSON_Delete(of_every_index);
+    database_close(db, FALSE);
+}
+
+/*
+ * A search carrying an embedding for a model the search index does not know used to take the
+ * whole web server down with it: the mismatch was logged with %s and an int model id.
+ */
+TEST_F(SqliteIndexTest, EmbeddingForAnUnknownModelIsRejected) {
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_open(db);
+
+    // Every real run logs warnings; the mismatch is only formatted when they are on
+    const int verbose = LogCtx.verbose;
+    LogCtx.verbose = 1;
+
+    std::vector<float> embedding(512, 0.5f);
+
+    cJSON *result = database_fts_search(db, nullptr, nullptr, 0, 0, 0, 0, 10, nullptr, nullptr,
+                                        nullptr, TRUE, FTS_SORT_SCORE, 0, nullptr, FALSE, FALSE,
+                                        0, 1, embedding.data(), (int) embedding.size());
+
+    EXPECT_EQ(result, nullptr);
+
+    LogCtx.verbose = verbose;
     database_close(db, FALSE);
 }
 

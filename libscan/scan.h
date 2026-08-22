@@ -18,7 +18,8 @@
 
 #define UNUSED(x) __attribute__((__unused__))  x
 
-typedef void (*logf_callback_t)(const char *filepath, int level, char *format, ...);
+typedef void (*logf_callback_t)(const char *filepath, int level, char *format, ...)
+        __attribute__((format(printf, 3, 4)));
 
 typedef void (*log_callback_t)(const char *filepath, int level, char *str);
 

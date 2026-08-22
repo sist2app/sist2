@@ -51,7 +51,8 @@ void log_write(int fd, const char *buf, size_t len);
 
 #include "sist.h"
 
-void sist_logf(const char *filepath, int level, char *format, ...);
+/* printf attribute: a mismatched format argument in a log line is a crash, not a wrong message */
+void sist_logf(const char *filepath, int level, char *format, ...) __attribute__((format(printf, 3, 4)));
 
 void vsist_logf(const char *filepath, int level, char *format, va_list ap);
 
