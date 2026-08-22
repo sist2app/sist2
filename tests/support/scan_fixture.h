@@ -41,6 +41,9 @@ std::vector<std::string> corpus_files();
  */
 const char *tessdata_path();
 
+/** Whether <lang>.traineddata is where tessdata_path() points; OCR of that language needs it */
+bool tesseract_has_language(const char *lang);
+
 void noop_log(const char *filepath, int level, char *str);
 
 void noop_logf(const char *filepath, int level, char *format, ...);

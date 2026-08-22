@@ -68,6 +68,16 @@ const char *tessdata_path() {
     return cached;
 }
 
+bool tesseract_has_language(const char *lang) {
+    const char *path = tessdata_path();
+
+    if (path == nullptr) {
+        return false;
+    }
+
+    return std::filesystem::exists(std::filesystem::path(path) / (std::string(lang) + ".traineddata"));
+}
+
 void noop_log(const char *, int, char *) {
     // noop
 }

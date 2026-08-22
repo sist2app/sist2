@@ -48,6 +48,40 @@ TEST_F(EbookTest, CandlePdfNoThumbnail) {
     ASSERT_NEAR(content_len(), 500, 4);
 }
 
+/**
+ * A page with no text of its own is read with OCR. The words have to come back whole: MuPDF's OCR
+ * device lays a right-to-left script out one character per line, which used to reach the index as
+ * "w e l c o m e" (issue #537).
+ */
+TEST_F(EbookTest, ScannedPageIsReadAsWords) {
+    load("ebook/scanned_text.pdf");
+
+    parse_ebook(&ctx, &f, "application/pdf", &doc);
+
+    ASSERT_NE(meta(MetaContent), nullptr);
+    ASSERT_NE(strstr(content(), "welcome to the library"), nullptr) << content();
+}
+
+/**
+ * The same page in Arabic. MuPDF's OCR device lays a right-to-left script out one character per
+ * line, so the words used to reach the index as "w e l c o m e" (issue #537). Needs the Arabic
+ * language data, which is not part of the corpus.
+ */
+TEST_F(EbookTest, ScannedRightToLeftPageIsReadAsWords) {
+    if (!tesseract_has_language("ara")) {
+        GTEST_SKIP() << "ara.traineddata is not installed";
+    }
+
+    ctx.tesseract_lang = "ara";
+    load("ebook/scanned_arabic.pdf");
+
+    parse_ebook(&ctx, &f, "application/pdf", &doc);
+
+    ASSERT_NE(meta(MetaContent), nullptr);
+    // "hello world", whole, and in the order it is read in
+    ASSERT_NE(strstr(content(), "\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645"), nullptr) << content();
+}
+
 TEST_F(EbookTest, Utf8Pdf) {
     load("ebook/utf8.pdf");
 

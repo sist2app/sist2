@@ -274,6 +274,48 @@ int read_stext(text_buffer_t *tex, fz_stext_page *stext) {
     return count;
 }
 
+/** Tesseract wants roughly this much resolution to read a page of print */
+#define OCR_PAGE_DPI 300
+#define PDF_USER_UNITS_PER_INCH 72
+
+/** The buffer the text tesseract reads off the current page goes into */
+static __thread text_buffer_t *OcrTextBuffer;
+
+static void ocr_page_cb(const char *text, size_t len) {
+    text_buffer_append_string(OcrTextBuffer, text, len);
+}
+
+/**
+ * Reads a page that carries no text of its own by rendering it and handing the picture to
+ * tesseract, the way an image file is read. MuPDF's own OCR device puts the characters it gets
+ * back into a page structure, and it lays right-to-left scripts out one character per line.
+ */
+static void ocr_page(scan_ebook_ctx_t *ctx, fz_context *fzctx, fz_page *page, text_buffer_t *tex,
+                     document_t *doc) {
+
+    const float scale = (float) OCR_PAGE_DPI / PDF_USER_UNITS_PER_INCH;
+
+    fz_pixmap *pixmap = NULL;
+    fz_var(pixmap);
+
+    fz_try(fzctx) {
+        // With alpha, so that every pixel is the four bytes tesseract is given below
+        pixmap = fz_new_pixmap_from_page(fzctx, page, fz_scale(scale, scale), fz_device_rgb(fzctx), 1);
+
+        OcrTextBuffer = tex;
+        ocr_extract_text(ctx->tesseract_path, ctx->tesseract_lang, pixmap->samples,
+                         pixmap->w, pixmap->h, pixmap->n, pixmap->stride, OCR_PAGE_DPI, ocr_page_cb);
+        OcrTextBuffer = NULL;
+    }
+    fz_always(fzctx) {
+        fz_drop_pixmap(fzctx, pixmap);
+    }
+    fz_catch(fzctx) {
+        CTX_LOG_WARNINGF(doc->filepath, "Could not render the page to read it with OCR: %s",
+                         fzctx->error.message);
+    }
+}
+
 int load_page(fz_context *fzctx, fz_document *fzdoc, int current_page, fz_page **page) {
     int err = 0;
 
@@ -430,40 +472,7 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
 
             // If OCR is enabled and no text is found on the page
             if (ctx->tesseract_lang != NULL && num_blocks_read == 0) {
-                stext = fz_new_stext_page(fzctx, page_mediabox);
-                stext_dev = new_stext_dev(fzctx, stext);
-
-                fz_device *ocr_dev = fz_new_ocr_device(fzctx, stext_dev, fz_identity,
-                                                       page_mediabox, TRUE,
-                                                       ctx->tesseract_lang,
-                                                       ctx->tesseract_path,
-                                                       NULL, NULL);
-
-                fz_var(err);
-                fz_try(fzctx)fz_run_page(fzctx, page, ocr_dev, fz_identity, NULL);
-                fz_always(fzctx) {
-                        fz_close_device(fzctx, ocr_dev);
-                        fz_drop_device(fzctx, ocr_dev);
-                    } fz_catch(fzctx) err = fzctx->error.errcode;
-
-                if (err != 0) {
-                    CTX_LOG_WARNINGF(doc->filepath, "fz_run_page() returned error code [%d] %s", err, fzctx->error.message);
-                    fz_close_device(fzctx, stext_dev);
-                    fz_drop_device(fzctx, stext_dev);
-                    text_buffer_destroy(&tex);
-                    fz_drop_page(fzctx, page);
-                    fz_drop_stext_page(fzctx, stext);
-                    fz_drop_stream(fzctx, stream);
-                    fz_drop_document(fzctx, fzdoc);
-                    fz_drop_context(fzctx);
-                    return;
-                }
-
-                fz_close_device(fzctx, stext_dev);
-                fz_drop_device(fzctx, stext_dev);
-
-                read_stext(&tex, stext);
-                fz_drop_stext_page(fzctx, stext);
+                ocr_page(ctx, fzctx, page, &tex, doc);
             }
 
             fz_drop_page(fzctx, page);
