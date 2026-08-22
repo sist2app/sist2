@@ -1,11 +1,11 @@
 <template>
   <div>
+    <div id="mimeTree"></div>
     <div class="d-flex justify-content-end">
       <b-button variant="link" @click="selectAll()">{{ $t("mimePicker.selectAll") }}</b-button>
       <b-button variant="link" @click="selectNone()">{{ $t("mimePicker.selectNone") }}</b-button>
       <b-button variant="link" @click="invertSelection()">{{ $t("mimePicker.invert") }}</b-button>
     </div>
-    <div id="mimeTree"></div>
   </div>
 </template>
 
