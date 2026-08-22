@@ -12,6 +12,7 @@ import {
     taskHistoryRepository,
     userScriptRepository
 } from "./db.js";
+import { esUrlPort, parseEsUrl } from "./es_url.js";
 import { HttpError, RESPONSE_HANDLED, Router, openSse } from "./http.js";
 import { logger } from "./log.js";
 import {
@@ -105,10 +106,9 @@ function withRunning(frontend) {
 
 function pingEs(esUrl, insecure) {
     return new Promise((resolve) => {
-        let url;
-        try {
-            url = new URL(esUrl);
-        } catch (e) {
+        const url = parseEsUrl(esUrl);
+
+        if (url === null) {
             resolve({
                 ok: false,
                 message: "Invalid URL"
@@ -180,7 +180,7 @@ function pingEs(esUrl, insecure) {
             }
             resolve({
                 ok: false,
-                message: "Connection refused"
+                message: `Could not connect to ${url.hostname}:${esUrlPort(url)}`
             });
         });
     });
