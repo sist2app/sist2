@@ -141,8 +141,12 @@ void serve_favicon_ico(struct mg_connection *nc, UNUSED(struct mg_http_message *
     web_serve_asset_favicon_ico(nc);
 }
 
-void serve_style_css(struct mg_connection *nc, UNUSED(struct mg_http_message *hm)) {
-    web_serve_asset_style_css(nc);
+void serve_style_css(struct mg_connection *nc, struct mg_http_message *hm) {
+    if (WebCtx.dev) {
+        mg_http_serve_file(nc, hm, "sist2-vue/dist/css/index.css", &DefaultServeOpts);
+    } else {
+        web_serve_asset_style_css(nc);
+    }
 }
 
 void serve_thumbnail(struct mg_connection *nc, UNUSED(struct mg_http_message *hm), int index_id,
