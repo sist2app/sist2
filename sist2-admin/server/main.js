@@ -14,7 +14,7 @@ import { createRouter, defaultSearchBackendName, detectTesseractLangs } from "./
 import { handleRequest } from "./http.js";
 import { sweepTempFolder } from "./sist2.js";
 import { cronMatches, startCron } from "./cron.js";
-import { submitJob, taskQueue } from "./tasks.js";
+import { searchBackendProblem, submitJob, taskQueue } from "./tasks.js";
 import { startAutoStartFrontends, stopAllFrontends } from "./frontends.js";
 
 function initializeDefaults() {
@@ -44,6 +44,12 @@ function onCronTick(now) {
 
         try {
             if (cronMatches(job.cron_expression, now)) {
+                const problem = searchBackendProblem(job);
+                if (problem !== null) {
+                    logger.error(`Not running job ${job.name}: ${problem}`);
+                    continue;
+                }
+
                 logger.info(`Cron triggered job ${job.name}`);
                 submitJob(job, (scriptName) => userScriptRepository.get(scriptName));
             }

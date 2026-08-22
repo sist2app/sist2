@@ -446,6 +446,27 @@ export function deleteTaskLogs(taskId) {
 
 export const taskQueue = new TaskQueue();
 
+/**
+ * Why this job cannot be indexed, or null when it can. The index task reads the backend by name,
+ * so a job that names none - or names one that has since been deleted - would run its scan and
+ * only then fail.
+ *
+ * @returns {string|null}
+ */
+export function searchBackendProblem(job) {
+    const name = job.index_options.search_backend;
+
+    if (name === null || name === undefined) {
+        return "This job has no search backend. Pick one in the job's options.";
+    }
+
+    if (searchBackendRepository.get(name) === null) {
+        return `This job's search backend no longer exists: ${name}`;
+    }
+
+    return null;
+}
+
 export function submitJob(job, userScriptsByName) {
     if (job.status === "created") {
         job.status = "started";

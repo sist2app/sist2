@@ -36,6 +36,7 @@ import { SCRIPT_TEMPLATES, createScriptFromTemplate, deleteScriptDir, renameScri
 import {
     UserScriptTask,
     deleteTaskLogs,
+    searchBackendProblem,
     submitJob,
     taskLogFile,
     taskQueue
@@ -208,6 +209,8 @@ export function createRouter() {
             throw new HttpError(409, "job already exists");
         }
         const job = createDefaultJob(params.name);
+        // The same backend a new frontend gets: a job with none cannot be indexed
+        job.index_options.search_backend = defaultSearchBackendName();
         jobRepository.insert(job);
         return job;
     });
@@ -247,6 +250,11 @@ export function createRouter() {
 
     router.post("/api/job/:name/run", ({ params, query }) => {
         const job = getJobOr404(params.name);
+
+        const problem = searchBackendProblem(job);
+        if (problem !== null) {
+            throw new HttpError(400, problem);
+        }
 
         if (query.get("full") === "true") {
             job.do_full_scan = true;
