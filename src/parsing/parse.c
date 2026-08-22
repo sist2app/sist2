@@ -29,6 +29,7 @@ typedef enum {
     FILETYPE_MSDOC,
     FILETYPE_JSON,
     FILETYPE_NDJSON,
+    FILETYPE_WPD,
 } file_type_t;
 
 static file_type_t get_file_type(unsigned int mime, size_t size) {
@@ -64,6 +65,8 @@ static file_type_t get_file_type(unsigned int mime, size_t size) {
         return FILETYPE_JSON;
     } else if (is_ndjson(&ScanCtx.json_ctx, mime)) {
         return FILETYPE_NDJSON;
+    } else if (is_wpd(&ScanCtx.wpd_ctx, mime)) {
+        return FILETYPE_WPD;
     }
 
     return FILETYPE_DONT_PARSE;
@@ -219,6 +222,9 @@ void parse(parse_job_t *job) {
             break;
         case FILETYPE_NDJSON:
             parse_ndjson(&ScanCtx.json_ctx, &job->vfile, doc);
+            break;
+        case FILETYPE_WPD:
+            parse_wpd(&ScanCtx.wpd_ctx, &job->vfile, doc);
             break;
         case FILETYPE_DONT_PARSE:
         default:
