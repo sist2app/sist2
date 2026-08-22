@@ -15,20 +15,24 @@
                 </b-card-body>
             </b-card>
 
-            <b-card v-if="selectedIndex !== null" class="mt-3">
-                <b-card-body>
-                    <D3Treemap :index-id="selectedIndex"></D3Treemap>
-
-
-                </b-card-body>
+            <b-card v-if="hasStats === false" class="mt-3">
+                <b-card-body>{{ $t("d3.noStats") }}</b-card-body>
             </b-card>
 
-            <b-card v-if="selectedIndex !== null" class="stats-card mt-3">
-                <D3MimeBarCount :index-id="selectedIndex"></D3MimeBarCount>
-                <D3MimeBarSize :index-id="selectedIndex"></D3MimeBarSize>
-                <D3DateHistogram :index-id="selectedIndex"></D3DateHistogram>
-                <D3SizeHistogram :index-id="selectedIndex"></D3SizeHistogram>
-            </b-card>
+            <template v-if="hasStats">
+                <b-card class="mt-3">
+                    <b-card-body>
+                        <D3Treemap :index-id="selectedIndex"></D3Treemap>
+                    </b-card-body>
+                </b-card>
+
+                <b-card class="stats-card mt-3">
+                    <D3MimeBarCount :index-id="selectedIndex"></D3MimeBarCount>
+                    <D3MimeBarSize :index-id="selectedIndex"></D3MimeBarSize>
+                    <D3DateHistogram :index-id="selectedIndex"></D3DateHistogram>
+                    <D3SizeHistogram :index-id="selectedIndex"></D3SizeHistogram>
+                </b-card>
+            </template>
         </template>
     </b-container>
 </template>
@@ -46,6 +50,22 @@ export default {
     data() {
         return {
             selectedIndex: null,
+            // null while it is unknown; a scan with --no-stats leaves the aggregates empty
+            hasStats: null,
+        }
+    },
+    watch: {
+        selectedIndex: function (indexId) {
+            this.hasStats = null;
+
+            if (indexId === null) {
+                return;
+            }
+
+            fetch(Sist2Api.getMimeStat(indexId))
+                .then(resp => resp.json())
+                .then(buckets => this.hasStats = buckets.length > 0)
+                .catch(() => this.hasStats = false);
         }
     },
     computed: {

@@ -311,6 +311,7 @@ int scan_args_validate(scan_args_t *args, int argc, const char **argv) {
     LOG_DEBUGF("cli.c", "arg fast=%d", args->fast);
     LOG_DEBUGF("cli.c", "arg fast_epub=%d", args->fast_epub);
     LOG_DEBUGF("cli.c", "arg treemap_threshold=%f", args->treemap_threshold);
+    LOG_DEBUGF("cli.c", "arg no_stats=%d", args->no_stats);
     LOG_DEBUGF("cli.c", "arg max_memory_buffer_mib=%d", args->max_memory_buffer_mib);
     LOG_DEBUGF("cli.c", "arg list_path=%s", args->list_path);
 

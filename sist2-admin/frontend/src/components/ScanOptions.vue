@@ -101,6 +101,12 @@
                     archives</label>
                 <input class="form-control" type="number" min="0" v-model.number="options.mem_buffer">
             </div>
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="noStats" v-model="options.no_stats">
+                <label class="form-check-label" for="noStats">Skip the stats generation step. The stats page will
+                    have nothing to show for this index.</label>
+            </div>
+
             <div class="mb-2">
                 <label class="form-label">Relative size threshold for treemap</label>
                 <input class="form-control" type="number" step="0.0001" min="0"

@@ -34,6 +34,7 @@ Scan options
     -e, --exclude=<str>               Files that match this regex will not be scanned.
     --fast                            Only index file names & mime type.
     --treemap-threshold=<str>         Relative size threshold for treemap (see USAGE.md). DEFAULT: 0.0005
+    --no-stats                        Skip the stats generation step. The stats page will have nothing to show for this index.
     --mem-buffer=<int>                Maximum memory buffer size per thread in MiB for files inside archives (see USAGE.md). DEFAULT: 2000
     --read-subtitles                  Read subtitles from media files.
     --fast-epub                       Faster but less accurate EPUB parsing (no thumbnails, metadata).

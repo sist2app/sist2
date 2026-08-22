@@ -288,7 +288,11 @@ void sist2_scan(scan_args_t *args) {
         database_incremental_scan_end(db);
     }
 
-    database_generate_stats(db, args->treemap_threshold);
+    if (args->no_stats) {
+        LOG_INFO("main.c", "Skipping stats generation (--no-stats)");
+    } else {
+        database_generate_stats(db, args->treemap_threshold);
+    }
     database_close(db, args->optimize_database);
     ignorelist_destroy(ScanCtx.ignorelist);
 }
@@ -554,6 +558,8 @@ int main(int argc, const char *argv[]) {
             OPT_BOOLEAN(0, "fast", &scan_args->fast, "Only index file names & mime type."),
             OPT_STRING(0, "treemap-threshold", &scan_args->treemap_threshold_str, "Relative size threshold for treemap "
                                                                                   "(see USAGE.md). DEFAULT: 0.0005"),
+            OPT_BOOLEAN(0, "no-stats", &scan_args->no_stats,
+                        "Skip the stats generation step. The stats page will have nothing to show for this index."),
             OPT_INTEGER(0, "mem-buffer", &scan_args->max_memory_buffer_mib,
                         "Maximum memory buffer size per thread in MiB for files inside archives "
                         "(see USAGE.md). DEFAULT: 2000"),

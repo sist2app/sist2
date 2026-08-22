@@ -171,6 +171,7 @@ export default {
             mimeSize: "Size distribution by media type",
             dateHistogram: "File modification time distribution",
             sizeHistogram: "File size distribution",
+            noStats: "No statistics for this index.",
         },
         indexPicker: {
             selectNone: "Select None",
@@ -349,6 +350,7 @@ export default {
             mimeSize: "Größen nach Medientyp",
             dateHistogram: "Änderungszeiten",
             sizeHistogram: "Dateigrößen",
+            noStats: "Keine Statistiken für diesen Index.",
         },
         indexPicker: {
             selectNone: "keinen auswählen",
@@ -529,6 +531,7 @@ export default {
             mimeSize: "Distribution des tailles de fichiers par type de média",
             dateHistogram: "Distribution des dates de modification",
             sizeHistogram: "Distribution des tailles de fichier",
+            noStats: "Aucune statistique pour cet index.",
         },
         indexPicker: {
             selectNone: "Ne rien sélectionner",
@@ -707,6 +710,7 @@ export default {
             mimeSize: "各类文件大小分布",
             dateHistogram: "文件修改时间分布",
             sizeHistogram: "文件大小分布",
+            noStats: "此索引没有统计数据。",
         },
         indexPicker: {
             selectNone: "清空",
