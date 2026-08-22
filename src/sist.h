@@ -49,19 +49,23 @@
 #include <ctype.h>
 #include "git_hash.h"
 
-#define VERSION "4.0.3"
+#define Q(x) #x
+#define QUOTE(x) Q(x)
+
+#define VERSION_MAJOR 4
+#define VERSION_MINOR 0
+#define VERSION_PATCH 4
+#define VERSION QUOTE(VERSION_MAJOR) "." QUOTE(VERSION_MINOR) "." QUOTE(VERSION_PATCH)
+
 static const char *const Version = VERSION;
-static const int VersionMajor = 4;
-static const int VersionMinor = 0;
-static const int VersionPatch = 3;
+static const int VersionMajor = VERSION_MAJOR;
+static const int VersionMinor = VERSION_MINOR;
+static const int VersionPatch = VERSION_PATCH;
 
 #ifndef SIST_PLATFORM
 #define SIST_PLATFORM unknown
 #endif
 
 #define EXPECTED_MONGOOSE_VERSION "7.22"
-
-#define Q(x) #x
-#define QUOTE(x) Q(x)
 
 #endif
