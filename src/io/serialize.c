@@ -125,6 +125,10 @@ void write_document(document_t *doc) {
     char filepath[PATH_MAX * 3];
     strcpy(filepath, doc->filepath + ScanCtx.index.desc.root_len);
 
+    // Sized before the truncations below, so it covers both the name and the path
+    const size_t filepath_escaped_size = str_escape_size(filepath);
+    char *filepath_escaped = malloc(filepath_escaped_size);
+
     cJSON_AddStringToObject(json, "extension", filepath + doc->ext);
 
     // Remove extension
@@ -134,19 +138,20 @@ void write_document(document_t *doc) {
         *(filepath + doc->ext) = '\0';
     }
 
-    char filepath_escaped[PATH_MAX * 3];
-    str_escape(filepath_escaped, filepath + doc->base);
+    str_escape(filepath_escaped, filepath_escaped_size, filepath + doc->base);
 
     cJSON_AddStringToObject(json, "name", filepath_escaped);
 
     if (doc->base > 0) {
         *(filepath + doc->base - 1) = '\0';
 
-        str_escape(filepath_escaped, filepath);
+        str_escape(filepath_escaped, filepath_escaped_size, filepath);
         cJSON_AddStringToObject(json, "path", filepath_escaped);
     } else {
         cJSON_AddStringToObject(json, "path", "");
     }
+
+    free(filepath_escaped);
 
     // Metadata
     meta_line_t *meta = doc->meta_head;

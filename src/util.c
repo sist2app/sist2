@@ -179,14 +179,35 @@ const char *find_file_in_paths(const char *paths[], const char *filename) {
 
 #define ESCAPE_CHAR ']'
 
-void str_escape(char *dst, const char *str) {
+/** Longest escape sequence one input byte can produce: `]XX` */
+#define ESCAPE_MAX_EXPANSION (3)
+
+/** utf8codepoint() reads the whole sequence a lead byte announces, so the copy is padded */
+#define ESCAPE_PADDING (8)
+
+size_t str_escape_size(const char *str) {
+    return strlen(str) * ESCAPE_MAX_EXPANSION + 1;
+}
+
+void str_escape(char *dst, size_t dst_size, const char *str) {
+    if (dst_size == 0) {
+        return;
+    }
+
     const size_t len = strlen(str);
 
-    char buf[16384];
-    memset(buf + len, 0, 8);
-    strcpy(buf, str);
+    char stack_buf[4096];
+    char *buf = (len + ESCAPE_PADDING <= sizeof(stack_buf))
+                ? stack_buf
+                : malloc(len + ESCAPE_PADDING);
+
+    memcpy(buf, str, len);
+    memset(buf + len, 0, ESCAPE_PADDING);
 
     char *cur = dst;
+    // The last byte is reserved for the terminator, and a sequence that does not fit whole is dropped
+    const char *const end = dst + dst_size - 1;
+
     const char *ptr = buf;
     const char *oldPtr = ptr;
 
@@ -206,27 +227,46 @@ void str_escape(char *dst, const char *str) {
                     break;
                 }
 
+                if (end - cur < 3) {
+                    goto truncated;
+                }
+
                 cur += sprintf(cur, "%c%02X", ESCAPE_CHAR, (unsigned char) tmp[i]);
             }
             continue;
         }
 
         if (c == ESCAPE_CHAR) {
+            if (end - cur < 2) {
+                goto truncated;
+            }
             *cur++ = ESCAPE_CHAR;
             *cur++ = ESCAPE_CHAR;
             continue;
         }
 
         if (((utf8_int32_t) 0xffffff80 & c) == 0) {
+            if (end - cur < 1) {
+                goto truncated;
+            }
             *(cur++) = (char) c;
         } else if (((utf8_int32_t) 0xfffff800 & c) == 0) {
+            if (end - cur < 2) {
+                goto truncated;
+            }
             *(cur++) = 0xc0 | (char) (c >> 6);
             *(cur++) = 0x80 | (char) (c & 0x3f);
         } else if (((utf8_int32_t) 0xffff0000 & c) == 0) {
+            if (end - cur < 3) {
+                goto truncated;
+            }
             *(cur++) = 0xe0 | (char) (c >> 12);
             *(cur++) = 0x80 | (char) ((c >> 6) & 0x3f);
             *(cur++) = 0x80 | (char) (c & 0x3f);
         } else {
+            if (end - cur < 4) {
+                goto truncated;
+            }
             *(cur++) = 0xf0 | (char) (c >> 18);
             *(cur++) = 0x80 | (char) ((c >> 12) & 0x3f);
             *(cur++) = 0x80 | (char) ((c >> 6) & 0x3f);
@@ -235,7 +275,12 @@ void str_escape(char *dst, const char *str) {
 
     } while (*ptr != '\0');
 
+truncated:
     *cur = '\0';
+
+    if (buf != stack_buf) {
+        free(buf);
+    }
 }
 
 void str_unescape(char *dst, const char *str) {

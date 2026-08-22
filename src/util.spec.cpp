@@ -11,7 +11,7 @@ extern "C" {
 TEST(StrEscape, AsciiIsUnchanged) {
     char escaped[256];
 
-    str_escape(escaped, "hello world");
+    str_escape(escaped, sizeof(escaped), "hello world");
 
     ASSERT_STREQ(escaped, "hello world");
 }
@@ -20,7 +20,7 @@ TEST(StrEscape, RoundTripUtf8) {
     char escaped[256];
     char unescaped[256];
 
-    str_escape(escaped, "最後測試 test");
+    str_escape(escaped, sizeof(escaped), "最後測試 test");
     str_unescape(unescaped, escaped);
 
     ASSERT_STREQ(unescaped, "最後測試 test");
@@ -29,7 +29,7 @@ TEST(StrEscape, RoundTripUtf8) {
 TEST(StrEscape, InvalidUtf8IsEscaped) {
     char escaped[256];
 
-    str_escape(escaped, "test\xE0 test");
+    str_escape(escaped, sizeof(escaped), "test\xE0 test");
 
     // The invalid byte is replaced by an escape sequence, the valid text is kept
     ASSERT_TRUE(strstr(escaped, "test") != nullptr);
@@ -39,9 +39,47 @@ TEST(StrEscape, InvalidUtf8IsEscaped) {
 TEST(StrEscape, EmptyString) {
     char escaped[16];
 
-    str_escape(escaped, "");
+    str_escape(escaped, sizeof(escaped), "");
 
     ASSERT_STREQ(escaped, "");
+}
+
+TEST(StrEscape, SizeCoversTheWorstCase) {
+    // Every byte of an invalid sequence is escaped on its own, the longest expansion there is
+    const std::string invalid(4096, '\xE0');
+
+    const size_t size = str_escape_size(invalid.c_str());
+    char *escaped = (char *) malloc(size);
+
+    str_escape(escaped, size, invalid.c_str());
+
+    ASSERT_EQ(strlen(escaped), invalid.size() * 3);
+    free(escaped);
+}
+
+TEST(StrEscape, TruncatesInsteadOfOverflowing) {
+    // A path made of invalid bytes, escaped into a buffer far too small to hold it
+    const std::string invalid(4096, '\xE0');
+
+    char escaped[32];
+    memset(escaped, 'x', sizeof(escaped));
+
+    str_escape(escaped, 16, invalid.c_str());
+
+    // Nothing was written past the size it was given, and the result is still terminated
+    ASSERT_LT(strlen(escaped), (size_t) 16);
+    for (size_t i = 16; i < sizeof(escaped); i++) {
+        ASSERT_EQ(escaped[i], 'x');
+    }
+}
+
+TEST(StrEscape, TruncationKeepsSequencesWhole) {
+    char escaped[8];
+
+    // Room for one "]E0" and the terminator, but not for the second sequence's three bytes
+    str_escape(escaped, 6, "\xE0\xE0");
+
+    ASSERT_STREQ(escaped, "]E0");
 }
 
 /* hex2buf() / buf2hex() */

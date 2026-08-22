@@ -26,7 +26,11 @@ void progress_bar_print(double percentage, size_t tn_size, size_t index_size);
 const char *find_file_in_paths(const char **paths, const char *filename);
 
 
-void str_escape(char *dst, const char *str);
+/** Bytes str_escape() needs for `str`, terminator included */
+size_t str_escape_size(const char *str);
+
+/** Escapes `str` into `dst`, dropping whatever does not fit in `dst_size` bytes */
+void str_escape(char *dst, size_t dst_size, const char *str);
 
 void str_unescape(char *dst, const char *str);
 
