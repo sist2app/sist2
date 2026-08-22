@@ -95,7 +95,7 @@ void progress_bar_print_json(size_t done, size_t count, size_t tn_size, size_t i
             done, count, tn_size, index_size, BOOLEAN_STRING(waiting)
     );
 
-    write(STDOUT_FILENO, log_str, log_len);
+    log_write(STDOUT_FILENO, log_str, log_len);
 }
 
 void progress_bar_print(double percentage, size_t tn_size, size_t index_size) {

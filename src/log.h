@@ -3,8 +3,12 @@
 
 
 #include <signal.h>
+#include <stddef.h>
 
 #define LOG_MAX_LENGTH 8192
+
+/** Best-effort write of a log line; retries partial writes, drops the line on error */
+void log_write(int fd, const char *buf, size_t len);
 
 #define LOG_SIST_DEBUG 0
 #define LOG_SIST_INFO 1

@@ -5,6 +5,11 @@
 // A name is a few words, and all of them belong in the highlight
 #define NAME_CONTEXT_WORDS 64
 
+#define ASPRINTF_OR_FATAL(...) do { \
+    if (asprintf(__VA_ARGS__) == -1) { \
+        LOG_FATAL("database_fts.c", "asprintf() failed"); \
+    }} while (0)
+
 void database_fts_detach(database_t *db) {
     CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(
             db->db, "DETACH DATABASE fts",
@@ -825,7 +830,7 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
         char *ranked_where = build_where_clause(path_where, size_where, date_where, index_id_where,
                                                 mime_where, query_where, ranked_after, tags_where);
 
-        asprintf(
+        ASPRINTF_OR_FATAL(
                 &sql,
                 "SELECT"
                 // %!.20g, not %g: SQLite caps %g at 16 significant digits whatever
@@ -847,15 +852,15 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
         free(ranked_where);
 
         if (fetch_aggregations) {
-            asprintf(&agg_sql,
-                     "SELECT count(*), sum(size)"
-                     " FROM search"
-                     "  INNER JOIN document_index doc on doc.ROWID = search.ROWID"
-                     " WHERE search MATCH ?1"
-                     " AND %s", agg_where);
+            ASPRINTF_OR_FATAL(&agg_sql,
+                              "SELECT count(*), sum(size)"
+                              " FROM search"
+                              "  INNER JOIN document_index doc on doc.ROWID = search.ROWID"
+                              " WHERE search MATCH ?1"
+                              " AND %s", agg_where);
         }
     } else if (query_where) {
-        asprintf(
+        ASPRINTF_OR_FATAL(
                 &sql,
                 "SELECT"
                 " %s, %s as sort_var, doc.ROWID"
@@ -870,15 +875,15 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
                 sort_asc ? "" : " DESC");
 
         if (fetch_aggregations) {
-            asprintf(&agg_sql,
-                     "SELECT count(*), sum(size)"
-                     " FROM search"
-                     "  INNER JOIN document_index doc on doc.ROWID = search.ROWID"
-                     " WHERE search MATCH ?1"
-                     " AND %s", agg_where);
+            ASPRINTF_OR_FATAL(&agg_sql,
+                              "SELECT count(*), sum(size)"
+                              " FROM search"
+                              "  INNER JOIN document_index doc on doc.ROWID = search.ROWID"
+                              " WHERE search MATCH ?1"
+                              " AND %s", agg_where);
         }
     } else {
-        asprintf(
+        ASPRINTF_OR_FATAL(
                 &sql,
                 "SELECT"
                 " %s, %s as sort_var, doc.ROWID"
@@ -892,10 +897,10 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
                 sort_asc ? "" : " DESC");
 
         if (fetch_aggregations) {
-            asprintf(&agg_sql,
-                     "SELECT count(*), sum(size)"
-                     " FROM document_index doc"
-                     " WHERE %s", agg_where);
+            ASPRINTF_OR_FATAL(&agg_sql,
+                              "SELECT count(*), sum(size)"
+                              " FROM document_index doc"
+                              " WHERE %s", agg_where);
         }
     }
 

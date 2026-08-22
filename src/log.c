@@ -12,6 +12,22 @@ const char *log_levels[] = {
         "DEBUG", "INFO", "WARNING", "ERROR", "FATAL"
 };
 
+void log_write(int fd, const char *buf, size_t len) {
+    while (len > 0) {
+        const ssize_t written = write(fd, buf, len);
+
+        if (written < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return;
+        }
+
+        buf += written;
+        len -= written;
+    }
+}
+
 void vsist_logf(const char *filepath, int level, char *format, va_list ap) {
 
     static int is_tty = -1;
@@ -49,7 +65,7 @@ void vsist_logf(const char *filepath, int level, char *format, va_list ap) {
         free(log_str_json_str);
         free(filepath_json_str);
 
-        write(STDOUT_FILENO, log_str, log_len);
+        log_write(STDOUT_FILENO, log_str, log_len);
         return;
     }
 
@@ -91,7 +107,7 @@ void vsist_logf(const char *filepath, int level, char *format, va_list ap) {
         log_len += 1;
     }
 
-    write(STDERR_FILENO, log_str, log_len);
+    log_write(STDERR_FILENO, log_str, log_len);
 }
 
 void sist_logf(const char *filepath, int level, char *format, ...) {
@@ -137,7 +153,7 @@ void sist_log(const char *filepath, int level, char *str) {
         free(log_str_json_str);
         free(filepath_json_str);
 
-        write(STDOUT_FILENO, log_str, log_len);
+        log_write(STDOUT_FILENO, log_str, log_len);
         return;
     }
     if (is_tty) {
@@ -164,5 +180,5 @@ void sist_log(const char *filepath, int level, char *str) {
         log_len += 1;
     }
 
-    write(STDERR_FILENO, log_str, log_len);
+    log_write(STDERR_FILENO, log_str, log_len);
 }
