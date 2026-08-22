@@ -20,6 +20,29 @@ env:
 # The binary and the image are built from different libcs (musl for the portable download, glibc
 # for the image), so they share no dependency layers and get a job and a build cache each.
 jobs:
+  version:
+    name: version check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # The tag is what names every artifact, but src/sist.h is what the binary reports and
+      # what the index compatibility check reads, so a tag that does not match it ships a
+      # binary lying about its own version.
+      - name: Tag matches src/sist.h
+        env:
+          REF: ${{ inputs.version || github.ref_name }}
+        run: |
+          tag_version="${REF#v}"
+          # A pre-release tag (4.0.4-rc1) carries the version it is a candidate for
+          tag_version="${tag_version%%-*}"
+          source_version=$(sed -nE 's/^#define VERSION_(MAJOR|MINOR|PATCH) ([0-9]+)$/\2/p' src/sist.h | paste -sd. -)
+          echo "tag: ${tag_version}, src/sist.h: ${source_version}"
+          if [ "$tag_version" != "$source_version" ]; then
+            echo "::error::src/sist.h is version ${source_version}, expected ${tag_version}" >&2
+            exit 1
+          fi
+
   binary:
     strategy:
       fail-fast: false
@@ -30,6 +53,7 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     name: static binary (${{ matrix.arch }})
+    needs: version
     runs-on: ${{ matrix.runner }}
     # A cold vcpkg build (ffmpeg, mupdf, tesseract, openblas from source) is the worst case
     timeout-minutes: 350
@@ -78,6 +102,7 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     name: runtime image (${{ matrix.arch }})
+    needs: version
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 350
     env:
