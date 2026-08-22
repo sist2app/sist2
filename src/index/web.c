@@ -7,6 +7,24 @@
 #include <curl/curl.h>
 
 
+static long WebConnectTimeout = WEB_CONNECT_TIMEOUT;
+static long WebStallTimeout = WEB_STALL_TIMEOUT;
+
+void web_set_timeouts(long connect_timeout, long stall_timeout) {
+    WebConnectTimeout = connect_timeout;
+    WebStallTimeout = stall_timeout;
+}
+
+/**
+ * A bulk request can legitimately take minutes, so the transfer is not capped: what is caught
+ * here is a connection that never opens, and one that stops moving bytes altogether.
+ */
+static void set_timeouts(CURL *curl) {
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, WebConnectTimeout);
+    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
+    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, WebStallTimeout);
+}
+
 size_t write_cb(char *ptr, size_t size, size_t nmemb, void *user_data) {
 
     size_t real_size = size * nmemb;
@@ -88,6 +106,7 @@ subreq_ctx_t *web_post_async(const char *url, char *data, int insecure) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(curl, CURLOPT_POST, 1);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "sist2");
+    set_timeouts(curl);
     if (insecure) {
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
@@ -183,6 +202,7 @@ response_t *web_post(const char *url, const char *data, int insecure) {
 
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *) (&buffer));
+    set_timeouts(curl);
     if (insecure) {
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
@@ -223,6 +243,7 @@ response_t *web_put(const char *url, const char *data, int insecure) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "sist2");
+    set_timeouts(curl);
     curl_easy_setopt(curl, CURLOPT_SHARE, 0);
     curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURLOPT_DNS_LOCAL_IP4);
     if (insecure) {
@@ -260,6 +281,7 @@ response_t *web_delete(const char *url, int insecure) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "sist2");
+    set_timeouts(curl);
     if (insecure) {
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);

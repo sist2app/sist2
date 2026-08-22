@@ -28,6 +28,16 @@ typedef struct {
     char curl_err_buffer[CURL_ERROR_SIZE + 1];
 } subreq_ctx_t;
 
+/**
+ * A request that never finishes used to hang the whole index: an Elasticsearch that stops
+ * answering mid-bulk left curl waiting with no timeout of any kind.
+ */
+#define WEB_CONNECT_TIMEOUT 30
+#define WEB_STALL_TIMEOUT 300
+
+/** Overrides the two constants above, for tests that cannot wait minutes */
+void web_set_timeouts(long connect_timeout, long stall_timeout);
+
 response_t *web_get(const char *url, int timeout, int insecure);
 response_t *web_post(const char * url, const char * data, int insecure);
 
