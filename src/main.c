@@ -222,6 +222,8 @@ void initialize_scan_context(scan_args_t *args) {
     ScanCtx.raw_ctx.log = log_callback;
     ScanCtx.raw_ctx.logf = logf_callback;
 
+    ScanCtx.media_ctx.ogg_mime = mime_get_mime_by_string("application/ogg");
+
     // Wpd
     ScanCtx.wpd_ctx.content_size = args->content_size;
     ScanCtx.wpd_ctx.log = log_callback;

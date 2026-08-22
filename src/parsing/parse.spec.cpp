@@ -92,6 +92,27 @@ protected:
         return length;
     }
 
+    /** First column of the first row, or "" */
+    std::string scalar(const std::string &sql) {
+        sqlite3 *db;
+        if (sqlite3_open(index.c_str(), &db) != SQLITE_OK) {
+            return "";
+        }
+
+        sqlite3_stmt *stmt;
+        sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+
+        std::string value;
+        if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_text(stmt, 0) != nullptr) {
+            value = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+        }
+
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+
+        return value;
+    }
+
     std::string mime_of_document() {
         sqlite3 *db;
         if (sqlite3_open(index.c_str(), &db) != SQLITE_OK) {
@@ -124,6 +145,23 @@ TEST_P(ParseDispatchTest, TextIsExtracted) {
     ASSERT_EQ(scan(), 0);
     EXPECT_EQ(mime_of_document(), test_case.mime);
     EXPECT_GT(content_length(), 0);
+}
+
+/*
+ * An ogg container is typed application/ogg whatever it holds, so the major mime of a video in one
+ * says "application" and it used to reach no parser at all: no duration, no codec, no thumbnail.
+ */
+TEST_F(ParseDispatchTest, MediaUnderAnApplicationMimeIsParsed) {
+    if (!copy_corpus_file("media/vid3.ogv")) {
+        GTEST_SKIP() << "Not in the test corpus: media/vid3.ogv";
+    }
+
+    ASSERT_EQ(scan(), 0);
+
+    EXPECT_EQ(mime_of_document(), "application/ogg");
+    EXPECT_EQ(scalar("SELECT json_data ->> 'videoc' FROM document LIMIT 1"), "theora");
+    EXPECT_NE(scalar("SELECT json_data ->> 'duration' FROM document LIMIT 1"), "");
+    EXPECT_EQ(scalar("SELECT count(*) FROM thumbnail"), "1");
 }
 
 INSTANTIATE_TEST_SUITE_P(

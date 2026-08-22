@@ -24,6 +24,9 @@ typedef struct {
 
     const char *tesseract_lang;
     const char *tesseract_path;
+
+    /** Ogg containers are typed application/ogg, so their major mime says nothing about media */
+    unsigned int ogg_mime;
 } scan_media_ctx_t;
 
 static inline AVCodecContext *alloc_jpeg_encoder(int w, int h, int qscale) {

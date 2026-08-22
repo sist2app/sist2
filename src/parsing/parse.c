@@ -41,7 +41,8 @@ static file_type_t get_file_type(unsigned int mime, size_t size) {
     } else if (IS_RAW(mime)) {
         return FILETYPE_RAW;
     } else if ((major_mime == MimeVideo && size >= MIN_VIDEO_SIZE) ||
-               (major_mime == MimeImage && size >= MIN_IMAGE_SIZE) || major_mime == MimeAudio) {
+               (major_mime == MimeImage && size >= MIN_IMAGE_SIZE) || major_mime == MimeAudio ||
+               mime == ScanCtx.media_ctx.ogg_mime) {
         return FILETYPE_MEDIA;
     } else if (IS_PDF(mime)) {
         return FILETYPE_EBOOK;
