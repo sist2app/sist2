@@ -13,6 +13,7 @@ import {
     userScriptRepository
 } from "./db.js";
 import { esUrlPort, parseEsUrl } from "./es_url.js";
+import { deleteIndexFile, listIndexFiles } from "./index_files.js";
 import { HttpError, RESPONSE_HANDLED, Router, openSse } from "./http.js";
 import { logger } from "./log.js";
 import {
@@ -531,6 +532,18 @@ export function createRouter() {
     });
 
     // Elasticsearch ping
+
+    router.get("/api/index_file", () => listIndexFiles());
+
+    router.delete("/api/index_file/:name", ({ params }) => {
+        const problem = deleteIndexFile(params.name);
+
+        if (problem !== null) {
+            throw new HttpError(400, problem);
+        }
+
+        return { ok: true };
+    });
 
     router.get("/api/ping_es", ({ query }) => {
         const insecure = query.get("insecure") === "true";

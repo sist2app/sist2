@@ -127,6 +127,35 @@
             </div>
         </div>
     </div>
+
+    <div v-show="tab === 3">
+        <div class="card mb-3">
+            <div class="card-header">Index files</div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Every scan writes an index file here. Index files with no job or search backend can be
+                    deleted.
+                </p>
+                <div class="list-group">
+                    <div v-for="file in indexFiles" :key="file.name"
+                         class="list-group-item d-flex align-items-center">
+                        <span>{{ file.name }}</span>
+                        <span class="badge ms-2" :class="file.used_by ? 'text-bg-secondary' : 'text-bg-warning'">
+                            {{ file.used_by ? file.used_by : "unused" }}
+                        </span>
+                        <span class="ms-auto text-muted me-3">
+                            {{ humanSize(file.size) }}, {{ fromNow(file.modified) }}
+                        </span>
+                        <button class="btn btn-sm btn-outline-danger" :disabled="file.used_by !== null"
+                                @click="deleteIndexFile(file)">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+                <p class="text-muted mb-0 mt-3" v-if="indexFiles.length === 0">No index files yet.</p>
+            </div>
+        </div>
+    </div>
 </template>
 
 <script setup>
@@ -135,9 +164,9 @@ import { onMounted, ref } from "vue";
 import { api } from "../api.js";
 import { navigate, route } from "../router.js";
 import { store } from "../store.js";
-import { fromNow } from "../util.js";
+import { fromNow, humanSize } from "../util.js";
 
-const TABS = ["Backend", "User Scripts", "Frontends"];
+const TABS = ["Backend", "User Scripts", "Frontends", "Index files"];
 const NAME_REGEX = /^[a-zA-Z0-9-_,.; ]+$/;
 
 const tab = ref(route.params.tab === undefined ? 0 : Number(route.params.tab));
@@ -148,6 +177,7 @@ const backends = ref([]);
 const jobs = ref([]);
 const scripts = ref([]);
 const frontends = ref([]);
+const indexFiles = ref([]);
 
 const newBackendName = ref("");
 const newJobName = ref("");
@@ -169,7 +199,21 @@ async function reload() {
     jobs.value = await api.get("/api/job");
     scripts.value = await api.get("/api/user_script");
     frontends.value = await api.get("/api/frontend");
+    indexFiles.value = await api.get("/api/index_file");
     loaded.value = true;
+}
+
+async function deleteIndexFile(file) {
+    if (!window.confirm(`Delete ${file.name}? This cannot be undone.`)) {
+        return;
+    }
+
+    try {
+        await api.delete(`/api/index_file/${encodeURIComponent(file.name)}`);
+        await reload();
+    } catch (e) {
+        error.value = e.message;
+    }
 }
 
 async function createBackend() {
