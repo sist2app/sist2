@@ -1,9 +1,29 @@
 #include "tests/support/scan_fixture.h"
 
+extern "C" {
+#include <mupdf/fitz.h>
+}
+
 class EbookTest : public ScanTest {
 protected:
     scan_ebook_ctx_t ctx = make_ebook_ctx();
 };
+
+/**
+ * Without colour management MuPDF approximates the colour spaces a PDF uses, and a magazine page
+ * comes out as flat blocks of red and green (issue #93). The library has to be built with it.
+ */
+TEST(MupdfBuild, HasColourManagement) {
+    fz_context *fzctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    ASSERT_NE(fzctx, nullptr);
+
+    fz_enable_icc(fzctx);
+    const int is_icc = fz_colorspace_is_icc(fzctx, fz_device_rgb(fzctx));
+
+    fz_drop_context(fzctx);
+
+    ASSERT_TRUE(is_icc);
+}
 
 TEST_F(EbookTest, CandlePdf) {
     load("ebook/General_-_Candle_Making.pdf");
