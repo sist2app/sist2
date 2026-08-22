@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+
+import { waitForChildExit } from "./child.js";
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
@@ -205,10 +207,18 @@ export function runSist2(args, { onLog, onSpawn, tempFiles = [] }) {
             resolve(-1);
         });
 
-        child.on("close", (code, signal) => {
+        waitForChildExit(child).then(({ code, signal, orphaned }) => {
             for (const file of tempFiles) {
                 fs.rmSync(file, { force: true });
             }
+
+            if (orphaned) {
+                onLog({
+                    "sist2-admin": "sist2 has exited, but something it started is still running and "
+                        + "holding on to its output. The task is finished; that process is not."
+                });
+            }
+
             if (code === null) {
                 onLog({ "sist2-admin": `sist2 terminated by signal ${signal}` });
                 resolve(-1);

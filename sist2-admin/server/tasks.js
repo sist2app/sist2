@@ -3,6 +3,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import readline from "node:readline";
 
+import { waitForChildExit } from "./child.js";
 import { DATA_FOLDER, LOG_FOLDER, SIST2_BINARY } from "./config.js";
 import { jobRepository, searchBackendRepository, taskHistoryRepository } from "./db.js";
 import { logger } from "./log.js";
@@ -293,7 +294,13 @@ export class UserScriptTask extends Task {
                 this.log({ "sist2-admin": `Failed to start user script: ${e.message}` });
                 resolve(SKIPPED_RETURN_CODE);
             });
-            child.on("close", (code) => {
+            waitForChildExit(child).then(({ code, orphaned }) => {
+                if (orphaned) {
+                    this.log({
+                        "sist2-admin": "The user script has exited, but something it started is still "
+                            + "running and holding on to its output."
+                    });
+                }
                 if (code === null) {
                     resolve(SKIPPED_RETURN_CODE);
                     return;
