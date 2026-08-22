@@ -25,6 +25,9 @@
         <div class="alert alert-danger" v-if="error">{{ error }}</div>
         <div class="alert alert-success" v-if="taskQueued">Task queued. Check the Tasks page to monitor the
             status.</div>
+        <div class="alert alert-warning" v-if="!job.scan_options.path.trim()">
+            You must set a path to scan to run this job
+        </div>
         <div class="alert alert-warning" v-if="!job.index_options.search_backend">
             You must select a search backend to run this job
         </div>

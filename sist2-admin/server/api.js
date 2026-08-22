@@ -36,7 +36,7 @@ import { SCRIPT_TEMPLATES, createScriptFromTemplate, deleteScriptDir, renameScri
 import {
     UserScriptTask,
     deleteTaskLogs,
-    searchBackendProblem,
+    jobProblem,
     submitJob,
     taskLogFile,
     taskQueue
@@ -251,7 +251,7 @@ export function createRouter() {
     router.post("/api/job/:name/run", ({ params, query }) => {
         const job = getJobOr404(params.name);
 
-        const problem = searchBackendProblem(job);
+        const problem = jobProblem(job);
         if (problem !== null) {
             throw new HttpError(400, problem);
         }

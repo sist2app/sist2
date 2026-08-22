@@ -239,7 +239,8 @@ export function createDefaultJob(name) {
         status: "created",
         do_full_scan: false,
         scan_options: {
-            path: "/",
+            // Not "/": a job is not runnable until someone says what to scan
+            path: "",
             threads: 1,
             thumbnail_quality: 50,
             thumbnail_size: 552,

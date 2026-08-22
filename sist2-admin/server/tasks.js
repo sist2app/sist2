@@ -447,13 +447,19 @@ export function deleteTaskLogs(taskId) {
 export const taskQueue = new TaskQueue();
 
 /**
- * Why this job cannot be indexed, or null when it can. The index task reads the backend by name,
- * so a job that names none - or names one that has since been deleted - would run its scan and
- * only then fail.
+ * Why this job cannot run, or null when it can. Both of these are found when the tasks are already
+ * under way otherwise: an empty path scans everything, and a backend that is not there fails the
+ * index task once the scan has finished.
  *
  * @returns {string|null}
  */
-export function searchBackendProblem(job) {
+export function jobProblem(job) {
+    const scanPath = job.scan_options.path;
+
+    if (scanPath === null || scanPath === undefined || scanPath.trim() === "") {
+        return "This job has no path to scan. Set one in the job's options.";
+    }
+
     const name = job.index_options.search_backend;
 
     if (name === null || name === undefined) {
