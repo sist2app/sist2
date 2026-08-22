@@ -141,6 +141,8 @@ export default {
             esConnErrTitle: "Elasticsearch connection error",
             esConnErr: "sist2 web module encountered an error while connecting to Elasticsearch." +
                 " See server logs for more information.",
+            loadErr: "sist2 could not load the search page. Check that the search backend is reachable;" +
+                " see server logs for more information.",
             esQueryErrTitle: "Query error",
             esQueryErr: "Could not parse or execute query, please check the Advanced search documentation. " +
                 "See server logs for more information.",

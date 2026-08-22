@@ -7,11 +7,11 @@
             <Preloader></Preloader>
         </b-card>
 
-        <b-alert v-show="!uiLoading && showEsConnectionError" show variant="danger" class="mt-2">
-            {{ $t("toast.esConnErr") }}
+        <b-alert v-show="!uiLoading && showLoadError" show variant="danger" class="mt-2">
+            {{ $t("toast.loadErr") }}
         </b-alert>
 
-        <b-card v-show="!uiLoading && !showEsConnectionError" id="search-panel">
+        <b-card v-show="!uiLoading && !showLoadError" id="search-panel">
             <SearchBar @show-help="showHelp=true"></SearchBar>
             <EmbeddingsSearchBar v-if="hasEmbeddings" class="mt-3"></EmbeddingsSearchBar>
             <b-row>
@@ -101,7 +101,7 @@ export default Vue.extend({
         searchQueued: false,
         Sist2Query: Sist2Query,
         showHelp: false,
-        showEsConnectionError: false
+        showLoadError: false
     }),
     computed: {
         ...mapGetters(["indices", "optDisplay"]),
@@ -152,7 +152,8 @@ export default Vue.extend({
 
             const doBlankSearch = !this.$store.state.optUpdateMimeMap;
 
-            Sist2Api.getMimeTypes(Sist2Query.searchQuery(doBlankSearch)).then(({mimeMap}) => {
+            // Returned, so that a failure here is handled below rather than leaving the page loading
+            return Sist2Api.getMimeTypes(Sist2Query.searchQuery(doBlankSearch)).then(({mimeMap}) => {
                 this.$store.commit("setUiMimeMap", mimeMap);
                 this.uiLoading = false;
                 this.search(true);
@@ -160,12 +161,10 @@ export default Vue.extend({
         }).catch(error => {
             console.log(error);
 
-            if (error.response.status === 503 || error.response.status === 500) {
-                this.showEsConnectionError = true;
-                this.uiLoading = false;
-            } else {
-                this.showErrorToast();
-            }
+            // Whatever went wrong - including a request that never reached the server, which has
+            // no response to read a status from - the page cannot be left on its loading screen
+            this.uiLoading = false;
+            this.showLoadError = true;
         });
     },
     methods: {
