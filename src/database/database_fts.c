@@ -522,6 +522,8 @@ int int_array_length(const int *arr) {
 
 #define INDEX_ID_PARAM_OFFSET (10)
 #define MIME_PARAM_OFFSET (INDEX_ID_PARAM_OFFSET + 1000)
+// Two parameters per path: the folder itself, and everything under it
+#define PATH_PARAM_OFFSET (MIME_PARAM_OFFSET + 1000)
 
 char *build_where_clause(const char *path_where, const char *size_where, const char *date_where,
                          const char *index_id_where, const char *mime_where, const char *query_where,
@@ -613,14 +615,28 @@ char *mime_types_where_clause(char **mime_types) {
     return clause;
 }
 
-const char *path_where_clause(const char *path) {
-    if (path == NULL || strlen(path) == 0) {
+char *path_where_clause(char **paths) {
+    int param_count = array_length(paths);
+
+    if (param_count == 0) {
         return NULL;
     }
 
     // Qualified: the fts5 search table also has a path column, and an unqualified
     // reference is ambiguous in every query that joins the two.
-    return "(doc.path = @path or doc.path GLOB @path_glob)";
+    char *clause = malloc(2 + param_count * 64);
+
+    strcpy(clause, "(");
+    for (int i = 0; i < param_count; i++) {
+        char term[64];
+        snprintf(term, sizeof(term), "doc.path = ?%d or doc.path GLOB ?%d%s",
+                 PATH_PARAM_OFFSET + i * 2, PATH_PARAM_OFFSET + i * 2 + 1,
+                 i == param_count - 1 ? "" : " or ");
+        strcat(clause, term);
+    }
+    strcat(clause, ")");
+
+    return clause;
 }
 
 const char *get_sort_var(fts_sort_t sort) {
@@ -763,7 +779,7 @@ static void add_highlight(cJSON *row, cJSON *source, long long id, char **terms,
     free(content);
 }
 
-cJSON *database_fts_search(database_t *db, const char *query, const char *path, long size_min,
+cJSON *database_fts_search(database_t *db, const char *query, char **paths, long size_min,
                            long size_max, long date_min, long date_max, int page_size,
                            int *index_ids, char **mime_types, char **tags, int sort_asc,
                            fts_sort_t sort, int seed, char **after, int fetch_aggregations,
@@ -779,11 +795,14 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
         }
     }
 
-    const char *path_where = path_where_clause(path);
+    char *path_where = path_where_clause(paths);
 
-    char path_glob[PATH_MAX * 2] = {0};
+    char **path_globs = NULL;
     if (path_where) {
-        snprintf(path_glob, sizeof(path_glob), "%s/*", path);
+        path_globs = calloc(array_length(paths), sizeof(char *));
+        array_foreach(paths) {
+            ASPRINTF_OR_FATAL(&path_globs[i], "%s/*", paths[i]);
+        }
     }
     const char *size_where = size_where_clause(size_min, size_max);
     const char *date_where = date_where_clause(date_min, date_max);
@@ -938,8 +957,10 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
         sqlite3_bind_int64(stmt, sqlite3_bind_parameter_index(stmt, "@date_max"), date_max);
     }
     if (path_where) {
-        sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, "@path"), path, -1, SQLITE_STATIC);
-        sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, "@path_glob"), path_glob, -1, SQLITE_STATIC);
+        array_foreach(paths) {
+            sqlite3_bind_text(stmt, PATH_PARAM_OFFSET + i * 2, paths[i], -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, PATH_PARAM_OFFSET + i * 2 + 1, path_globs[i], -1, SQLITE_STATIC);
+        }
     }
     if (after_where) {
         if (sort == FTS_SORT_NAME || sort == FTS_SORT_ID) {
@@ -1038,9 +1059,10 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
             sqlite3_bind_int64(agg_stmt, sqlite3_bind_parameter_index(agg_stmt, "@date_max"), date_max);
         }
         if (path_where) {
-            sqlite3_bind_text(agg_stmt, sqlite3_bind_parameter_index(agg_stmt, "@path"), path, -1, SQLITE_STATIC);
-            sqlite3_bind_text(agg_stmt, sqlite3_bind_parameter_index(agg_stmt, "@path_glob"), path_glob, -1,
-                              SQLITE_STATIC);
+            array_foreach(paths) {
+                sqlite3_bind_text(agg_stmt, PATH_PARAM_OFFSET + i * 2, paths[i], -1, SQLITE_STATIC);
+                sqlite3_bind_text(agg_stmt, PATH_PARAM_OFFSET + i * 2 + 1, path_globs[i], -1, SQLITE_STATIC);
+            }
         }
 
         int agg_ret = sqlite3_step(agg_stmt);
@@ -1062,6 +1084,11 @@ cJSON *database_fts_search(database_t *db, const char *query, const char *path, 
     }
 
     // Cleanup
+    if (path_where) {
+        array_foreach(paths) { free(path_globs[i]); }
+        free(path_globs);
+        free(path_where);
+    }
     if (index_id_where) {
         free(index_id_where);
     }

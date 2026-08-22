@@ -25,6 +25,7 @@ export default new Vuex.Store({
         embedding: null,
         embeddingDoc: null,
         pathText: "",
+        selectedPaths: [],
         sortMode: "score",
 
         fuzzy: false,
@@ -99,6 +100,8 @@ export default new Vuex.Store({
         setUiReachedScrollEnd: (state, val) => state.uiReachedScrollEnd = val,
         setTags: (state, val) => state.tags = val,
         setPathText: (state, val) => state.pathText = val,
+        setSelectedPaths: (state, val) => state.selectedPaths = val,
+        _setOnLoadSelectedPaths: (state, val) => state.selectedPaths = val,
         setSizeMin: (state, val) => state.sizeMin = val,
         setSizeMax: (state, val) => state.sizeMax = val,
         setSist2Info: (state, val) => state.sist2Info = val,
@@ -253,7 +256,8 @@ export default new Vuex.Store({
             }
 
             if (route.query.path) {
-                commit("setPathText", route.query.path)
+                const paths = Array.isArray(route.query.path) ? route.query.path : [route.query.path];
+                commit("_setOnLoadSelectedPaths", paths);
             }
 
             if (route.query.m) {
@@ -287,7 +291,7 @@ export default new Vuex.Store({
                     dMax: state.dateMax,
                     sMin: state.sizeMin,
                     sMax: state.sizeMax,
-                    path: state.pathText ? state.pathText : undefined,
+                    path: state.selectedPaths.length === 0 ? undefined : state.selectedPaths,
                     m: serializeMimes(state.selectedMimeTypes),
                     t: state.selectedTags.length === 0 ? undefined : state.selectedTags.join(","),
                     sort: state.sortMode === "score" ? undefined : state.sortMode,
@@ -376,6 +380,7 @@ export default new Vuex.Store({
         embedding: (state) => state.embedding,
         seed: (state) => state.seed,
         getPathText: (state) => state.pathText,
+        selectedPaths: (state) => state.selectedPaths,
         indices: state => state.indices,
         sist2Info: state => state.sist2Info,
         indexMap: state => {

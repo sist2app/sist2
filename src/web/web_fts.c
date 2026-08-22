@@ -16,7 +16,7 @@ typedef struct {
 
 typedef struct {
     char *query;
-    char *path;
+    char **paths;
     fts_sort_t sort;
     double size_min;
     double size_max;
@@ -177,14 +177,14 @@ fts_search_req_t *get_search_req(struct mg_http_message *hm) {
         return NULL;
     }
 
-    json_value req_query, req_path, req_size_min, req_size_max, req_date_min, req_date_max, req_page_size,
+    json_value req_query, req_paths, req_size_min, req_size_max, req_date_min, req_date_max, req_page_size,
             req_index_ids, req_mime_types, req_tags, req_sort_asc, req_sort, req_seed, req_after,
             req_fetch_aggregations, req_highlight, req_highlight_context_size, req_embedding, req_model,
             req_search_in_path;
 
     if (!cJSON_IsObject(json) ||
         (req_query = get_json_string(json, "query")).invalid ||
-        (req_path = get_json_string(json, "path")).invalid ||
+        (req_paths = get_json_array(json, "paths")).invalid ||
         (req_sort = get_json_string(json, "sort")).val == NULL ||
         (req_size_min = get_json_number(json, "sizeMin")).invalid ||
         (req_size_max = get_json_number(json, "sizeMax")).invalid ||
@@ -222,9 +222,21 @@ fts_search_req_t *get_search_req(struct mg_http_message *hm) {
         cJSON_Delete(json);
         return NULL;
     }
-    if (req_path.val && (strstr(req_path.val->valuestring, "*") || strlen(req_path.val->valuestring) >= PATH_MAX)) {
+    // Two SQL parameters each, in a range 1000 wide
+    int path_count = cJSON_GetArraySize(req_paths.val);
+    if (path_count > 500) {
         cJSON_Delete(json);
         return NULL;
+    }
+    if (req_paths.val) {
+        cJSON *element;
+        cJSON_ArrayForEach(element, req_paths.val) {
+            if (!cJSON_IsString(element) || strstr(element->valuestring, "*")
+                || strlen(element->valuestring) >= PATH_MAX) {
+                cJSON_Delete(json);
+                return NULL;
+            }
+        }
     }
 
     fts_sort_t sort = get_sort_mode(req_sort.val);
@@ -254,7 +266,7 @@ fts_search_req_t *get_search_req(struct mg_http_message *hm) {
     fts_search_req_t *req = malloc(sizeof(fts_search_req_t));
 
     req->sort = sort;
-    req->path = req_path.val ? strdup(req_path.val->valuestring) : NULL;
+    req->paths = req_paths.val ? json_array_to_c_array(req_paths.val) : NULL;
     req->size_min = req_size_min.val ? req_size_min.val->valuedouble : 0;
     req->size_max = req_size_max.val ? req_size_max.val->valuedouble : 0;
     req->seed = (int) (req_seed.val ? req_seed.val->valuedouble : 0);
@@ -303,7 +315,7 @@ void destroy_array(char **array) {
 
 void destroy_search_req(fts_search_req_t *req) {
     free(req->query);
-    free(req->path);
+    destroy_array(req->paths);
 
     if (req->index_ids) {
         free(req->index_ids);
@@ -402,7 +414,7 @@ void fts_search(struct mg_connection *nc, struct mg_http_message *hm) {
         return;
     }
 
-    cJSON *json = database_fts_search(WebCtx.search_db, req->query, req->path,
+    cJSON *json = database_fts_search(WebCtx.search_db, req->query, req->paths,
                                       (long) req->size_min, (long) req->size_max,
                                       (long) req->date_min, (long) req->date_max,
                                       req->page_size, req->index_ids, req->mime_types,

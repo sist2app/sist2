@@ -16,6 +16,8 @@
             <VueSimpleSuggest
                     class="form-control-fix-flex"
                     @input="setPathText"
+                    @select="addPath($event)"
+                    @keydown.enter.native="addPath(getPathText)"
                     :value="getPathText"
                     :list="suggestPath"
                     :max-suggestions="0"
@@ -30,6 +32,13 @@
                 </div>
             </VueSimpleSuggest>
 
+        </div>
+
+        <div v-if="selectedPaths.length > 0" class="path-chips">
+            <b-badge v-for="path in selectedPaths" :key="path" class="path-chip" variant="secondary"
+                     @click="removePath(path)" :title="$t('pathBar.remove')">
+                {{ path }}&nbsp;&times;
+            </b-badge>
         </div>
 
         <b-modal ref="path-modal" :title="$t('pathBar.modalTitle')" size="lg" :hide-footer="true" static>
@@ -62,7 +71,7 @@ export default {
         }
     },
     computed: {
-        ...mapGetters(["getPathText"])
+        ...mapGetters(["getPathText", "selectedPaths"])
     },
     mounted() {
         this.$store.subscribe((mutation) => {
@@ -96,7 +105,24 @@ export default {
         });
     },
     methods: {
-        ...mapMutations(["setPathText"]),
+        ...mapMutations(["setPathText", "setSelectedPaths"]),
+        addPath(path) {
+            if (typeof path !== "string") {
+                return;
+            }
+
+            const normalized = path.trim().replace(/\/$/, "");
+
+            if (normalized === "" || this.selectedPaths.includes(normalized)) {
+                return;
+            }
+
+            this.setSelectedPaths([...this.selectedPaths, normalized]);
+            this.setPathText("");
+        },
+        removePath(path) {
+            this.setSelectedPaths(this.selectedPaths.filter(p => p !== path));
+        },
         getSuggestionWithoutQueryPrefix(suggestion, query) {
             return suggestion.slice(query.length)
         },
@@ -154,8 +180,12 @@ export default {
         },
         handleTreeClick(e, node, handler) {
             if (node.depth !== 0) {
-                this.setPathText(node.id);
-                this.$refs['path-modal'].hide()
+                // The modal stays open: picking several folders in a row is the point
+                if (this.selectedPaths.includes(node.id)) {
+                    this.removePath(node.id);
+                } else {
+                    this.addPath(node.id);
+                }
 
                 this.$emit("search");
             }
@@ -167,6 +197,16 @@ export default {
 </script>
 
 <style scoped>
+.path-chips {
+    margin-bottom: 0.5em;
+}
+
+.path-chip {
+    cursor: pointer;
+    margin-right: 0.4em;
+    font-size: 90%;
+}
+
 #mimeTree {
     max-height: 350px;
     overflow: auto;

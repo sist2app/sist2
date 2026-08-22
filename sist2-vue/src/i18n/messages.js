@@ -131,7 +131,8 @@ export default {
         totalSize: "Total size",
         pathBar: {
             placeholder: "Filter path",
-            modalTitle: "Select path"
+            modalTitle: "Select path",
+            remove: "Remove"
         },
         debug: "Debug information",
         debugDescription: "Information useful for debugging. If you encounter bugs or have suggestions for" +
@@ -317,7 +318,8 @@ export default {
         totalSize: "Gesamtgröße",
         pathBar: {
             placeholder: "Filter Pfad",
-            modalTitle: "Wähle Pfad"
+            modalTitle: "Wähle Pfad",
+            remove: "Entfernen"
         },
         debug: "Debug Informationen",
         debugDescription: "Informationen für das Debugging. Wenn du Bugs gefunden oder Anregungen für " +
@@ -502,7 +504,8 @@ export default {
         totalSize: "Taille totale",
         pathBar: {
             placeholder: "Filtrer le chemin",
-            modalTitle: "Sélectionner le chemin"
+            modalTitle: "Sélectionner le chemin",
+            remove: "Retirer"
         },
         debug: "Information de débogage",
         debugDescription: "Informations utiles pour le débogage\n" +
@@ -687,7 +690,8 @@ export default {
         totalSize: "总大小",
         pathBar: {
             placeholder: "过滤路径",
-            modalTitle: "选择路径"
+            modalTitle: "选择路径",
+            remove: "移除"
         },
         debug: "调试信息",
         debugDescription: "对调试除错有用的信息。 若您遇到bug或者想建议新功能，请提交新Issue到" +
@@ -871,7 +875,8 @@ export default {
         totalSize: "Całkowita wielkość",
         pathBar: {
             placeholder: "Filtruj ścieżki",
-            modalTitle: "Wybierz ścieżkę"
+            modalTitle: "Wybierz ścieżkę",
+            remove: "Usuń"
         },
         debug: "Informacje dla programistów",
         debugDescription: "Informacje przydatne do znajdowania błędów w oprogramowaniu. Jeśli napotkasz błąd lub masz" +

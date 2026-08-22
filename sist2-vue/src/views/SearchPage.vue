@@ -127,7 +127,7 @@ export default Vue.extend({
             this.$store.subscribe(() => this.$store.dispatch("updateArgs", this.$router));
             this.$store.subscribe((mutation) => {
                 if ([
-                    "setSizeMin", "setSizeMax", "setDateMin", "setDateMax", "setSearchText", "setPathText",
+                    "setSizeMin", "setSizeMax", "setDateMin", "setDateMax", "setSearchText", "setSelectedPaths",
                     "setSortMode", "setOptHighlight", "setOptFragmentSize", "setFuzzy", "setSize", "setSelectedIndices",
                     "setSelectedMimeTypes", "setSelectedTags", "setOptQueryMode", "setOptSearchInPath",
                     "setEmbedding"

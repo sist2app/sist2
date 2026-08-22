@@ -38,7 +38,7 @@ class Sist2ElasticsearchQuery {
         const getters = store.getters;
 
         const searchText = getters.searchText;
-        const pathText = getters.pathText;
+        const selectedPaths = getters.selectedPaths;
         const sizeMin = getters.sizeMin;
         const sizeMax = getters.sizeMax;
         const dateMin = getters.dateMin;
@@ -61,8 +61,8 @@ class Sist2ElasticsearchQuery {
         if (searchText) {
             q["query"] = searchText;
         }
-        if (pathText) {
-            q["path"] = pathText.endsWith("/") ? pathText.slice(0, -1) : pathText;
+        if (selectedPaths.length > 0) {
+            q["paths"] = selectedPaths.map(path => path.endsWith("/") ? path.slice(0, -1) : path);
         }
         if (sizeMin) {
             q["sizeMin"] = sizeMin;

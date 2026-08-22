@@ -194,7 +194,7 @@ cJSON *database_fts_get_mimetypes(database_t *db);
 
 database_summary_stats_t database_fts_get_date_range(database_t *db);
 
-cJSON *database_fts_search(database_t *db, const char *query, const char *path, long size_min,
+cJSON *database_fts_search(database_t *db, const char *query, char **paths, long size_min,
                            long size_max, long date_min, long date_max, int page_size,
                            int *index_ids, char **mime_types, char **tags, int sort_asc,
                            fts_sort_t sort, int seed, char **after, int fetch_aggregations,

@@ -67,7 +67,7 @@ class Sist2ElasticsearchQuery {
         const getters = store.getters;
 
         const searchText = getters.searchText;
-        const pathText = getters.pathText;
+        const selectedPaths = getters.selectedPaths;
         const empty = searchText === "";
         const sizeMin = getters.sizeMin;
         const sizeMax = getters.sizeMax;
@@ -124,10 +124,13 @@ class Sist2ElasticsearchQuery {
                 filters.push({range: {mtime: {lte: dateMax, format: "epoch_second"}}})
             }
 
-            const path = pathText.replace(/\/$/, "").toLowerCase(); //remove trailing slashes
+            //remove trailing slashes
+            const paths = selectedPaths
+                .map(path => path.replace(/\/$/, "").toLowerCase())
+                .filter(path => path !== "");
 
-            if (path !== "") {
-                filters.push({term: {path: path}})
+            if (paths.length > 0) {
+                filters.push({terms: {path: paths}})
             }
 
             if (selectedMimeTypes.length > 0) {
