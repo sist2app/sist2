@@ -1,6 +1,25 @@
 #include "wpd.h"
 #include "libwpd_c_api.h"
 
+/*
+ * The WordPerfect document summary carries far more fields than sist2 has room for (account,
+ * client, matter, telephone number...); only the three with an equivalent are kept. WordPerfect
+ * calls the title of a document its "descriptive name".
+ */
+void wpd_set_meta(document_t *doc, const char *key, const char *value) {
+    if (key == NULL || value == NULL || *value == '\0') {
+        return;
+    }
+
+    if (strcmp(key, "meta:initial-creator") == 0 || strcmp(key, "dc:creator") == 0) {
+        APPEND_UTF8_META(doc, MetaAuthor, value);
+    } else if (strcmp(key, "libwpd:descriptive-name") == 0) {
+        APPEND_UTF8_META(doc, MetaTitle, value);
+    } else if (strcmp(key, "libwpd:editor") == 0) {
+        APPEND_UTF8_META(doc, MetaModifiedBy, value);
+    }
+}
+
 scan_code_t parse_wpd(scan_wpd_ctx_t *ctx, vfile_t *f, document_t *doc) {
 
     size_t buf_len;

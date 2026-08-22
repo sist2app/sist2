@@ -47,4 +47,10 @@ EXTERNC void wpd_memory_stream_destroy(wpd_stream_t stream);
 
 EXTERNC wpd_result_t wpd_parse(wpd_stream_t ptr, text_buffer_t *tex, document_t *doc);
 
+/**
+ * Stores one document summary field, if it is one sist2 has a place for. Exposed for the tests:
+ * a WordPerfect file with a filled-in summary is not something we can produce here.
+ */
+EXTERNC void wpd_set_meta(document_t *doc, const char *key, const char *value);
+
 #endif

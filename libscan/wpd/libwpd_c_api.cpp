@@ -21,7 +21,7 @@ public:
 
         WPXPropertyList::Iter propIter(propList);
         for (propIter.rewind(); propIter.next();) {
-            // TODO: Read metadata here ?!
+            wpd_set_meta(this->doc, propIter.key(), propIter()->getStr().cstr());
         }
     }
 
