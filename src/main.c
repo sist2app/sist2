@@ -236,6 +236,14 @@ void initialize_scan_context(scan_args_t *args) {
     ScanCtx.json_ctx.logf = logf_callback;
     ScanCtx.json_ctx.json_mime = mime_get_mime_by_string("application/json");
     ScanCtx.json_ctx.ndjson_mime = mime_get_mime_by_string("application/ndjson");
+
+    // Email
+    ScanCtx.email_ctx.content_size = args->content_size;
+    ScanCtx.email_ctx.log = log_callback;
+    ScanCtx.email_ctx.logf = logf_callback;
+    ScanCtx.email_ctx.parse = (parse_callback_t) parse;
+    ScanCtx.email_ctx.rfc822_mime = mime_get_mime_by_string("message/rfc822");
+    ScanCtx.email_ctx.mbox_mime = mime_get_mime_by_string("application/mbox");
 }
 
 // Both producers run on the master's producer thread and submit through scan_master_submit()

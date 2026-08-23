@@ -1,0 +1,23 @@
+Return-Path: <alice@example.org>
+Received: from mail.example.org (mail.example.org [198.51.100.7])
+	by mx.example.com with ESMTP id 4Wq0mZ1234
+	for <bob@example.com>; Tue, 12 Aug 2025 09:14:02 +0000 (UTC)
+Message-ID: <20250812091402.4Wq0mZ@example.org>
+Date: Tue, 12 Aug 2025 09:14:02 +0000
+From: Alice Martin <alice@example.org>
+To: Bob Nguyen <bob@example.com>
+Cc: archive@example.com
+Subject: Notes from the Tuesday review
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Hi Bob,
+
+The review went through every open item. Two of them still need a decision
+before the end of the month, and the rest can wait for the next cycle.
+
+The caf=C3=A9 downstairs is closed on Thursday, so we moved the follow-up to
+the meeting room on the third floor.
+
+Alice

@@ -1,0 +1,13 @@
+{
+  "name": "libenvelope",
+  "version-date": "2026-08-23",
+  "description": "Safe parsing of RFC 5322 / MIME email messages and mbox files",
+  "homepage": "https://github.com/shyyio/libenvelope",
+  "license": "MIT",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    }
+  ]
+}

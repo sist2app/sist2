@@ -1,0 +1,62 @@
+From alice@example.org Tue Aug 12 09:14:02 2025
+Message-ID: <mbox-0@example.org>
+Date: Tue, 12 Aug 2025 09:14:02 +0000
+From: Alice Martin <alice@example.org>
+To: list@example.com
+Subject: First message in the mailbox
+Content-Type: text/plain; charset=utf-8
+
+This is the first message. It mentions the word aardvark exactly once.
+
+>From the desk of nobody in particular, a line that must not split the message.
+
+The rest of it is filler so that the file is large enough for the fuzz harness to
+mangle in a hundred different places without running out of bytes to mangle.
+
+From bob@example.com Wed Aug 13 11:02:44 2025
+Message-ID: <mbox-1@example.org>
+Date: Wed, 13 Aug 2025 11:02:44 +0000
+From: Bob Nguyen <bob@example.com>
+To: list@example.com
+Subject: Second message in the mailbox
+Content-Type: text/plain; charset=utf-8
+
+This is the second message. It mentions the word pangolin exactly once.
+
+It answers the first one and quotes a little of it:
+
+> This is the first message. It mentions the word aardvark exactly once.
+
+Which is as much of it as anyone needed to read.
+
+From carol@example.net Thu Aug 14 08:31:19 2025
+Message-ID: <mbox-2@example.org>
+Date: Thu, 14 Aug 2025 08:31:19 +0000
+From: Carol Weiss <carol@example.net>
+To: list@example.com
+Subject: Third message in the mailbox
+Content-Type: text/plain; charset=utf-8
+
+This is the third message. It mentions the word quokka exactly once.
+
+It carries a longer body than the others, with several paragraphs, so that the
+mailbox has messages of different sizes in it and the offsets the splitter records
+are not all the same distance apart.
+
+A mailbox with three messages in it is enough to catch a splitter that is off by
+one at either end, which two messages would not.
+
+From dan@example.org Fri Aug 15 16:47:53 2025
+Message-ID: <mbox-3@example.org>
+Date: Fri, 15 Aug 2025 16:47:53 +0000
+From: Dan Okafor <dan@example.org>
+To: list@example.com
+Subject: Fourth message in the mailbox
+Content-Type: text/plain; charset=utf-8
+
+This is the fourth message. It mentions the word capybara exactly once.
+
+It closes the thread, and it is here mostly so that the mailbox is large
+enough for the fuzz harness, which refuses any input it cannot mangle in
+enough places to be worth running. Four messages also means the splitter has
+to get three separators right rather than one.

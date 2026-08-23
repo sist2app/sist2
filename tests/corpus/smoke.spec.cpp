@@ -111,6 +111,14 @@ void CorpusSmokeTest::parse_by_extension(const std::string &ext) {
         scan_arc_ctx_t ctx = make_arc_ctx(ARC_MODE_LIST);
         parse_archive(&ctx, &f, &doc, nullptr, nullptr);
 
+    } else if (ext == "eml") {
+        scan_email_ctx_t ctx = make_email_ctx();
+        parse_email(&ctx, &f, &doc);
+
+    } else if (ext == "mbox") {
+        scan_email_ctx_t ctx = make_email_ctx();
+        parse_mbox(&ctx, &f, &doc);
+
     } else if (is_one_of(ext, {"html", "htm", "xml", "svg"})) {
         scan_text_ctx_t ctx = make_text_ctx();
         parse_markup(&ctx, &f, &doc);

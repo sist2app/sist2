@@ -16,6 +16,7 @@
 #include "libscan/msdoc/msdoc.h"
 #include "libscan/wpd/wpd.h"
 #include "libscan/json/json.h"
+#include "libscan/email/email.h"
 #include "src/database/database.h"
 #include "src/index/elastic.h"
 #include "sqlite3.h"
@@ -56,6 +57,7 @@ typedef struct {
     scan_msdoc_ctx_t msdoc_ctx;
     scan_wpd_ctx_t wpd_ctx;
     scan_json_ctx_t json_ctx;
+    scan_email_ctx_t email_ctx;
 } ScanCtx_t;
 
 typedef struct {

@@ -139,6 +139,8 @@ typedef struct vfile {
     union {
         int fd;
         struct archive *arc;
+        /** Body of an email part, read from memory */
+        void *mem;
         const void *_test_data;
     };
 

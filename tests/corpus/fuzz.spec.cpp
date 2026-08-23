@@ -44,6 +44,16 @@ namespace {
         parse_font(&ctx, f, doc);
     }
 
+    void parse_email_case(vfile_t *f, document_t *doc) {
+        scan_email_ctx_t ctx = make_email_ctx();
+        parse_email(&ctx, f, doc);
+    }
+
+    void parse_mbox_case(vfile_t *f, document_t *doc) {
+        scan_email_ctx_t ctx = make_email_ctx();
+        parse_mbox(&ctx, f, doc);
+    }
+
     void parse_mobi_case(vfile_t *f, document_t *doc) {
         scan_mobi_ctx_t ctx = make_mobi_ctx();
         parse_mobi(&ctx, f, doc);
@@ -56,6 +66,8 @@ namespace {
             {"NDJson", "json/ndjson1.jsonl",    parse_ndjson_case},
             {"Font",   "font/truetype1.ttf",    parse_font_case},
             {"Mobi",   "mobi/sample.azw3",      parse_mobi_case},
+            {"Email",  "email/multipart.eml",   parse_email_case},
+            {"Mbox",   "email/mailbox.mbox",    parse_mbox_case},
     };
 
     std::vector<char> read_test_file(const std::string &relative_path) {

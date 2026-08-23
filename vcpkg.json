@@ -12,6 +12,7 @@
     },
     "openblas",
     "libantiword2",
+    "libenvelope",
     "libmobi",
     "libwpd",
     "utf8h",

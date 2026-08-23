@@ -13,6 +13,7 @@ extern "C" {
 #include "libscan/arc/arc.h"
 #include "libscan/comic/comic.h"
 #include "libscan/ebook/ebook.h"
+#include "libscan/email/email.h"
 #include "libscan/font/font.h"
 #include "libscan/json/json.h"
 #include "libscan/media/media.h"
@@ -79,6 +80,12 @@ scan_font_ctx_t make_font_ctx(int enable_tn = TRUE);
  * ArcTest::recurse_into(); ARC_MODE_LIST and ARC_MODE_SKIP need no parser.
  */
 scan_arc_ctx_t make_arc_ctx(archive_mode_t mode, const char *passphrase = nullptr);
+
+/**
+ * Email context. Attachments and mbox messages are handed to the parser installed with
+ * ArcTest::recurse_into(), the same way archive entries are.
+ */
+scan_email_ctx_t make_email_ctx(long content_size = 5000);
 
 /* Document helpers */
 

@@ -1,0 +1,68 @@
+Message-ID: <20250903143511.Kd91@example.org>
+Date: Wed, 3 Sep 2025 14:35:11 +0200
+From: =?utf-8?q?Sofia_Ara=C3=BAjo?= <sofia@example.org>
+To: finance@example.com
+Subject: =?utf-8?B?UXVhcnRlcmx5IG51bWJlcnMg4oCUIGZpbmFsIGRyYWZ0?=
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="OUTER"
+
+--OUTER
+Content-Type: multipart/alternative; boundary="INNER"
+
+--INNER
+Content-Type: text/plain; charset=utf-8
+
+The final draft of the quarterly numbers is attached. Revenue grew in every
+quarter, with the largest jump between the third and the fourth.
+
+Every region is broken out separately this time, which is what the board asked
+for after the last review. The central region is the one to watch: it started
+the year behind the others and finished ahead of all but the north.
+
+The spreadsheet has one row per region per quarter, so it can be pivoted
+without any further work. Nothing in it is rounded.
+
+--INNER
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+<p>The final draft of the quarterly numbers is attached.
+<b>Revenue grew</b> in every quarter, with the largest jump between the third
+and the fourth.</p>
+<p>Every region is broken out separately this time, which is what the board
+asked for after the last review. The central region is the one to watch.</p>
+<ul><li>North</li><li>South</li><li>East</li><li>West</li><li>Central</li></ul>
+</body></html>
+
+--INNER--
+
+--OUTER
+Content-Type: text/csv; charset=utf-8; name="revenue.csv"
+Content-Disposition: attachment; filename="revenue.csv"
+Content-Transfer-Encoding: base64
+
+eWVhcixxdWFydGVyLHJlZ2lvbixyZXZlbnVlCjIwMjMsUTEsbm9ydGgsMjMxMzcKMjAyMyxRMSxz
+b3V0aCwyMzI3NAoyMDIzLFExLGVhc3QsMjM0MTEKMjAyMyxRMSx3ZXN0LDIzNTQ4CjIwMjMsUTEs
+Y2VudHJhbCwyMzY4NQoyMDIzLFEyLG5vcnRoLDIzODIyCjIwMjMsUTIsc291dGgsMjM5NTkKMjAy
+MyxRMixlYXN0LDI0MDk2CjIwMjMsUTIsd2VzdCwyNDIzMwoyMDIzLFEyLGNlbnRyYWwsMjQzNzAK
+MjAyMyxRMyxub3J0aCwyNDUwNwoyMDIzLFEzLHNvdXRoLDI0NjQ0CjIwMjMsUTMsZWFzdCwyNDc4
+MQoyMDIzLFEzLHdlc3QsMjQ5MTgKMjAyMyxRMyxjZW50cmFsLDI1MDU1CjIwMjMsUTQsbm9ydGgs
+MjUxOTIKMjAyMyxRNCxzb3V0aCwyNTMyOQoyMDIzLFE0LGVhc3QsMjU0NjYKMjAyMyxRNCx3ZXN0
+LDI1NjAzCjIwMjMsUTQsY2VudHJhbCwyNTc0MAoyMDI0LFExLG5vcnRoLDI2ODc3CjIwMjQsUTEs
+c291dGgsMjcwMTQKMjAyNCxRMSxlYXN0LDI3MTUxCjIwMjQsUTEsd2VzdCwyNzI4OAoyMDI0LFEx
+LGNlbnRyYWwsMjc0MjUKMjAyNCxRMixub3J0aCwyNzU2MgoyMDI0LFEyLHNvdXRoLDI3Njk5CjIw
+MjQsUTIsZWFzdCwyNzgzNgoyMDI0LFEyLHdlc3QsMjc5NzMKMjAyNCxRMixjZW50cmFsLDI4MTEw
+CjIwMjQsUTMsbm9ydGgsMjgyNDcKMjAyNCxRMyxzb3V0aCwyODM4NAoyMDI0LFEzLGVhc3QsMjg1
+MjEKMjAyNCxRMyx3ZXN0LDI4NjU4CjIwMjQsUTMsY2VudHJhbCwyODc5NQoyMDI0LFE0LG5vcnRo
+LDI4OTMyCjIwMjQsUTQsc291dGgsMjkwNjkKMjAyNCxRNCxlYXN0LDI5MjA2CjIwMjQsUTQsd2Vz
+dCwyOTM0MwoyMDI0LFE0LGNlbnRyYWwsMjk0ODAK
+
+--OUTER
+Content-Type: image/png
+Content-Disposition: inline; filename="pixel.png"
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmM
+IQAAAABJRU5ErkJggg==
+
+--OUTER--

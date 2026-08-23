@@ -333,7 +333,7 @@ image/x-win-bitmap,
 !image/x-xpixmap, xpm
 image/x-xwindowdump, xwd
 message/news,
-message/rfc822, mht|mhtml|mime
+message/rfc822, eml|mht|mhtml|mime
 model/vnd.dwf, dwf
 model/vnd.gdl, gdl
 model/vnd.gs.gdl, gdsl
@@ -346,7 +346,7 @@ text/javascript, js
 text/mcf, mcf
 text/pascal, pas
 text/PGP,
-text/plain, com|cmd|conf|def|g|idc|list|lst|mar|sdml|text|txt|md|groovy|license|properties|desktop|ini|rst|cmake|ipynb|readme|less|lo|go|yml|d|cs|hpp|srt|nfo|sfv|m3u|csv|eml|make|log|markdown|yaml
+text/plain, com|cmd|conf|def|g|idc|list|lst|mar|sdml|text|txt|md|groovy|license|properties|desktop|ini|rst|cmake|ipynb|readme|less|lo|go|yml|d|cs|hpp|srt|nfo|sfv|m3u|csv|make|log|markdown|yaml
 text/x-script.python, pyx
 text/csv,
 application/vnd.coffeescript, coffee
@@ -452,3 +452,4 @@ image/x-sony-srf, srf
 image/x-epson-erf, erf
 image/jp2, jp2
 +image/avif, avif
++application/mbox, mbox
