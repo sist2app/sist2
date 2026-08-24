@@ -15,3 +15,6 @@ RUN pip install --no-cache --break-system-packages \
         git+https://github.com/openai/CLIP.git
 
 RUN git clone --depth 1 https://github.com/sist2app/sist2-script-clip /opt/sist2-script-clip
+
+# Bake the model in, so a rebuild does not download it again
+RUN python -c "import clip; clip.load('ViT-B/32', device='cpu')"
