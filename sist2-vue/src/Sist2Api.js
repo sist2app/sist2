@@ -186,8 +186,13 @@ class Sist2Api {
                     this.setHitTags(hit);
 
                     if ("highlight" in hit) {
-                        hit["highlight"]["name"] = [hit["highlight"]["name"]];
-                        hit["highlight"]["content"] = [hit["highlight"]["content"]];
+                        // A document with no text has no content highlight, and [undefined] is
+                        // truthy: the components would render it rather than fall back
+                        for (const field of ["name", "content"]) {
+                            if (field in hit["highlight"]) {
+                                hit["highlight"][field] = [hit["highlight"][field]];
+                            }
+                        }
                     }
                 });
             }
