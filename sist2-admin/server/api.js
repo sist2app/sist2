@@ -1,4 +1,3 @@
-import { execFile } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
@@ -47,20 +46,40 @@ import { followFile, readLastLines } from "./tail.js";
 const ES_PING_TIMEOUT = 5000;
 const WHOLE_FILE = 0;
 
+// Same list as TESS_DATAPATHS in src/cli.c, in the same order
+const TESSDATA_FOLDERS = [
+    "/usr/share/tessdata",
+    "/usr/share/tesseract-ocr/tessdata",
+    "/usr/share/tesseract-ocr/4.00/tessdata",
+    "/usr/share/tesseract-ocr/5/tessdata"
+];
+
 let tesseractLangs = [];
 
+// sist2 loads every language from a single folder, so only the first one that has
+// any model is offered.
 export function detectTesseractLangs() {
-    execFile("tesseract", ["--list-langs"], (error, stdout) => {
-        if (error) {
-            logger.warn(`Could not detect tesseract languages: ${error.message}`);
+    for (const folder of TESSDATA_FOLDERS) {
+        let files;
+        try {
+            files = fs.readdirSync(folder);
+        } catch {
+            continue;
+        }
+
+        const langs = files
+            .filter((file) => file.endsWith(".traineddata"))
+            .map((file) => file.slice(0, -".traineddata".length))
+            .sort();
+
+        if (langs.length > 0) {
+            tesseractLangs = langs;
+            logger.info(`Found ${langs.length} tesseract languages in ${folder}`);
             return;
         }
-        tesseractLangs = stdout
-            .split("\n")
-            .slice(1)
-            .map((line) => line.trim())
-            .filter((line) => line !== "");
-    });
+    }
+
+    logger.warn(`Could not find any tesseract traineddata file in ${TESSDATA_FOLDERS.join(", ")}`);
 }
 
 const NAME_REGEX = /^[a-zA-Z0-9-_,.; ]+$/;
