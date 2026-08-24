@@ -749,15 +749,52 @@ static database_t *index_database(int index_id) {
 }
 
 /**
+ * The chunk of a document that best matches the query embedding, as a byte range of its .content.
+ * A model with one embedding per document answers with the whole of it (start 0, end NULL).
+ */
+static void best_chunk(sqlite3_stmt *stmt, long long id, long long *start, long long *end) {
+    *start = -1;
+    *end = -1;
+
+    sqlite3_bind_int64(stmt, 1, id);
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        *start = sqlite3_column_int64(stmt, 0);
+        if (sqlite3_column_type(stmt, 1) != SQLITE_NULL) {
+            *end = sqlite3_column_int64(stmt, 1);
+        }
+    }
+
+    sqlite3_reset(stmt);
+}
+
+/** Forward off the continuation bytes of a UTF-8 sequence a chunk boundary landed inside of */
+static size_t utf8_boundary(const char *text, size_t offset, size_t len) {
+    while (offset < len && (text[offset] & 0xC0) == 0x80) {
+        offset += 1;
+    }
+
+    return offset;
+}
+
+/**
  * fts5 cannot build the snippets: a contentless table has no text to quote from. The text is read
  * back from the index database the document came from, for the documents of this page only.
+ *
+ * chunk_start and chunk_end are the byte range of .content the embedding that matched was
+ * generated from, or -1 for the whole of it. The query terms are still marked inside it, so an
+ * embeddings search that also carries a query reads the way a plain one does.
  */
-static void add_highlight(cJSON *row, cJSON *source, long long id, char **terms, int context_size) {
+static void add_highlight(cJSON *row, cJSON *source, long long id, char **terms, int context_size,
+                          long long chunk_start, long long chunk_end) {
+    char *const no_terms[] = {NULL};
+    char *const *use_terms = terms == NULL ? no_terms : terms;
+
     cJSON *highlight = cJSON_AddObjectToObject(row, "highlight");
 
     const cJSON *name = cJSON_GetObjectItem(source, "name");
     if (cJSON_IsString(name)) {
-        char *marked = highlight_text(name->valuestring, terms, NAME_CONTEXT_WORDS);
+        char *marked = highlight_text(name->valuestring, use_terms, NAME_CONTEXT_WORDS);
         if (marked != NULL) {
             cJSON_AddStringToObject(highlight, "name", marked);
             free(marked);
@@ -776,12 +813,38 @@ static void add_highlight(cJSON *row, cJSON *source, long long id, char **terms,
         return;
     }
 
-    char *marked = highlight_text(content, terms, context_size);
+    const size_t content_len = strlen(content);
+
+    // A chunk that does not fall inside the text the document has now — it was written against an
+    // older scan, or by a script that counted something other than bytes — falls back to all of it
+    size_t start = (chunk_start >= 0 && (size_t) chunk_start < content_len) ? (size_t) chunk_start : 0;
+    size_t end = (chunk_end >= 0 && (size_t) chunk_end <= content_len) ? (size_t) chunk_end : content_len;
+
+    if (end <= start) {
+        start = 0;
+        end = content_len;
+    }
+
+    start = utf8_boundary(content, start, content_len);
+    end = utf8_boundary(content, end, content_len);
+
+    if (chunk_start >= 0) {
+        cJSON *chunk = cJSON_AddObjectToObject(row, "chunk");
+        cJSON_AddNumberToObject(chunk, "start", (double) start);
+        cJSON_AddNumberToObject(chunk, "end", (double) end);
+    }
+
+    char *chunk_text = (start == 0 && end == content_len) ? content : strndup(content + start, end - start);
+
+    char *marked = highlight_text(chunk_text, use_terms, context_size);
     if (marked != NULL) {
         cJSON_AddStringToObject(highlight, "content", marked);
         free(marked);
     }
 
+    if (chunk_text != content) {
+        free(chunk_text);
+    }
     free(content);
 }
 
@@ -988,6 +1051,20 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
 
     char **terms = (highlight && query_where != NULL) ? highlight_query_terms(query) : NULL;
 
+    // An embeddings search shows the chunk that matched rather than the head of the document, and
+    // is worth a query per document of the page to find out which one it was
+    sqlite3_stmt *chunk_stmt = NULL;
+    if (highlight && sort == FTS_SORT_EMBEDDING && embedding != NULL) {
+        CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
+                db->db,
+                "SELECT start, end FROM embedding WHERE id = ?1 AND model_id = ?2"
+                " ORDER BY cosine_sim(?3, ?4, embedding) DESC LIMIT 1", -1, &chunk_stmt, NULL));
+
+        sqlite3_bind_int(chunk_stmt, 2, model);
+        sqlite3_bind_int(chunk_stmt, 3, embedding_size);
+        sqlite3_bind_blob(chunk_stmt, 4, embedding, (int) sizeof(float) * embedding_size, SQLITE_STATIC);
+    }
+
     cJSON *json = cJSON_CreateObject();
     cJSON *hits_hits = cJSON_CreateArray();
 
@@ -1005,8 +1082,16 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
         const char *json_str = (const char *) sqlite3_column_text(stmt, 0);
         cJSON *row = cJSON_CreateObject();
         cJSON *source = cJSON_Parse(json_str);
-        if (terms != NULL) {
-            add_highlight(row, source, sqlite3_column_int64(stmt, 2), terms, highlight_context_size);
+        if (terms != NULL || chunk_stmt != NULL) {
+            const long long doc_id = sqlite3_column_int64(stmt, 2);
+
+            long long chunk_start = -1;
+            long long chunk_end = -1;
+            if (chunk_stmt != NULL) {
+                best_chunk(chunk_stmt, doc_id, &chunk_start, &chunk_end);
+            }
+
+            add_highlight(row, source, doc_id, terms, highlight_context_size, chunk_start, chunk_end);
         }
         cJSON *id = cJSON_DetachItemFromObject(source, "_id");
         cJSON_AddItemToObject(row, "_id", id);
@@ -1027,6 +1112,10 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
 
     sqlite3_finalize(stmt);
     highlight_free_terms(terms);
+
+    if (chunk_stmt != NULL) {
+        sqlite3_finalize(chunk_stmt);
+    }
 
     cJSON *hits = cJSON_AddObjectToObject(json, "hits");
     cJSON_AddItemToObject(hits, "hits", hits_hits);
