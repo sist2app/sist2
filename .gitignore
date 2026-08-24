@@ -51,3 +51,5 @@ src/index/static_generated.c
 /*.md
 vcpkg_installed/
 sist2-admin/data/
+
+demo/.env

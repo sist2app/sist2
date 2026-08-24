@@ -1,0 +1,32 @@
+# The public sist2 demo: one `sist2 web` process, no admin, over the indices that
+# update_demo.sh builds. Settings come from demo/.env (see env.example).
+
+services:
+  sist2-demo:
+    image: ${SIST2_IMAGE}
+    restart: always
+    volumes:
+      - ${INDEX_DIR}:/indices:ro
+      - ${DATA_DIR}:/data:ro
+    environment:
+      - ES_URL=${ES_URL}
+      - ES_INDEX=${ES_INDEX}
+      - TAGLINE=${TAGLINE:-Lightning-fast file system indexer and search tool}
+    # The index files are passed as a glob, so adding a corpus needs no change here
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - >
+        exec /root/sist2 web --bind=0.0.0.0:4090 --es-url="$$ES_URL"
+        --es-index="$$ES_INDEX" --tagline="$$TAGLINE" --lang=en /indices/*.sist2
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.sist2-demo.rule=Host(`${DEMO_HOST}`)
+      - traefik.http.routers.sist2-demo.entrypoints=web
+      - traefik.http.routers.sist2-demo.service=sist2-demo
+      - traefik.http.services.sist2-demo.loadbalancer.server.port=4090
+
+# traefik and Elasticsearch already run on this network
+networks:
+  default:
+    name: ${DOCKER_NETWORK}
+    external: true
