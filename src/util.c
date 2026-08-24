@@ -347,3 +347,22 @@ struct timespec timespec_add(struct timespec ts1, long usec) {
     return timespec_normalise(ts1);
 }
 
+
+int random_index_id() {
+    unsigned int id = 0;
+
+    FILE *urandom = fopen("/dev/urandom", "rb");
+    if (urandom != NULL) {
+        if (fread(&id, sizeof(id), 1, urandom) != 1) {
+            id = 0;
+        }
+        fclose(urandom);
+    }
+
+    if (id == 0) {
+        id = (unsigned int) time(NULL) ^ ((unsigned int) getpid() << 16);
+    }
+
+    // The web API and the Elasticsearch metadata carry the id as a signed integer
+    return (int) (id & 0x7FFFFFFF);
+}

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <set>
 #include <string>
 
 extern "C" {
@@ -212,4 +213,22 @@ TEST(Timespec, AddWrapsNanoseconds) {
 
     ASSERT_EQ(result.tv_sec, 2);
     ASSERT_EQ(result.tv_nsec, 1000000);
+}
+
+/* random_index_id() — two indices created within the same second must not share an id */
+
+TEST(RandomIndexId, IsPositive) {
+    for (int i = 0; i < 1000; i++) {
+        ASSERT_GT(random_index_id(), 0);
+    }
+}
+
+TEST(RandomIndexId, DoesNotRepeat) {
+    std::set<int> ids;
+
+    for (int i = 0; i < 1000; i++) {
+        ids.insert(random_index_id());
+    }
+
+    ASSERT_EQ(ids.size(), 1000);
 }

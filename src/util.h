@@ -25,6 +25,9 @@ void progress_bar_print(double percentage, size_t tn_size, size_t index_size);
 
 const char *find_file_in_paths(const char **paths, const char *filename);
 
+/** A unique id for a new index. Indices created within the same second must not collide */
+int random_index_id();
+
 
 /** Bytes str_escape() needs for `str`, terminator included */
 size_t str_escape_size(const char *str);

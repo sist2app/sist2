@@ -67,8 +67,7 @@ void database_scan_begin(scan_args_t *args) {
         desc->version_minor = VersionMinor;
         desc->version_patch = VersionPatch;
 
-        // generate new index id based on timestamp
-        desc->id = (int) ScanCtx.index.desc.timestamp;
+        desc->id = random_index_id();
 
         database_initialize(db);
         database_open(db);
