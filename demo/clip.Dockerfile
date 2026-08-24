@@ -5,9 +5,12 @@
 ARG SIST2_IMAGE
 FROM ${SIST2_IMAGE}
 
+# torch and torchvision must come from the same index, or torchvision fails to register
+# its operators against the torch it was not built for
 RUN pip install --no-cache --break-system-packages \
         --extra-index-url https://download.pytorch.org/whl/cpu \
-        torch ftfy regex tqdm typer \
-    && pip install --no-cache --break-system-packages git+https://github.com/openai/CLIP.git
+        torch torchvision ftfy regex tqdm typer \
+    && pip install --no-cache --break-system-packages --no-deps \
+        git+https://github.com/openai/CLIP.git
 
 RUN git clone --depth 1 https://github.com/sist2app/sist2-script-clip /opt/sist2-script-clip
