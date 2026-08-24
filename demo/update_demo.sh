@@ -35,7 +35,7 @@ set -a
 . ./.env
 set +a
 
-for var in SIST2_IMAGE DATA_DIR INDEX_DIR ES_URL ES_INDEX DOCKER_NETWORK DEMO_HOST; do
+for var in SIST2_IMAGE DATA_DIR INDEX_DIR ES_URL ES_INDEX DOCKER_NETWORK DEMO_HOSTS; do
   if [ -z "${!var}" ]; then
     echo "$var is not set in demo/.env" >&2
     exit 1
@@ -130,4 +130,6 @@ echo "==> Starting the frontend"
 docker compose up -d
 
 echo
-echo "The demo is up to date: https://${DEMO_HOST}/"
+# The first name of the traefik rule, without its backticks
+primary_host=${DEMO_HOSTS%%,*}
+echo "The demo is up to date: https://${primary_host//\`/}/"

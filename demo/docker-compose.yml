@@ -20,7 +20,7 @@ services:
         --es-index="$$ES_INDEX" --tagline="$$TAGLINE" --lang=en /indices/*.sist2
     labels:
       - traefik.enable=true
-      - traefik.http.routers.sist2-demo.rule=Host(`${DEMO_HOST}`)
+      - traefik.http.routers.sist2-demo.rule=Host(${DEMO_HOSTS})
       - traefik.http.routers.sist2-demo.entrypoints=web
       - traefik.http.routers.sist2-demo.service=sist2-demo
       - traefik.http.services.sist2-demo.loadbalancer.server.port=4090
