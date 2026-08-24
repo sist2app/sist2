@@ -6,10 +6,11 @@ ARG SIST2_IMAGE
 FROM ${SIST2_IMAGE}
 
 # torch and torchvision must come from the same index, or torchvision fails to register
-# its operators against the torch it was not built for
+# its operators against the torch it was not built for. CLIP is installed without its
+# dependencies for that reason, so they are all listed here
 RUN pip install --no-cache --break-system-packages \
         --extra-index-url https://download.pytorch.org/whl/cpu \
-        torch torchvision ftfy regex tqdm typer \
+        torch torchvision ftfy regex tqdm typer packaging \
     && pip install --no-cache --break-system-packages --no-deps \
         git+https://github.com/openai/CLIP.git
 
