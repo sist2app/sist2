@@ -713,6 +713,8 @@ char *get_after_where(char **after, UNUSED(fts_sort_t sort), int sort_asc) {
         return NULL;
     }
 
+    // One tuple comparison, so the ROWID tiebreaker in the ORDER BY runs in the same direction:
+    // a descending sort whose sort_var ties would otherwise skip every row of the tie but one
     if (sort_asc) {
         return "(sort_var, doc.ROWID) > (?3, ?4)";
     }
@@ -891,11 +893,11 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
                 " FROM search"
                 " INNER JOIN document_index doc on doc.ROWID = search.ROWID"
                 " WHERE %s"
-                " ORDER BY sort_var%s, doc.ROWID"
+                " ORDER BY sort_var%s, doc.ROWID%s"
                 " LIMIT ?2",
                 json_object_sql, get_sort_var(sort),
                 where,
-                sort_asc ? "" : " DESC");
+                sort_asc ? "" : " DESC", sort_asc ? "" : " DESC");
 
         if (fetch_aggregations) {
             ASPRINTF_OR_FATAL(&agg_sql,
@@ -912,11 +914,11 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
                 " %s, %s as sort_var, doc.ROWID"
                 " FROM document_index doc"
                 " WHERE %s"
-                " ORDER BY sort_var%s, doc.ROWID"
+                " ORDER BY sort_var%s, doc.ROWID%s"
                 " LIMIT ?2",
                 json_object_sql, get_sort_var(sort),
                 where,
-                sort_asc ? "" : " DESC");
+                sort_asc ? "" : " DESC", sort_asc ? "" : " DESC");
 
         if (fetch_aggregations) {
             ASPRINTF_OR_FATAL(&agg_sql,

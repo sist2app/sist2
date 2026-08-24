@@ -195,6 +195,27 @@ protected:
         return hits;
     }
 
+    /** Every id a client walking the pages with the `after` cursor would see */
+    std::vector<std::string> page_through(database_t *db, fts_sort_t sort, int sort_asc,
+                                          int page_size) {
+        std::vector<std::string> ids;
+        std::vector<Hit> page = search(db, sort, sort_asc, page_size);
+
+        while (!page.empty() && ids.size() < 1000) {
+            for (const Hit &hit: page) {
+                ids.push_back(hit.id);
+            }
+
+            std::string value = page.back().sort_value;
+            std::string tiebreaker = page.back().sort_tiebreaker;
+            char *after[] = {value.data(), tiebreaker.data(), nullptr};
+
+            page = search(db, sort, sort_asc, page_size, after);
+        }
+
+        return ids;
+    }
+
     int mtime_offset = 0;
 };
 
@@ -419,6 +440,31 @@ TEST_F(SqliteIndexTest, EmbeddingSortKeepsDocumentsWithoutAnEmbedding) {
     EXPECT_EQ(hits[0].id, std::to_string(ids[0]));
     for (size_t i = 1; i < hits.size(); i++) {
         EXPECT_EQ(strtod(hits[i].sort_value.c_str(), nullptr), -1) << "hit " << i;
+    }
+
+    database_close(db, FALSE);
+}
+
+/*
+ * The `after` cursor compares (sort_var, ROWID) as one tuple, so the ROWID tiebreaker has to run in
+ * the same direction as the sort: a descending sort whose documents share a sort value used to skip
+ * every row of the tie but one.
+ */
+TEST_F(SqliteIndexTest, DescendingSortPagesThroughDocumentsThatTie) {
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    // Every file was written with the same length, so they all tie on size
+    ASSERT_EQ(query("SELECT count(DISTINCT size) FROM document_index"), 1);
+
+    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_open(db);
+
+    for (const int sort_asc: {1, 0}) {
+        const std::vector<std::string> ids = page_through(db, FTS_SORT_SIZE, sort_asc, 3);
+
+        EXPECT_EQ(ids.size(), 8) << "sort_asc: " << sort_asc;
+        EXPECT_EQ(std::set<std::string>(ids.begin(), ids.end()).size(), 8) << "sort_asc: " << sort_asc;
     }
 
     database_close(db, FALSE);
