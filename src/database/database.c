@@ -626,7 +626,9 @@ database_iterator_t *database_create_document_iterator(database_t *db, long long
             "  '$.embedding', 1"
             "     ) END"
             " FROM doc"
-            " LEFT JOIN embedding emb ON doc.id = emb.id"
+            // Only the first chunk: json_group_object() would key every one of them on the same
+            // model path, and Elasticsearch maps emb.<path> as a single dense_vector
+            " LEFT JOIN embedding emb ON doc.id = emb.id AND emb.start = 0"
             " LEFT JOIN model m ON emb.model_id = m.id"
             " GROUP BY doc.id", source);
 

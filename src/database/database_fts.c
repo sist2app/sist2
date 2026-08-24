@@ -656,7 +656,11 @@ const char *get_sort_var(fts_sort_t sort) {
         case FTS_SORT_ID:
             return "doc.id";
         case FTS_SORT_EMBEDDING:
-            return "cosine_sim(?7, ?8, emb.embedding)";
+            // A document has one embedding per chunk of its content, and ranks by its best one.
+            // -1, not NULL, for a document the model has no embedding for: the sort cursor is
+            // read back as a number.
+            return "COALESCE((SELECT MAX(cosine_sim(?7, ?8, emb.embedding)) FROM embedding emb"
+                   " WHERE emb.id = doc.id AND emb.model_id = ?9), -1)";
         default:
             return NULL;
     }
@@ -831,7 +835,9 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
                                   "'$.thumbnail', doc.thumbnail_count,"
                                   "'$.mime', doc.mime,"
                                   "'$.size', doc.size,"
-                                  "'$.embedding', (CASE WHEN emb.id IS NOT NULL THEN 1 ELSE 0 END))";
+                                  // EXISTS, not a join: a document with several embeddings would
+                                  // otherwise be returned once per embedding row
+                                  "'$.embedding', EXISTS (SELECT 1 FROM embedding WHERE id = doc.id))";
 
     char *sql;
     char *agg_sql = NULL;
@@ -841,7 +847,7 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
     // SQLite score and sort every match instead: 6.5s versus 0.7s for a term that
     // hits half of a 517k document index. So the ranking runs in a subquery that
     // keeps that exact shape, and everything expensive per row — the JSON, the
-    // embedding join, the json — happens for the N rows it returns.
+    // embedding lookup — happens for the N rows it returns.
     const int ranked = (sort == FTS_SORT_SCORE && query_where != NULL && sort_asc);
 
     if (ranked) {
@@ -863,7 +869,6 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
                 "        ORDER BY rank"
                 "        LIMIT ?2) top"
                 " INNER JOIN document_index doc on doc.ROWID = top.sid"
-                " LEFT JOIN embedding emb on emb.id = doc.id"
                 " ORDER BY top.rank_var, doc.ROWID",
                 json_object_sql,
                 ranked_where);
@@ -885,7 +890,6 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
                 " %s, %s as sort_var, doc.ROWID"
                 " FROM search"
                 " INNER JOIN document_index doc on doc.ROWID = search.ROWID"
-                " LEFT JOIN embedding emb on emb.id = doc.id"
                 " WHERE %s"
                 " ORDER BY sort_var%s, doc.ROWID"
                 " LIMIT ?2",
@@ -907,9 +911,8 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
                 "SELECT"
                 " %s, %s as sort_var, doc.ROWID"
                 " FROM document_index doc"
-                " LEFT JOIN embedding emb on emb.id = doc.id"
                 " WHERE %s"
-                " ORDER BY sort_var%s,doc.ROWID"
+                " ORDER BY sort_var%s, doc.ROWID"
                 " LIMIT ?2",
                 json_object_sql, get_sort_var(sort),
                 where,
