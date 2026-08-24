@@ -2,7 +2,7 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/sist2app/sist2/badge?s=05daa325188aac4eae32c786f3d9cf4e0593f822)](https://www.codefactor.io/repository/github/sist2app/sist2)
 [![ci](https://github.com/sist2app/sist2/actions/workflows/ci.yml/badge.svg)](https://github.com/sist2app/sist2/actions/workflows/ci.yml)
 
-**Demo**: [sist2.simon987.net](https://sist2.simon987.net/)
+**Demo**: [sist2.shyy.io](https://sist2.shyy.io/)
 
 **Community URL:** [Discord](https://discord.gg/2PEjDy3Rfs)
 

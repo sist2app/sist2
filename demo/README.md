@@ -1,6 +1,6 @@
 # Demo deployment
 
-The public demo (https://sist2.simon987.net/) is a single `sist2 web` process serving a
+The public demo (https://sist2.shyy.io/) is a single `sist2 web` process serving a
 handful of read-only indices out of Elasticsearch. There is no sist2-admin: every index is
 rebuilt from scratch by `update_demo.sh` after a release.
 
