@@ -214,29 +214,37 @@ int scan_args_validate(scan_args_t *args, int argc, const char **argv) {
 
         TessBaseAPI *api = TessBaseAPICreate();
 
+        // tesseract reads every language from a single folder
         const char *trained_data_path = NULL;
-        char *lang = malloc(strlen(args->tesseract_lang) + 1);
-        strcpy(lang, args->tesseract_lang);
 
-        lang = strtok(lang, "+");
+        for (int i = 0; TESS_DATAPATHS[i] != NULL && trained_data_path == NULL; i++) {
+            const char *folder[] = {TESS_DATAPATHS[i], NULL};
 
-        while (lang != NULL) {
-            char filename[128];
-            sprintf(filename, "%s.traineddata", lang);
+            char *langs = malloc(strlen(args->tesseract_lang) + 1);
+            strcpy(langs, args->tesseract_lang);
 
-            const char *path = find_file_in_paths(TESS_DATAPATHS, filename);
-            if (path == NULL) {
-                LOG_FATALF("cli.c", "Could not find tesseract language file: %s!", filename);
+            int found_all = TRUE;
+
+            for (char *lang = strtok(langs, "+"); lang != NULL; lang = strtok(NULL, "+")) {
+                char filename[128];
+                snprintf(filename, sizeof(filename), "%s.traineddata", lang);
+
+                if (find_file_in_paths(folder, filename) == NULL) {
+                    found_all = FALSE;
+                    break;
+                }
             }
-            if (trained_data_path != NULL && path != trained_data_path) {
-                LOG_FATAL("cli.c", "When specifying more than one tesseract language, all the traineddata "
-                                   "files must be in the same folder");
-            }
-            trained_data_path = path;
+            free(langs);
 
-            lang = strtok(NULL, "+");
+            if (found_all) {
+                trained_data_path = TESS_DATAPATHS[i];
+            }
         }
-        free(lang);
+
+        if (trained_data_path == NULL) {
+            LOG_FATALF("cli.c", "Could not find a folder with the traineddata file of every language in '%s'",
+                       args->tesseract_lang);
+        }
 
         int ret = TessBaseAPIInit3(api, trained_data_path, args->tesseract_lang);
         if (ret != 0) {
