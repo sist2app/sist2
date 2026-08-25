@@ -52,3 +52,75 @@ TEST_F(ElasticMappingsTest, DateDetectionIsOff) {
     ASSERT_NE(date_detection, nullptr);
     ASSERT_TRUE(cJSON_IsFalse(date_detection));
 }
+
+/*
+ * A key under "properties" is a field name, never a pattern: Elasticsearch only matches wildcards
+ * inside dynamic_templates. An "emb.idx_384.*" property therefore maps nothing, and the vector a
+ * user script writes is guessed as a float array, which [knn] refuses to search.
+ */
+TEST_F(ElasticMappingsTest, EmbeddingWildcardsAreDynamicTemplates) {
+    const cJSON *properties = cJSON_GetObjectItem(mappings, "properties");
+    ASSERT_NE(properties, nullptr);
+
+    const cJSON *property;
+    cJSON_ArrayForEach(property, properties) {
+        const std::string name = property->string;
+        if (name.rfind("emb.", 0) == 0) {
+            EXPECT_EQ(name.find('*'), std::string::npos)
+                                << name << " is a pattern, so it belongs in dynamic_templates";
+        }
+    }
+
+    const cJSON *templates = cJSON_GetObjectItem(mappings, "dynamic_templates");
+    ASSERT_NE(templates, nullptr) << "no dynamic_templates: no model but CLIP can be searched";
+
+    int embedding_templates = 0;
+    const cJSON *entry;
+    cJSON_ArrayForEach(entry, templates) {
+        const cJSON *body = entry->child;
+        const cJSON *path_match = cJSON_GetObjectItem(body, "path_match");
+        const cJSON *mapping = cJSON_GetObjectItem(body, "mapping");
+
+        ASSERT_TRUE(cJSON_IsString(path_match)) << body->string;
+        ASSERT_NE(mapping, nullptr) << body->string;
+
+        if (std::string(path_match->valuestring).rfind("emb.", 0) != 0) {
+            continue;
+        }
+        embedding_templates += 1;
+
+        const cJSON *type = cJSON_GetObjectItem(mapping, "type");
+        ASSERT_TRUE(cJSON_IsString(type)) << path_match->valuestring;
+        EXPECT_STREQ(type->valuestring, "dense_vector") << path_match->valuestring;
+        EXPECT_TRUE(cJSON_IsNumber(cJSON_GetObjectItem(mapping, "dims")))
+                            << path_match->valuestring << " has no dims";
+    }
+
+    EXPECT_GT(embedding_templates, 0);
+}
+
+/** Every size a user script may register a model with needs a template that indexes it for knn */
+TEST_F(ElasticMappingsTest, EverySearchableEmbeddingSizeIsIndexed) {
+    const cJSON *templates = cJSON_GetObjectItem(mappings, "dynamic_templates");
+    ASSERT_NE(templates, nullptr);
+
+    for (const int dims: {384, 512, 768, 1024}) {
+        const std::string wanted = "emb.idx_" + std::to_string(dims) + ".*";
+
+        bool found = false;
+        const cJSON *entry;
+        cJSON_ArrayForEach(entry, templates) {
+            const cJSON *body = entry->child;
+            const cJSON *path_match = cJSON_GetObjectItem(body, "path_match");
+
+            if (cJSON_IsString(path_match) && wanted == path_match->valuestring) {
+                const cJSON *mapping = cJSON_GetObjectItem(body, "mapping");
+                EXPECT_TRUE(cJSON_IsTrue(cJSON_GetObjectItem(mapping, "index"))) << wanted;
+                EXPECT_EQ(cJSON_GetObjectItem(mapping, "dims")->valueint, dims) << wanted;
+                found = true;
+            }
+        }
+
+        EXPECT_TRUE(found) << "no dynamic template for " << wanted;
+    }
+}

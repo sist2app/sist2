@@ -1,5 +1,87 @@
 {
   "date_detection": false,
+  "dynamic_templates": [
+    {
+      "emb_384_any": {
+        "path_match": "emb.384.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 384
+        }
+      }
+    },
+    {
+      "emb_idx_384_any": {
+        "path_match": "emb.idx_384.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 384,
+          "index": true,
+          "similarity": "cosine"
+        }
+      }
+    },
+    {
+      "emb_idx_512_any": {
+        "path_match": "emb.idx_512.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 512,
+          "index": true,
+          "similarity": "cosine"
+        }
+      }
+    },
+    {
+      "emb_512_any": {
+        "path_match": "emb.512.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 512
+        }
+      }
+    },
+    {
+      "emb_idx_768_any": {
+        "path_match": "emb.idx_768.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 768,
+          "index": true,
+          "similarity": "cosine"
+        }
+      }
+    },
+    {
+      "emb_768_any": {
+        "path_match": "emb.768.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 768
+        }
+      }
+    },
+    {
+      "emb_idx_1024_any": {
+        "path_match": "emb.idx_1024.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 1024,
+          "index": true,
+          "similarity": "cosine"
+        }
+      }
+    },
+    {
+      "emb_1024_any": {
+        "path_match": "emb.1024.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 1024
+        }
+      }
+    }
+  ],
   "properties": {
     "_tie": {
       "type": "keyword",
@@ -201,45 +283,11 @@
     "modified_by": {
       "type": "text"
     },
-    "emb.384.*": {
-      "type": "dense_vector",
-      "dims": 384
-    },
-    "emb.idx_384.*": {
-      "type": "dense_vector",
-      "dims": 384,
-      "index": true,
-      "similarity": "cosine"
-    },
     "emb.idx_512.clip": {
       "type": "dense_vector",
       "dims": 512,
       "index": true,
       "similarity": "cosine"
-    },
-    "emb.512.*": {
-      "type": "dense_vector",
-      "dims": 512
-    },
-    "emb.idx_768.*": {
-      "type": "dense_vector",
-      "dims": 768,
-      "index": true,
-      "similarity": "cosine"
-    },
-    "emb.768.*": {
-      "type": "dense_vector",
-      "dims": 768
-    },
-    "emb.idx_1024.*": {
-      "type": "dense_vector",
-      "dims": 1024,
-      "index": true,
-      "similarity": "cosine"
-    },
-    "emb.1024.*": {
-      "type": "dense_vector",
-      "dims": 1024
     },
     "exif_software": {
       "type": "text"
