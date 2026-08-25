@@ -47,6 +47,7 @@ export default {
                     {key: "esVersionSupported", value: this.$store.state.sist2Info.esVersionSupported},
                     {key: "esVersionLegacy", value: this.$store.state.sist2Info.esVersionLegacy},
                     {key: "esVersionHasKnn", value: this.$store.state.sist2Info.esVersionHasKnn},
+                    {key: "esNestedEmbeddings", value: this.$store.state.sist2Info.esNestedEmbeddings},
                 );
             }
 

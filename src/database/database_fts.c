@@ -768,15 +768,6 @@ static void best_chunk(sqlite3_stmt *stmt, long long id, long long *start, long 
     sqlite3_reset(stmt);
 }
 
-/** Forward off the continuation bytes of a UTF-8 sequence a chunk boundary landed inside of */
-static size_t utf8_boundary(const char *text, size_t offset, size_t len) {
-    while (offset < len && (text[offset] & 0xC0) == 0x80) {
-        offset += 1;
-    }
-
-    return offset;
-}
-
 /**
  * fts5 cannot build the snippets: a contentless table has no text to quote from. The text is read
  * back from the index database the document came from, for the documents of this page only.

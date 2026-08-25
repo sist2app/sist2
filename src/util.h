@@ -37,6 +37,15 @@ void str_escape(char *dst, size_t dst_size, const char *str);
 
 void str_unescape(char *dst, const char *str);
 
+/** Forward off the continuation bytes of a UTF-8 sequence an offset landed inside of */
+static inline size_t utf8_boundary(const char *text, size_t offset, size_t len) {
+    while (offset < len && (text[offset] & 0xC0) == 0x80) {
+        offset += 1;
+    }
+
+    return offset;
+}
+
 static inline int hex2buf(const char *str, int len, unsigned char *bytes) {
     static const uint8_t hashmap[] = {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,

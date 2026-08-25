@@ -618,19 +618,33 @@ database_iterator_t *database_create_document_iterator(database_t *db, long long
             "  LEFT JOIN mime mim ON mim.id = document.mime"
             "  LEFT JOIN tag t ON t.id = document.id"
             " WHERE document.version > ?"
-            " GROUP BY document.id)"
-            "SELECT CASE"
+            " GROUP BY document.id),"
+            // emb.<path> is a single dense_vector, so only the first chunk of a model goes in it
+            " emb_doc (id, j) AS ("
+            "SELECT doc.id, CASE"
             " WHEN emb.embedding IS NULL THEN j"
             " ELSE json_set(j,"
             "  '$.emb', json_group_object(m.path, json(emb_to_json(emb.embedding))),"
             "  '$.embedding', 1"
             "     ) END"
             " FROM doc"
-            // Only the first chunk: json_group_object() would key every one of them on the same
-            // model path, and Elasticsearch maps emb.<path> as a single dense_vector
             " LEFT JOIN embedding emb ON doc.id = emb.id AND emb.start = 0"
             " LEFT JOIN model m ON emb.model_id = m.id"
-            " GROUP BY doc.id", source);
+            " GROUP BY doc.id)"
+            // Every chunk of every model is a nested document of its own, so that a kNN search
+            // scores the passage that matched and can quote it back
+            "SELECT CASE"
+            " WHEN json_array_length(chunks) = 0 THEN j"
+            " ELSE json_set(j, '$.emb_chunks', json(chunks), '$.embedding', 1) END"
+            " FROM (SELECT emb_doc.j AS j, ("
+            "  SELECT json_group_array(json_object("
+            "    'start', c.start, 'end', c.\"end\", 'emb', json(c.embs)))"
+            "  FROM (SELECT e.start AS start, e.\"end\" AS \"end\","
+            "         json_group_object(mo.path, json(emb_to_json(e.embedding))) AS embs"
+            "        FROM embedding e"
+            "        INNER JOIN model mo ON mo.id = e.model_id"
+            "        WHERE e.id = emb_doc.id GROUP BY e.start) c"
+            " ) AS chunks FROM emb_doc)", source);
 
     CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL));
     sqlite3_free(sql);
@@ -643,6 +657,50 @@ database_iterator_t *database_create_document_iterator(database_t *db, long long
     iter->db = db;
 
     return iter;
+}
+
+/**
+ * The slice of .content an embedding was generated from. Elasticsearch has no side channel to read
+ * the text back from at search time the way the SQLite backend does, so the passage that matched is
+ * carried in the nested document that holds its vector.
+ */
+static void add_chunk_text(cJSON *doc) {
+    cJSON *chunks = cJSON_GetObjectItem(doc, "emb_chunks");
+    const cJSON *content = cJSON_GetObjectItem(doc, "content");
+
+    if (!cJSON_IsArray(chunks) || !cJSON_IsString(content)) {
+        return;
+    }
+
+    const char *text = content->valuestring;
+    const size_t text_len = strlen(text);
+
+    cJSON *chunk;
+    cJSON_ArrayForEach(chunk, chunks) {
+        const cJSON *start_json = cJSON_GetObjectItem(chunk, "start");
+        const cJSON *end_json = cJSON_GetObjectItem(chunk, "end");
+
+        const double start_val = cJSON_IsNumber(start_json) ? start_json->valuedouble : -1;
+        const double end_val = cJSON_IsNumber(end_json) ? end_json->valuedouble : -1;
+
+        // A chunk that does not fall inside the text the document has now — it was written against
+        // an older scan, or by a script that counted something other than bytes — falls back to all
+        // of it, as the SQLite backend does
+        size_t start = (start_val >= 0 && start_val < (double) text_len) ? (size_t) start_val : 0;
+        size_t end = (end_val >= 0 && end_val <= (double) text_len) ? (size_t) end_val : text_len;
+
+        if (end <= start) {
+            start = 0;
+            end = text_len;
+        }
+
+        start = utf8_boundary(text, start, text_len);
+        end = utf8_boundary(text, end, text_len);
+
+        char *slice = strndup(text + start, end - start);
+        cJSON_AddStringToObject(chunk, "text", slice);
+        free(slice);
+    }
 }
 
 void remove_tag_if_null(cJSON *doc) {
@@ -667,6 +725,7 @@ cJSON *database_document_iter(database_iterator_t *iter) {
         cJSON *doc = cJSON_Parse(json_string);
 
         remove_tag_if_null(doc);
+        add_chunk_text(doc);
 
         return doc;
     }

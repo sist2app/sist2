@@ -80,6 +80,86 @@
           "dims": 1024
         }
       }
+    },
+    {
+      "emb_chunks_384_any": {
+        "path_match": "emb_chunks.emb.384.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 384
+        }
+      }
+    },
+    {
+      "emb_chunks_idx_384_any": {
+        "path_match": "emb_chunks.emb.idx_384.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 384,
+          "index": true,
+          "similarity": "cosine"
+        }
+      }
+    },
+    {
+      "emb_chunks_idx_512_any": {
+        "path_match": "emb_chunks.emb.idx_512.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 512,
+          "index": true,
+          "similarity": "cosine"
+        }
+      }
+    },
+    {
+      "emb_chunks_512_any": {
+        "path_match": "emb_chunks.emb.512.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 512
+        }
+      }
+    },
+    {
+      "emb_chunks_idx_768_any": {
+        "path_match": "emb_chunks.emb.idx_768.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 768,
+          "index": true,
+          "similarity": "cosine"
+        }
+      }
+    },
+    {
+      "emb_chunks_768_any": {
+        "path_match": "emb_chunks.emb.768.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 768
+        }
+      }
+    },
+    {
+      "emb_chunks_idx_1024_any": {
+        "path_match": "emb_chunks.emb.idx_1024.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 1024,
+          "index": true,
+          "similarity": "cosine"
+        }
+      }
+    },
+    {
+      "emb_chunks_1024_any": {
+        "path_match": "emb_chunks.emb.1024.*",
+        "mapping": {
+          "type": "dense_vector",
+          "dims": 1024
+        }
+      }
     }
   ],
   "properties": {
@@ -305,6 +385,23 @@
     "bitrate": {
       "type": "long",
       "index": false
+    },
+    "emb_chunks": {
+      "type": "nested",
+      "properties": {
+        "start": {
+          "type": "integer",
+          "index": false
+        },
+        "end": {
+          "type": "integer",
+          "index": false
+        },
+        "text": {
+          "type": "text",
+          "index": false
+        }
+      }
     }
   }
 }

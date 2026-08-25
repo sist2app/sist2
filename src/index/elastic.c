@@ -22,6 +22,9 @@ typedef struct es_indexer {
 
 static __thread es_indexer_t *Indexer = NULL;
 
+/** Whether the mapping of the index Elasticsearch holds declares the per-chunk vectors */
+static int IndexHasChunkMapping = FALSE;
+
 void free_queue(int max);
 
 void elastic_flush();
@@ -85,6 +88,17 @@ void delete_document(const char *sid) {
 
 
 void index_json(cJSON *document, const char doc_id[SIST_SID_LEN]) {
+    if (!IndexHasChunkMapping) {
+        // Nothing would search the per-chunk vectors, and an index whose mapping does not declare
+        // them would guess a field for every one of them
+        cJSON_DeleteItemFromObject(document, "emb_chunks");
+
+        if (cJSON_GetObjectItem(document, "emb") == NULL) {
+            // The flag is what puts the "search for similar documents" button on a hit
+            cJSON_DeleteItemFromObject(document, "embedding");
+        }
+    }
+
     char *json = cJSON_PrintUnformatted(document);
 
     size_t json_len = strlen(json);
@@ -459,10 +473,48 @@ static char *elastic_mappings(es_version_t *es_version) {
         }
     }
 
+    if (!HAS_NESTED_KNN(es_version)) {
+        // Nothing can search a vector inside a nested document before 8.11, and the mapping itself
+        // is rejected by some of those versions. The excerpt an embeddings search shows is what
+        // this index gives up.
+        cJSON_DeleteItemFromObject(properties, "emb_chunks");
+    }
+
     char *json = cJSON_PrintUnformatted(mappings);
     cJSON_Delete(mappings);
 
     return json;
+}
+
+int elastic_index_has_chunk_mapping(const char *es_url, const char *es_index, int insecure) {
+    char url[4096];
+    snprintf(url, sizeof(url), "%s/%s/_mapping", es_url, es_index);
+
+    response_t *r = web_get(url, 30, insecure);
+
+    char *tmp = malloc(r->size + 1);
+    memcpy(tmp, r->body, r->size);
+    *(tmp + r->size) = '\0';
+    free_response(r);
+
+    cJSON *response = cJSON_Parse(tmp);
+    free(tmp);
+
+    if (response == NULL) {
+        return FALSE;
+    }
+
+    // The mapping is keyed on the name of the index behind the alias, which is not always es_index
+    const cJSON *mappings = cJSON_GetObjectItem(response->child, "mappings");
+    const cJSON *properties = cJSON_GetObjectItem(mappings, "properties");
+    const cJSON *chunks = cJSON_GetObjectItem(properties, "emb_chunks");
+    const cJSON *type = cJSON_GetObjectItem(chunks, "type");
+
+    const int is_nested = cJSON_IsString(type) && strcmp(type->valuestring, "nested") == 0;
+
+    cJSON_Delete(response);
+
+    return is_nested;
 }
 
 void elastic_init(int force_reset, const char *user_mappings, const char *user_settings) {
@@ -550,6 +602,20 @@ void elastic_init(int force_reset, const char *user_mappings, const char *user_s
         }
         free_response(r);
         cJSON_free(mappings);
+
+        IndexHasChunkMapping = user_mappings
+                               ? elastic_index_has_chunk_mapping(IndexCtx.es_url, IndexCtx.es_index,
+                                                                 IndexCtx.es_insecure_ssl)
+                               : HAS_NESTED_KNN(es_version);
+    } else {
+        IndexHasChunkMapping = elastic_index_has_chunk_mapping(IndexCtx.es_url, IndexCtx.es_index,
+                                                               IndexCtx.es_insecure_ssl);
+
+        if (!IndexHasChunkMapping && HAS_NESTED_KNN(es_version)) {
+            LOG_WARNING("elastic.c",
+                        "This index was created before sist2 pushed the text an embeddings search "
+                        "quotes. Run 'sist2 index' once with --force-reset to have it.");
+        }
     }
 }
 

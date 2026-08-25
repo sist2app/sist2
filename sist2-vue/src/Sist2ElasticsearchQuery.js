@@ -83,6 +83,7 @@ class Sist2ElasticsearchQuery {
 
         const legacyES = store.state.sist2Info.esVersionLegacy;
         const hasKnn = store.state.sist2Info.esVersionHasKnn;
+        const hasNestedKnn = store.state.sist2Info.esNestedEmbeddings;
 
         const filters = [
             {terms: {index: selectedIndexIds}}
@@ -167,7 +168,7 @@ class Sist2ElasticsearchQuery {
 
         const q = {
             _source: {
-                excludes: ["content", "_tie", "emb.*"]
+                excludes: ["content", "_tie", "emb.*", "emb_chunks"]
             },
             query: {
                 bool: {
@@ -196,9 +197,30 @@ class Sist2ElasticsearchQuery {
         if (getters.embedding) {
             delete q.query;
 
-            const field = "emb." + Sist2Api.models().find(m => m.id === getters.embeddingsModel).path;
+            const path = Sist2Api.models().find(m => m.id === getters.embeddingsModel).path;
+            const field = "emb." + path;
 
-            if (hasKnn) {
+            if (hasNestedKnn) {
+                // Every chunk of the document is its own nested document, so the score is the one of
+                // the passage that matched, and the inner hit says which passage that was
+                q.knn = {
+                    field: "emb_chunks." + field,
+                    query_vector: getters.embedding,
+
+                    k: 600,
+                    num_candidates: 600,
+
+                    filter: filters,
+
+                    inner_hits: {
+                        name: "chunk",
+                        size: 1,
+                        _source: {
+                            includes: ["emb_chunks.start", "emb_chunks.end", "emb_chunks.text"]
+                        }
+                    }
+                }
+            } else if (hasKnn) {
                 // Use knn (8.8+)
                 q.knn = {
                     field: field,

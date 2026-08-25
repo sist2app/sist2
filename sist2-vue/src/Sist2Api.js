@@ -1,5 +1,5 @@
 import axios from "axios";
-import {strUnescape, lum, sid} from "./util";
+import {strUnescape, lum, sid, excerptText, queryTerms} from "./util";
 import Sist2Query from "@/Sist2ElasticsearchQuery";
 import store from "@/store";
 
@@ -105,6 +105,33 @@ class Sist2Api {
         }
     }
 
+    /**
+     * The passage a nested embeddings search matched, as the excerpt of the hit. Elasticsearch
+     * highlights a query, and an embeddings search has none to highlight: the text comes back from
+     * the kNN inner hit, and the query terms, if the search carries any, are marked here.
+     */
+    setHitChunk(hit) {
+        const chunk = hit.inner_hits?.chunk?.hits?.hits[0]?._source;
+
+        delete hit.inner_hits;
+
+        if (!chunk?.text) {
+            return;
+        }
+
+        hit.chunk = {start: chunk.start, end: chunk.end};
+
+        const excerpt = excerptText(
+            chunk.text,
+            queryTerms(store.getters.searchText),
+            Number(store.getters.optFragmentSize)
+        );
+
+        if (excerpt !== null) {
+            hit.highlight = {...hit.highlight, content: [excerpt]};
+        }
+    }
+
     setHitTags(hit) {
         const tags = [];
 
@@ -166,6 +193,7 @@ class Sist2Api {
 
                     this.setHitProps(hit);
                     this.setHitTags(hit);
+                    this.setHitChunk(hit);
                 });
             }
 

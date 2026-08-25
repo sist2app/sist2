@@ -372,3 +372,111 @@ export function dateHistogramBins(data) {
         }))
         .sort((a, b) => a.x0 - b.x0);
 }
+
+const MAX_TERMS = 64;
+const DEFAULT_CONTEXT_WORDS = 30;
+const MAX_CONTEXT_WORDS = 1000;
+// Only words count towards the window, so a passage that is one long run of punctuation would
+// otherwise be copied whole, once per hit on the page
+const MAX_EXCERPT_LENGTH = 16384;
+
+const QUERY_OPERATORS = ["AND", "OR", "NOT", "NEAR"];
+
+// Word characters, as close to the Elasticsearch tokenizer as this gets: every non-ASCII code point
+// belongs to a word, so the split never lands inside one
+const WORD = /[0-9A-Za-z_\u{80}-\u{10FFFF}]+/gu;
+
+/**
+ * The words of a search query, lowercased, a trailing `*` kept as the prefix match it is. Mirrors
+ * highlight_query_terms() in src/web/highlight.c, so that an excerpt the browser marks up reads the
+ * way one the SQLite backend marked up does.
+ */
+export function queryTerms(query) {
+    const terms = [];
+
+    if (!query) {
+        return terms;
+    }
+
+    const re = new RegExp(WORD.source, WORD.flags);
+
+    let match;
+    while ((match = re.exec(query)) !== null && terms.length < MAX_TERMS) {
+        const next = query[re.lastIndex];
+
+        // `name:term` filters the field, and the field name is not part of the query
+        if (next === ":" || QUERY_OPERATORS.includes(match[0])) {
+            continue;
+        }
+
+        terms.push(match[0].toLowerCase() + (next === "*" ? "*" : ""));
+    }
+
+    return terms;
+}
+
+function wordMatches(word, terms) {
+    const lower = word.toLowerCase();
+
+    return terms.some(term => term.endsWith("*")
+        ? term.length > 1 && lower.startsWith(term.slice(0, -1))
+        : term.length > 0 && lower === term);
+}
+
+/**
+ * A window of `contextWords` words of `text`, starting a third of it before the first word that
+ * matches, with the matches wrapped in <mark>. Mirrors highlight_text() in src/web/highlight.c: the
+ * Elasticsearch backend has no server-side highlighter for the passage an embeddings search
+ * matched, because the passage comes back from the kNN inner hit rather than from a query.
+ */
+export function excerptText(text, terms, contextWords) {
+    if (!text) {
+        return null;
+    }
+
+    if (!contextWords || contextWords <= 0) {
+        contextWords = DEFAULT_CONTEXT_WORDS;
+    } else if (contextWords > MAX_CONTEXT_WORDS) {
+        contextWords = MAX_CONTEXT_WORDS;
+    }
+
+    // Separators land on the even indices, words on the odd ones
+    const parts = text.split(new RegExp(`(${WORD.source})`, "u"));
+
+    const lead = Math.floor(contextWords / 3);
+    let firstWord = 0;
+
+    for (let i = 1; i < parts.length; i += 2) {
+        if (wordMatches(parts[i], terms)) {
+            firstWord = Math.max(0, (i - 1) / 2 - lead);
+            break;
+        }
+    }
+
+    let out = "";
+    let words = 0;
+
+    for (let i = firstWord * 2 + 1; i < parts.length && words < contextWords; i++) {
+        const isWord = i % 2 === 1;
+
+        if (!isWord) {
+            if (out.length + parts[i].length > MAX_EXCERPT_LENGTH) {
+                break;
+            }
+            out += parts[i];
+            continue;
+        }
+
+        const matched = wordMatches(parts[i], terms);
+
+        // The word and the tags around it go in together, so the output never ends mid-markup
+        if (out.length + parts[i].length + (matched ? 13 : 0) > MAX_EXCERPT_LENGTH) {
+            break;
+        }
+
+        out += matched ? `<mark>${parts[i]}</mark>` : parts[i];
+        words += 1;
+    }
+
+    return out === "" ? null : out;
+}

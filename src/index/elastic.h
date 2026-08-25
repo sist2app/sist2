@@ -27,6 +27,8 @@ typedef struct {
 // dense_vector fields, and the mappings that declare them, only exist from 7.0 on
 #define HAS_DENSE_VECTOR(es_version) ((es_version) != NULL && VERSION_GE((es_version), 7, 0))
 #define HAS_KNN(es_version) ((es_version) != NULL && VERSION_GE((es_version), 8, 0))
+// kNN over vectors held in nested documents, and the inner hit that matched, exist from 8.11 on
+#define HAS_NESTED_KNN(es_version) ((es_version) != NULL && VERSION_GE((es_version), 8, 11))
 
 
 __always_inline
@@ -69,5 +71,8 @@ cJSON *elastic_get_document(const char *id_str);
 char *elastic_get_status();
 
 es_version_t *elastic_get_version(const char *es_url, int insecure);
+
+/** Whether the index holds the per-chunk vectors an embeddings search quotes its excerpt from */
+int elastic_index_has_chunk_mapping(const char *es_url, const char *es_index, int insecure);
 
 #endif

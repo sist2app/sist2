@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <string>
+#include <vector>
 
 extern "C" {
 #include <cjson/cJSON.h>
@@ -122,5 +124,50 @@ TEST_F(ElasticMappingsTest, EverySearchableEmbeddingSizeIsIndexed) {
         }
 
         EXPECT_TRUE(found) << "no dynamic template for " << wanted;
+    }
+}
+
+/** The chunk vectors are searched with [knn], which needs the object holding them to be nested */
+TEST_F(ElasticMappingsTest, ChunkEmbeddingsAreNested) {
+    const cJSON *properties = cJSON_GetObjectItem(mappings, "properties");
+    ASSERT_NE(properties, nullptr);
+
+    const cJSON *chunks = cJSON_GetObjectItem(properties, "emb_chunks");
+    ASSERT_NE(chunks, nullptr) << "no emb_chunks mapping: an embeddings search has no excerpt";
+
+    const cJSON *type = cJSON_GetObjectItem(chunks, "type");
+    ASSERT_TRUE(cJSON_IsString(type));
+    EXPECT_STREQ(type->valuestring, "nested");
+
+    const cJSON *chunk_properties = cJSON_GetObjectItem(chunks, "properties");
+    ASSERT_NE(chunk_properties, nullptr);
+
+    // The passage the inner hit quotes back, and where it sits in the text
+    for (const char *field: {"start", "end", "text"}) {
+        EXPECT_NE(cJSON_GetObjectItem(chunk_properties, field), nullptr) << field;
+    }
+}
+
+/** A model that can be searched over whole documents can be searched over their chunks */
+TEST_F(ElasticMappingsTest, EveryEmbeddingTemplateHasAChunkTwin) {
+    const cJSON *templates = cJSON_GetObjectItem(mappings, "dynamic_templates");
+    ASSERT_NE(templates, nullptr);
+
+    std::vector<std::string> paths;
+    const cJSON *entry;
+    cJSON_ArrayForEach(entry, templates) {
+        const cJSON *path_match = cJSON_GetObjectItem(entry->child, "path_match");
+        ASSERT_TRUE(cJSON_IsString(path_match));
+        paths.emplace_back(path_match->valuestring);
+    }
+
+    for (const std::string &path: paths) {
+        if (path.rfind("emb.", 0) != 0) {
+            continue;
+        }
+
+        const std::string twin = "emb_chunks." + path;
+        EXPECT_NE(std::find(paths.begin(), paths.end(), twin), paths.end())
+                            << "no dynamic template for " << twin;
     }
 }

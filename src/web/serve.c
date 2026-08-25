@@ -299,6 +299,9 @@ void serve_file_from_disk(cJSON *json, index_t *idx, struct mg_connection *nc, s
     mg_http_serve_file(nc, hm, full_path, &opts);
 }
 
+/** Whether an embeddings search can run over the chunks of a document, and quote the one it matched */
+static int NestedEmbeddings = FALSE;
+
 void cache_es_version() {
     if (WebCtx.search_backend == SQLITE_SEARCH_BACKEND) {
         return;
@@ -314,6 +317,11 @@ void cache_es_version() {
     if (es_version != NULL) {
         WebCtx.es_version = es_version;
         is_cached = TRUE;
+
+        // An index filled before sist2 pushed them holds no chunk, whatever this version supports
+        NestedEmbeddings = HAS_NESTED_KNN(es_version)
+                           && elastic_index_has_chunk_mapping(WebCtx.es_url, WebCtx.es_index,
+                                                              WebCtx.es_insecure_ssl);
     }
 }
 
@@ -346,6 +354,7 @@ void index_info(struct mg_connection *nc) {
     cJSON_AddBoolToObject(json, "esVersionSupported", IS_SUPPORTED_ES_VERSION(WebCtx.es_version));
     cJSON_AddBoolToObject(json, "esVersionLegacy", IS_LEGACY_VERSION(WebCtx.es_version));
     cJSON_AddBoolToObject(json, "esVersionHasKnn", HAS_KNN(WebCtx.es_version));
+    cJSON_AddBoolToObject(json, "esNestedEmbeddings", NestedEmbeddings);
     cJSON_AddStringToObject(json, "lang", WebCtx.lang);
     cJSON_AddStringToObject(json, "theme", WebCtx.theme);
 

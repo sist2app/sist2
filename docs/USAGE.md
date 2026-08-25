@@ -215,6 +215,12 @@ Using a version >=8.0.0 is recommended to enable the following features:
 
 - Approximate KNN search for Embeddings search (faster queries).
 
+Using a version >=8.11.0 additionally enables:
+
+- Searching each chunk of a document separately, and showing the chunk that matched as the excerpt
+  of a search result. An index created by an older version of sist2 needs to be pushed again with
+  `sist2 index --force-reset` for this; until then, results of an embeddings search have no excerpt.
+
 When using a legacy version of ES, a notice will be displayed next to the sist2 version in the web UI.
 If you don't care about the features above, you can ignore it or disable it in the configuration page.
 

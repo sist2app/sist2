@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include "tests/support/temp_path.h"
 
@@ -52,6 +53,33 @@ protected:
         database_close(db, FALSE);
         std::filesystem::remove(db_path);
 
+    }
+
+    /** A model a user script would have registered, and one chunk of a document it embedded */
+    void write_embedding(int doc_id, int start, int end, float value, int model_id = 1,
+                         const char *model_path = "idx_384.test") {
+        char sql[512];
+        snprintf(sql, sizeof(sql),
+                 "INSERT OR IGNORE INTO model (id, name, url, path, size, type)"
+                 " VALUES (%d, 'test%d', NULL, '%s', 384, 'flat');",
+                 model_id, model_id, model_path);
+        ASSERT_EQ(sqlite3_exec(db->db, sql, nullptr, nullptr, nullptr), SQLITE_OK);
+
+        std::vector<float> embedding(384, value);
+
+        sqlite3_stmt *stmt;
+        ASSERT_EQ(sqlite3_prepare_v2(db->db,
+                                     "INSERT INTO embedding (id, model_id, start, end, embedding)"
+                                     " VALUES (?,?,?,?,?)", -1, &stmt, nullptr), SQLITE_OK);
+        sqlite3_bind_int(stmt, 1, doc_id);
+        sqlite3_bind_int(stmt, 2, model_id);
+        sqlite3_bind_int(stmt, 3, start);
+        sqlite3_bind_int(stmt, 4, end);
+        sqlite3_bind_blob(stmt, 5, embedding.data(), (int) (embedding.size() * sizeof(float)),
+                          SQLITE_STATIC);
+
+        ASSERT_EQ(sqlite3_step(stmt), SQLITE_DONE);
+        sqlite3_finalize(stmt);
     }
 
     document_t make_document(const std::string &relative_path, unsigned long size = 1234) {
@@ -214,4 +242,108 @@ TEST_F(DatabaseTest, ParentIdOfArchiveMember) {
 
 TEST_F(DatabaseTest, ParentIdOfMissingDocument) {
     ASSERT_EQ(database_get_parent_id(db, 999), DATABASE_NO_PARENT);
+}
+
+/**
+ * Elasticsearch cannot read the text back at search time the way the SQLite backend does, so every
+ * chunk carries the passage it was generated from, ready to be quoted as the excerpt of a hit.
+ */
+TEST_F(DatabaseTest, DocumentIteratorCarriesEveryChunkWithItsText) {
+    document_t doc = make_document("book.txt");
+    const int doc_id = database_write_document(db, &doc, R"({"name": "book", "content": "one two three four"})");
+
+    write_embedding(doc_id, 0, 7, 0.5f);
+    write_embedding(doc_id, 8, 18, 0.25f);
+
+    database_iterator_t *iter = database_create_document_iterator(db, 0);
+    cJSON *row = database_document_iter(iter);
+
+    ASSERT_NE(row, nullptr);
+
+    cJSON *chunks = cJSON_GetObjectItem(row, "emb_chunks");
+    ASSERT_TRUE(cJSON_IsArray(chunks));
+    ASSERT_EQ(cJSON_GetArraySize(chunks), 2);
+
+    const cJSON *first = cJSON_GetArrayItem(chunks, 0);
+    EXPECT_STREQ(cJSON_GetObjectItem(first, "text")->valuestring, "one two");
+    EXPECT_EQ(cJSON_GetObjectItem(first, "start")->valueint, 0);
+    EXPECT_EQ(cJSON_GetObjectItem(first, "end")->valueint, 7);
+
+    const cJSON *second = cJSON_GetArrayItem(chunks, 1);
+    EXPECT_STREQ(cJSON_GetObjectItem(second, "text")->valuestring, "three four");
+
+    // The vector is keyed on the model path, the same way the document-level one is
+    const cJSON *embedding = cJSON_GetObjectItem(cJSON_GetObjectItem(first, "emb"), "idx_384.test");
+    ASSERT_TRUE(cJSON_IsArray(embedding));
+    EXPECT_EQ(cJSON_GetArraySize(embedding), 384);
+
+    cJSON_Delete(row);
+
+    ASSERT_EQ(database_document_iter(iter), nullptr);
+    free(iter);
+}
+
+/** A chunk boundary that lands inside a UTF-8 sequence must not cut it in half */
+TEST_F(DatabaseTest, ChunkTextIsCutOnCharacterBoundaries) {
+    document_t doc = make_document("accents.txt");
+    // "Café" is five bytes: the é starts at 3
+    const int doc_id = database_write_document(db, &doc, R"({"name": "accents", "content": "Café au lait"})");
+
+    write_embedding(doc_id, 4, 13, 0.5f);
+
+    database_iterator_t *iter = database_create_document_iterator(db, 0);
+    cJSON *row = database_document_iter(iter);
+
+    ASSERT_NE(row, nullptr);
+
+    const cJSON *chunks = cJSON_GetObjectItem(row, "emb_chunks");
+    ASSERT_TRUE(cJSON_IsArray(chunks));
+
+    const char *text = cJSON_GetObjectItem(cJSON_GetArrayItem(chunks, 0), "text")->valuestring;
+    EXPECT_STREQ(text, " au lait");
+
+    cJSON_Delete(row);
+
+    ASSERT_EQ(database_document_iter(iter), nullptr);
+    free(iter);
+}
+
+/** A document nothing embedded is pushed the way it always was */
+TEST_F(DatabaseTest, DocumentIteratorLeavesDocumentsWithoutEmbeddingsAlone) {
+    document_t doc = make_document("plain.txt");
+    database_write_document(db, &doc, R"({"name": "plain", "content": "nothing to see"})");
+
+    database_iterator_t *iter = database_create_document_iterator(db, 0);
+    cJSON *row = database_document_iter(iter);
+
+    ASSERT_NE(row, nullptr);
+    EXPECT_EQ(cJSON_GetObjectItem(row, "emb_chunks"), nullptr);
+    EXPECT_EQ(cJSON_GetObjectItem(row, "embedding"), nullptr);
+
+    cJSON_Delete(row);
+
+    ASSERT_EQ(database_document_iter(iter), nullptr);
+    free(iter);
+}
+
+/** Chunks that start past the beginning of the text are still pushed, whole */
+TEST_F(DatabaseTest, DocumentIteratorCarriesChunksWithoutADocumentVector) {
+    document_t doc = make_document("offset.txt");
+    const int doc_id = database_write_document(db, &doc, R"({"name": "offset", "content": "one two three"})");
+
+    write_embedding(doc_id, 4, 13, 0.5f);
+
+    database_iterator_t *iter = database_create_document_iterator(db, 0);
+    cJSON *row = database_document_iter(iter);
+
+    ASSERT_NE(row, nullptr);
+    // emb.<path> holds the first chunk of the document, and this one has none
+    EXPECT_EQ(cJSON_GetObjectItem(row, "emb"), nullptr);
+    EXPECT_TRUE(cJSON_IsArray(cJSON_GetObjectItem(row, "emb_chunks")));
+    EXPECT_EQ(cJSON_GetObjectItem(row, "embedding")->valueint, 1);
+
+    cJSON_Delete(row);
+
+    ASSERT_EQ(database_document_iter(iter), nullptr);
+    free(iter);
 }
