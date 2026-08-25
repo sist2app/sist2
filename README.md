@@ -162,6 +162,8 @@ indices, but it uses much less memory and is easier to set up.
 | User scripts                                 |                          ✓                          |                                                                   ✓                                                                   |
 | Media Type breakdown for search results      |                                                     |                                                                   ✓                                                                   |
 | Embeddings search                            |                      ✓ *O(n)*                       |                                                              ✓ *O(logn)*                                                              |
+| Per-chunk embeddings search                  |                          ✓                          |                                                            ✓ *(ES 8.11+)*                                                             |
+| Excerpt quotes the passage that matched      |                          ✓                          |                                                            ✓ *(ES 8.11+)*                                                             |
 
 ## Build from source
 
