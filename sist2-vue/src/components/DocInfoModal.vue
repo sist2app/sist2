@@ -12,7 +12,7 @@
 
         <InfoTable :doc="doc"></InfoTable>
 
-        <LazyContentDiv :sid="sid(doc)"></LazyContentDiv>
+        <LazyContentDiv :doc="doc"></LazyContentDiv>
     </b-modal>
 </template>
 

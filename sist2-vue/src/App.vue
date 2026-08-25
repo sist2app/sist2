@@ -350,6 +350,10 @@ mark {
     color: white;
 }
 
+.content-div mark.current-hit {
+    outline: 2px solid #FF9800;
+}
+
 .content-div {
     font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 13px;

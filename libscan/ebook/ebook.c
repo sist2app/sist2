@@ -341,6 +341,38 @@ fz_device *new_stext_dev(fz_context *fzctx, fz_stext_page *stext) {
     return stext_dev;
 }
 
+/**
+ * Where each page's text starts in the document's content, counted in codepoints: the frontend
+ * reads the text back as UTF-16, so a byte offset would not land on the same character.
+ */
+typedef struct {
+    dyn_buffer_t csv;
+    size_t counted_bytes;
+    size_t codepoints;
+    int count;
+} page_breaks_t;
+
+// Not inlined: gcc reads the counting loop as clobbered by the setjmp behind fz_try()
+__attribute__((noinline))
+static void page_breaks_mark(page_breaks_t *breaks, const text_buffer_t *tex) {
+    for (size_t i = breaks->counted_bytes; i < tex->dyn_buffer.cur; i++) {
+        // Continuation bytes belong to the codepoint that started before them
+        if (((unsigned char) tex->dyn_buffer.buf[i] & 0xC0) != 0x80) {
+            breaks->codepoints += 1;
+        }
+    }
+    breaks->counted_bytes = tex->dyn_buffer.cur;
+
+    if (breaks->count > 0) {
+        dyn_buffer_write_char(&breaks->csv, ',');
+    }
+
+    char offset[24];
+    const int len = snprintf(offset, sizeof(offset), "%zu", breaks->codepoints);
+    dyn_buffer_write(&breaks->csv, offset, len);
+    breaks->count += 1;
+}
+
 void
 parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mime_str, document_t *doc, int tn_only) {
 
@@ -420,6 +452,7 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
 
     if (ctx->content_size > 0) {
         text_buffer_t tex = text_buffer_create(ctx->content_size);
+        page_breaks_t breaks = {.csv = dyn_buffer_create(), .counted_bytes = 0, .codepoints = 0, .count = 0};
 
         int current_page;
         fz_var(current_page);
@@ -431,6 +464,7 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
                 CTX_LOG_WARNINGF(doc->filepath,
                                  "fz_load_page() returned error code [%d] %s", err, fzctx->error.message);
                 text_buffer_destroy(&tex);
+                dyn_buffer_destroy(&breaks.csv);
                 fz_drop_page(fzctx, page);
                 fz_drop_stream(fzctx, stream);
                 fz_drop_document(fzctx, fzdoc);
@@ -453,6 +487,7 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
             if (err != 0) {
                 CTX_LOG_WARNINGF(doc->filepath, "fz_run_page() returned error code [%d] %s", err, fzctx->error.message);
                 text_buffer_destroy(&tex);
+                dyn_buffer_destroy(&breaks.csv);
                 fz_drop_page(fzctx, page);
                 fz_drop_stext_page(fzctx, stext);
                 fz_drop_stream(fzctx, stream);
@@ -460,6 +495,8 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
                 fz_drop_context(fzctx);
                 return;
             }
+
+            page_breaks_mark(&breaks, &tex);
 
             int num_blocks_read = read_stext(&tex, stext);
 
@@ -484,6 +521,16 @@ parse_ebook_mem(scan_ebook_ctx_t *ctx, void *buf, size_t buf_len, const char *mi
         memcpy(meta_content->str_val, tex.dyn_buffer.buf, tex.dyn_buffer.cur);
         APPEND_META(doc, meta_content);
 
+        if (breaks.count > 1) {
+            dyn_buffer_write_char(&breaks.csv, '\0');
+
+            meta_line_t *meta_breaks = malloc(sizeof(meta_line_t) + breaks.csv.cur);
+            meta_breaks->key = MetaPageBreaks;
+            memcpy(meta_breaks->str_val, breaks.csv.buf, breaks.csv.cur);
+            APPEND_META(doc, meta_breaks);
+        }
+
+        dyn_buffer_destroy(&breaks.csv);
         text_buffer_destroy(&tex);
     }
 

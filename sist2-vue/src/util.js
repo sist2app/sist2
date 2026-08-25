@@ -480,3 +480,80 @@ export function excerptText(text, terms, contextWords) {
 
     return out === "" ? null : out;
 }
+
+/**
+ * Every match in the text wrapped in <mark>, over the whole of it. The SQLite backend hands back
+ * the text of a document as it was scanned: highlight_text() only marks up a search excerpt.
+ */
+export function markAll(text, terms) {
+    if (!text || terms.length === 0) {
+        return text;
+    }
+
+    // Separators land on the even indices, words on the odd ones
+    const parts = text.split(new RegExp(`(${WORD.source})`, "u"));
+
+    let out = "";
+
+    for (let i = 0; i < parts.length; i++) {
+        out += (i % 2 === 1 && wordMatches(parts[i], terms))
+            ? `<mark>${parts[i]}</mark>`
+            : parts[i];
+    }
+
+    return out;
+}
+
+/** Code points, not UTF-16 code units: an offset the scanner wrote counts characters */
+function codePointLength(str) {
+    const highSurrogates = str.match(/[\uD800-\uDBFF]/g);
+
+    return str.length - (highSurrogates === null ? 0 : highSurrogates.length);
+}
+
+/**
+ * The page each break in `pageBreaks` starts, as the code point offset into the content, as
+ * written by the scanner. Empty for a document that is not paginated.
+ */
+export function parsePageBreaks(pageBreaks) {
+    if (!pageBreaks) {
+        return [];
+    }
+
+    return pageBreaks.split(",").map(Number).filter(offset => !isNaN(offset));
+}
+
+export const HIT_ID_PREFIX = "content-hit-";
+
+/**
+ * Marked-up text, as either backend returns it, turned into the HTML the content div shows plus
+ * one entry per match. Each <mark> is given an id so that the hit navigation can scroll to it, and
+ * the page it falls on, which is what makes "open the PDF here" possible.
+ */
+export function contentHits(marked, pageBreaks) {
+    const parts = String(marked).split(/(<\/?mark>)/);
+
+    const hits = [];
+    let html = "";
+    let offset = 0;
+    let page = 0;
+
+    for (const part of parts) {
+        if (part === "<mark>") {
+            // The marks come in the order they appear, so the page only ever moves forward
+            while (page < pageBreaks.length && pageBreaks[page] <= offset) {
+                page += 1;
+            }
+
+            html += `<mark id="${HIT_ID_PREFIX}${hits.length}">`;
+            hits.push({page: page === 0 ? null : page});
+        } else if (part === "</mark>") {
+            html += "</mark>";
+        } else {
+            html += escapeHtml(part);
+            offset += codePointLength(part);
+        }
+    }
+
+    return {html, hits};
+}

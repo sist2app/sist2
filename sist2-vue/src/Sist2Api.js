@@ -602,7 +602,7 @@ class Sist2Api {
         delete query.query["function_score"];
 
         query._source = {
-            includes: ["content", "name", "path", "extension", "index"]
+            includes: ["content", "name", "path", "extension", "index", "page_breaks"]
         }
 
         query.size = 1;

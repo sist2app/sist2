@@ -1,5 +1,7 @@
 #include "tests/support/scan_fixture.h"
 
+#include <sstream>
+
 extern "C" {
 #include <mupdf/fitz.h>
 }
@@ -80,6 +82,82 @@ TEST_F(EbookTest, ScannedRightToLeftPageIsReadAsWords) {
     ASSERT_NE(meta(MetaContent), nullptr);
     // "hello world", whole, and in the order it is read in
     ASSERT_NE(strstr(content(), "\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645"), nullptr) << content();
+}
+
+static std::vector<size_t> parse_page_breaks(const char *csv) {
+    std::vector<size_t> offsets;
+    std::stringstream stream(csv);
+    std::string offset;
+
+    while (std::getline(stream, offset, ',')) {
+        offsets.push_back(std::stoul(offset));
+    }
+
+    return offsets;
+}
+
+/** Codepoints, not bytes: the frontend reads the text back as UTF-16 */
+static size_t codepoint_len(const char *str) {
+    size_t count = 0;
+
+    for (const char *c = str; *c != '\0'; c++) {
+        if (((unsigned char) *c & 0xC0) != 0x80) {
+            count += 1;
+        }
+    }
+
+    return count;
+}
+
+/**
+ * Where each page starts in the text, so that a search hit can be traced back to the page it is
+ * on.
+ */
+TEST_F(EbookTest, PdfPageBreaks) {
+    ctx = make_ebook_ctx(999999999999);
+    ctx.tesseract_lang = nullptr;
+    load("ebook/General_-_Candle_Making.pdf");
+
+    parse_ebook(&ctx, &f, "application/pdf", &doc);
+
+    ASSERT_NE(meta(MetaPageBreaks), nullptr);
+
+    const std::vector<size_t> offsets = parse_page_breaks(meta(MetaPageBreaks)->str_val);
+
+    ASSERT_EQ(offsets.size(), 16);
+    ASSERT_EQ(offsets.front(), 0);
+    ASSERT_LE(offsets.back(), codepoint_len(content()));
+
+    for (size_t i = 1; i < offsets.size(); i++) {
+        // A page with no text of its own starts where the one before it ended
+        ASSERT_LE(offsets[i - 1], offsets[i]);
+    }
+}
+
+/** The text of a page that was never read has no page to point at */
+TEST_F(EbookTest, PdfPageBreaksStopWithTheContent) {
+    load("ebook/General_-_Candle_Making.pdf");
+
+    parse_ebook(&ctx, &f, "application/pdf", &doc);
+
+    ASSERT_NE(meta(MetaPageBreaks), nullptr);
+    ASSERT_LT(parse_page_breaks(meta(MetaPageBreaks)->str_val).size(), 16);
+}
+
+/** An offset that counted bytes would run past the end of a text that is not ASCII */
+TEST_F(EbookTest, PdfPageBreaksCountCodepoints) {
+    ctx = make_ebook_ctx(999999999999);
+    ctx.tesseract_lang = nullptr;
+    load("ebook/pdf2.pdf");
+
+    parse_ebook(&ctx, &f, "application/pdf", &doc);
+
+    ASSERT_NE(meta(MetaPageBreaks), nullptr);
+
+    const std::vector<size_t> offsets = parse_page_breaks(meta(MetaPageBreaks)->str_val);
+
+    ASSERT_LT(codepoint_len(content()), content_len());
+    ASSERT_LE(offsets.back(), codepoint_len(content()));
 }
 
 TEST_F(EbookTest, Utf8Pdf) {

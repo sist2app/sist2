@@ -235,6 +235,11 @@
       "type": "integer",
       "index": false
     },
+    "page_breaks": {
+      "type": "keyword",
+      "index": false,
+      "doc_values": false
+    },
     "mtime": {
       "type": "date",
       "format": "epoch_second"

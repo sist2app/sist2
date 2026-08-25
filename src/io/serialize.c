@@ -75,6 +75,8 @@ char *get_meta_key_text(enum metakey meta_key) {
             return "exif_gps_latitude_dec";
         case MetaChecksum:
             return "checksum";
+        case MetaPageBreaks:
+            return "page_breaks";
         default:
         LOG_FATALF("serialize.c", "FIXME: Unknown meta key: %d", meta_key);
     }
@@ -194,6 +196,7 @@ void write_document(document_t *doc) {
             case MetaExifGpsLatitudeDec:
             case MetaExifGpsLatitudeRef:
             case MetaChecksum:
+            case MetaPageBreaks:
             case MetaMediaComment:
             case MetaTitle: {
                 add_string_meta(json, meta);

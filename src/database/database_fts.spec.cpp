@@ -917,3 +917,30 @@ TEST_F(SqliteIndexTest, IncrementalUpdateKeepsTheVocabularyInSync) {
     ASSERT_EQ(sqlite_index("--rebuild"), 0);
     EXPECT_EQ(query("SELECT count(*) FROM vocab_term"), incremental);
 }
+
+/**
+ * The search index stores no text, so a document it hands back carries the text read from the
+ * index database it came from.
+ */
+TEST_F(SqliteIndexTest, GetDocumentReadsTheTextBack) {
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
+    database_open(db);
+    database_t *index_db = load_index_database();
+
+    const std::vector<long long> ids = document_ids();
+    ASSERT_FALSE(ids.empty());
+
+    cJSON *json = database_fts_get_document(db, ids[0]);
+    ASSERT_NE(json, nullptr);
+
+    const cJSON *content = cJSON_GetObjectItem(json, "content");
+    ASSERT_TRUE(cJSON_IsString(content));
+    EXPECT_NE(strstr(content->valuestring, "alpha zebra document"), nullptr) << content->valuestring;
+
+    cJSON_Delete(json);
+    unload_index_database(index_db);
+    database_close(db, FALSE);
+}

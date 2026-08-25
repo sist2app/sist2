@@ -1,6 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {escapeHtml, excerptText, highlightHtml, queryTerms} from "./util.js";
+import {contentHits, escapeHtml, excerptText, highlightHtml, markAll, parsePageBreaks, queryTerms} from "./util.js";
 
 test("escapeHtml neutralizes markup", () => {
     assert.equal(
@@ -68,4 +68,47 @@ test("excerptText starts at the beginning when nothing matches", () => {
 
 test("excerptText returns null for empty text", () => {
     assert.equal(excerptText("", ["x"], 30), null);
+});
+
+test("markAll marks every occurrence of a term", () => {
+    assert.equal(
+        markAll("a cat, another cat", ["cat"]),
+        "a <mark>cat</mark>, another <mark>cat</mark>"
+    );
+});
+
+test("markAll leaves the text alone when the query has no terms", () => {
+    assert.equal(markAll("a cat", []), "a cat");
+});
+
+test("parsePageBreaks reads the offsets the scanner wrote", () => {
+    assert.deepEqual(parsePageBreaks("0,12,40"), [0, 12, 40]);
+    assert.deepEqual(parsePageBreaks(undefined), []);
+});
+
+test("contentHits gives each match the page it is on", () => {
+    // Page 2 starts at "three", so the first match is still on page 1
+    const {html, hits} = contentHits("one <mark>two</mark> three <mark>two</mark>", [0, 8]);
+
+    assert.equal(html, 'one <mark id="content-hit-0">two</mark> three <mark id="content-hit-1">two</mark>');
+    assert.deepEqual(hits, [{page: 1}, {page: 2}]);
+});
+
+test("contentHits counts code points, not UTF-16 code units", () => {
+    // The emoji is one code point, so the second page starts at offset 2
+    const {hits} = contentHits("\u{1F600} a <mark>b</mark>", [0, 2]);
+
+    assert.deepEqual(hits, [{page: 2}]);
+});
+
+test("contentHits escapes the text around the matches", () => {
+    const {html} = contentHits("<b> <mark>x</mark>", []);
+
+    assert.equal(html, '&lt;b&gt; <mark id="content-hit-0">x</mark>');
+});
+
+test("contentHits leaves the page unknown for a document that is not paginated", () => {
+    const {hits} = contentHits("a <mark>b</mark>", []);
+
+    assert.deepEqual(hits, [{page: null}]);
 });

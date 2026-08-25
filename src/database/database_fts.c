@@ -1240,20 +1240,41 @@ void database_fts_sync_tags(database_t *db) {
             NULL, NULL, NULL));
 }
 
+/**
+ * The document, with the text read back from the index database it came from: the search index is
+ * contentless, so document_index carries every field except .content.
+ */
 cJSON *database_fts_get_document(database_t *db, int64_t sid) {
     sqlite3_bind_int64(db->fts_get_document, 1, sid);
 
     int ret = sqlite3_step(db->fts_get_document);
     cJSON *json = NULL;
+    int index_id = -1;
 
     if (ret == SQLITE_ROW) {
         const char *json_data = (const char *) sqlite3_column_text(db->fts_get_document, 0);
         json = cJSON_Parse(json_data);
+        index_id = sqlite3_column_int(db->fts_get_document, 1);
     } else {
         CRASH_IF_STMT_FAIL(ret);
     }
 
     sqlite3_reset(db->fts_get_document);
+
+    if (json == NULL) {
+        return NULL;
+    }
+
+    database_t *index_db = index_database(index_id);
+
+    if (index_db != NULL) {
+        char *content = database_get_content(index_db, (int) (sid & 0xFFFFFFFF));
+
+        if (content != NULL) {
+            cJSON_AddStringToObject(json, "content", content);
+            free(content);
+        }
+    }
 
     return json;
 }

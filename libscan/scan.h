@@ -80,6 +80,7 @@ enum metakey {
     MetaAuthor,
     MetaModifiedBy,
     MetaChecksum,
+    MetaPageBreaks,
 
     // Number
     MetaWidth,

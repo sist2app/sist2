@@ -329,7 +329,7 @@ void database_open(database_t *db) {
                 &db->fts_search_paths, NULL));
 
         CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(
-                db->db, "SELECT json_data FROM document_index"
+                db->db, "SELECT json_data, index_id FROM document_index"
                         " WHERE id=?", -1,
                 &db->fts_get_document, NULL));
 
