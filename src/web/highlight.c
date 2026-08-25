@@ -12,16 +12,11 @@
 // otherwise be copied whole, once per hit on the page
 #define MAX_HIGHLIGHT_BYTES 16384
 
-/**
- * Word characters, as close to fts5's unicode61 tokenizer as byte comparisons get: every non-ASCII
- * byte belongs to a word, so UTF-8 sequences stay whole. Case folding is ASCII-only, so a query
- * for "CAFÉ" does not highlight "café" the way the tokenizer that matched it would have.
- */
-static int is_word_byte(unsigned char c) {
+int fts_is_word_byte(unsigned char c) {
     return isalnum(c) || c >= 0x80 || c == '_';
 }
 
-static int is_fts5_operator(const char *word, size_t len) {
+int fts_is_fts5_operator(const char *word, size_t len) {
     return (len == 3 && memcmp(word, "AND", 3) == 0)
            || (len == 2 && memcmp(word, "OR", 2) == 0)
            || (len == 3 && memcmp(word, "NOT", 3) == 0)
@@ -39,13 +34,13 @@ char **highlight_query_terms(const char *query) {
     const char *cur = query;
 
     while (*cur != '\0' && count < MAX_TERMS) {
-        if (!is_word_byte((unsigned char) *cur)) {
+        if (!fts_is_word_byte((unsigned char) *cur)) {
             cur += 1;
             continue;
         }
 
         const char *word = cur;
-        while (is_word_byte((unsigned char) *cur)) {
+        while (fts_is_word_byte((unsigned char) *cur)) {
             cur += 1;
         }
 
@@ -57,7 +52,7 @@ char **highlight_query_terms(const char *query) {
             continue;
         }
 
-        if (is_fts5_operator(word, len)) {
+        if (fts_is_fts5_operator(word, len)) {
             continue;
         }
 
@@ -159,13 +154,13 @@ char *highlight_text(const char *text, char *const *terms, int context_words) {
     const char *cur = text;
 
     while (*cur != '\0') {
-        if (!is_word_byte((unsigned char) *cur)) {
+        if (!fts_is_word_byte((unsigned char) *cur)) {
             cur += 1;
             continue;
         }
 
         const char *word = cur;
-        while (is_word_byte((unsigned char) *cur)) {
+        while (fts_is_word_byte((unsigned char) *cur)) {
             cur += 1;
         }
 
@@ -190,7 +185,7 @@ char *highlight_text(const char *text, char *const *terms, int context_words) {
     int words = 0;
 
     while (*cur != '\0' && words < context_words) {
-        if (!is_word_byte((unsigned char) *cur)) {
+        if (!fts_is_word_byte((unsigned char) *cur)) {
             if (!out_append(&out, cur, 1)) {
                 break;
             }
@@ -199,7 +194,7 @@ char *highlight_text(const char *text, char *const *terms, int context_words) {
         }
 
         const char *word = cur;
-        while (is_word_byte((unsigned char) *cur)) {
+        while (fts_is_word_byte((unsigned char) *cur)) {
             cur += 1;
         }
 

@@ -13,6 +13,8 @@ sist2*
 !sist2-vue/
 !sist2-admin
 !sist2-admin/server/sist2.js
+!src/sist2.rc
+!src/sist2.manifest
 *.sist2/
 bundle*.css
 bundle.js

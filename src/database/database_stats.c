@@ -3,11 +3,11 @@
 #include "src/ctx.h"
 
 #define TREEMAP_MINIMUM_MERGES_TO_CONTINUE (100)
-#define SIZE_BUCKET (long)(5 * 1000 * 1000)
-#define DATE_BUCKET (long)(2629800) // ~30 days
+#define SIZE_BUCKET (int64_t)(5 * 1000 * 1000)
+#define DATE_BUCKET (int64_t)(2629800) // ~30 days
 
 
-database_iterator_t *database_create_treemap_iterator(database_t *db, long threshold) {
+database_iterator_t *database_create_treemap_iterator(database_t *db, int64_t threshold) {
 
     sqlite3_stmt *stmt;
 
@@ -125,8 +125,8 @@ void database_generate_stats(database_t *db, double treemap_threshold) {
     // Treemap
     sqlite3_prepare_v2(db->db, "SELECT SUM(size) FROM doc_summary;", -1, &stmt, NULL);
     CRASH_IF_STMT_FAIL(sqlite3_step(stmt));
-    long total_size = sqlite3_column_int64(stmt, 0);
-    long threshold = (long) ((double) total_size * treemap_threshold);
+    int64_t total_size = sqlite3_column_int64(stmt, 0);
+    int64_t threshold = (int64_t) ((double) total_size * treemap_threshold);
     sqlite3_finalize(stmt);
 
     // flat map

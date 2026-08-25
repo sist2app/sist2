@@ -41,6 +41,9 @@ export default {
                 "<code>+</code> (and).",
             fuzzy:
                 "When the <b>Fuzzy</b> option is checked, partial matches based on 3-grams are also returned.",
+            fuzzySqlite:
+                "When the <b>Fuzzy</b> option is checked, words that are a spelling mistake away from the " +
+                "ones you typed are also matched.",
             moreInfoSimple: "For more information, see <a target=\"_blank\" " +
                 "rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html\">Elasticsearch documentation</a>",
             moreInfoAdvanced: "For documentation about the advanced search mode, see <a target=\"_blank\" rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax\">Elasticsearch documentation</a>"
@@ -228,6 +231,9 @@ export default {
                 "<code>+</code> (und) der Standard.",
             fuzzy:
                 "Wenn <b>Fuzzy</b> aktiviert ist, werden Teil-Treffer (3-grams) ebenfalls akzeptiert.",
+            fuzzySqlite:
+                "Wenn <b>Fuzzy</b> aktiviert ist, werden auch Wörter gefunden, die sich nur durch einen " +
+                "Schreibfehler von den eingegebenen unterscheiden.",
             moreInfoSimple: "Für weitere Informationen s. <a target=\"_blank\" " +
                 "rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html\">Elasticsearch Dokumentation</a>",
             moreInfoAdvanced: "Für die Dokumentation der erweiterten Suche s. <a target=\"_blank\" rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax\">Elasticsearch Dokumentation</a>"
@@ -414,6 +420,9 @@ export default {
             fuzzy:
                 "Lorsque l'option <b>Approximatif</b> est activée, les résultats partiels basés sur les trigrammes sont" +
                 " également inclus.",
+            fuzzySqlite:
+                "Lorsque l'option <b>Approximatif</b> est activée, les mots qui ne sont qu'à une faute " +
+                "d'orthographe de ceux que vous avez saisis sont également inclus.",
             moreInfoSimple: "Pour plus d'information, voir <a target=\"_blank\" " +
                 "rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html\">documentation Elasticsearch</a>",
             moreInfoAdvanced: "Pour plus d'information sur la recherche avancée, voir <a target=\"_blank\" rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax\">documentation Elasticsearch</a>"
@@ -600,6 +609,8 @@ export default {
                 "<code>+</code>（与操作）。",
             fuzzy:
                 "选中<b>模糊搜索</b>选项时，返回部分匹配的结果（3-grams）。",
+            fuzzySqlite:
+                "选中<b>模糊搜索</b>选项时，与输入内容仅有拼写差异的词也会被匹配。",
             moreInfoSimple: "详细信息：<a target=\"_blank\" " +
                 "rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html\">Elasticsearch文档</a>",
             moreInfoAdvanced: "高级搜索模式文档：<a target=\"_blank\" rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax\">Elasticsearch文档</a>"
@@ -785,6 +796,9 @@ export default {
                 "<code>+</code> (i).",
             fuzzy:
                 "Kiedy opcja <b>Również podobne</b> jest zaznaczona, częściowo zgodne wyrazy są również znajdywane.",
+            fuzzySqlite:
+                "Kiedy opcja <b>Również podobne</b> jest zaznaczona, znajdywane są także wyrazy różniące się " +
+                "od wpisanych tylko literówką.",
             moreInfoSimple: "Po więcej informacji sięgnij do <a target=\"_blank\" " +
                 "rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html\">dokumentacji Elasticsearch</a>",
             moreInfoAdvanced: "Aby uzyskać więcej informacji o zaawansowanym szukaniu, przeczytaj <a target=\"_blank\" rel=\"noreferrer\" href=\"//www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax\">dokumentację Elasticsearch</a>"

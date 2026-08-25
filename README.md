@@ -63,7 +63,7 @@ services:
 
 Navigate to http://localhost:8080/ to configure sist2-admin.
 
-### Using the executable file *(Linux/WSL only)*
+### Using the executable file *(Linux, Windows)*
 
 1. Choose search backend (See [comparison](#search-backends)):
     * **Elasticsearch**: have an Elasticsearch (version >= 6.8.X, ideally >=7.14.0) instance running
@@ -75,7 +75,8 @@ Navigate to http://localhost:8080/ to configure sist2-admin.
     * **SQLite**: No installation required
 
 2. Download the [latest sist2 release](https://github.com/sist2app/sist2/releases).
-   Select the file corresponding to your CPU architecture and mark the binary as executable with `chmod +x`.
+   Select the file corresponding to your platform. On Linux, mark the binary as executable with
+   `chmod +x`; on Windows, run `sist2-x64-windows.exe` from a terminal.
 3. See [usage guide](docs/USAGE.md) for command line usage.
 
 Example usage:
@@ -151,19 +152,19 @@ sist2 v3.0.7+ supports SQLite search backend. The SQLite search backend has
 fewer features and generally comparable query performance for medium-size
 indices, but it uses much less memory and is easier to set up.
 
-|                                              |                       SQLite                        |                                                             Elasticsearch                                                             |
-|----------------------------------------------|:---------------------------------------------------:|:-------------------------------------------------------------------------------------------------------------------------------------:|
-| Requires separate search engine installation |                                                     |                                                                   ✓                                                                   |
-| Memory footprint                             |                        ~20MB                        |                                                                >500MB                                                                 |
-| Query syntax                                 |      [fts5](https://www.sqlite.org/fts5.html)       | [query_string](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax) |
-| Fuzzy search                                 |                                                     |                                                                   ✓                                                                   |
-| Media Types tree real-time updating          |                                                     |                                                                   ✓                                                                   |
-| Manual tagging                               |                          ✓                          |                                                                   ✓                                                                   |
-| User scripts                                 |                          ✓                          |                                                                   ✓                                                                   |
-| Media Type breakdown for search results      |                                                     |                                                                   ✓                                                                   |
-| Embeddings search                            |                      ✓ *O(n)*                       |                                                              ✓ *O(logn)*                                                              |
-| Per-chunk embeddings search                  |                          ✓                          |                                                            ✓ *(ES 8.11+)*                                                             |
-| Excerpt quotes the passage that matched      |                          ✓                          |                                                            ✓ *(ES 8.11+)*                                                             |
+|                                              |                  SQLite                  |                                                             Elasticsearch                                                             |
+|----------------------------------------------|:----------------------------------------:|:-------------------------------------------------------------------------------------------------------------------------------------:|
+| Requires separate search engine installation |                                          |                                                                   ✓                                                                   |
+| Memory footprint                             |                  ~20MB                   |                                                                >500MB                                                                 |
+| Query syntax                                 | [fts5](https://www.sqlite.org/fts5.html) | [query_string](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax) |
+| Fuzzy search                                 |             ✓ *(spellfix)*              |                                                             ✓ *(3-grams)*                                                             |
+| Media Types tree real-time updating          |                                          |                                                                   ✓                                                                   |
+| Manual tagging                               |                    ✓                    |                                                                   ✓                                                                   |
+| User scripts                                 |                    ✓                    |                                                                   ✓                                                                   |
+| Media Type breakdown for search results      |                                          |                                                                   ✓                                                                   |
+| Embeddings search                            |                ✓ *O(n)*                 |                                                              ✓ *O(logn)*                                                              |
+| Per-chunk embeddings search                  |                    ✓                    |                                                            ✓ *(ES 8.11+)*                                                             |
+| Excerpt quotes the passage that matched      |                    ✓                    |                                                            ✓ *(ES 8.11+)*                                                             |
 
 ## Build from source
 
@@ -176,6 +177,8 @@ git clone https://github.com/sist2app/sist2/
 cd sist2
 # Static binary for the current architecture
 scripts/make_static.sh
+# ...or the Windows binary, cross-compiled with mingw-w64 (run this on linux, not Windows)
+scripts/make_windows.sh
 # ...or the full runtime image
 docker buildx build . -t my-sist2-image
 ```

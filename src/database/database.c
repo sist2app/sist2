@@ -7,7 +7,9 @@
 #include "src/parsing/mime.h"
 
 #include <time.h>
+#ifndef _WIN32
 #include <sys/statvfs.h>
+#endif
 
 
 /** Where SQLite puts the temporary files a large statement spills into */
@@ -21,7 +23,11 @@ static const char *sqlite_temp_directory() {
         directory = getenv("TMPDIR");
     }
 
-    return directory == NULL ? "/tmp" : directory;
+    if (directory != NULL) {
+        return directory;
+    }
+
+    return sist_temp_dir();
 }
 
 /** Logs how much room is left where path lives, at a level that is printed without --verbose */
@@ -36,7 +42,7 @@ static void report_free_space(const char *what, const char *path) {
     // A database is a file, so its filesystem is the one its folder is on; a temporary file
     // folder is already the folder
     struct stat info;
-    if (stat(directory, &info) != 0 || !S_ISDIR(info.st_mode)) {
+    if (sist_stat(directory, &info) != 0 || !S_ISDIR(info.st_mode)) {
         char *slash = strrchr(directory, '/');
         if (slash == NULL) {
             strcpy(directory, ".");
@@ -47,12 +53,19 @@ static void report_free_space(const char *what, const char *path) {
         }
     }
 
+#ifdef _WIN32
+    const double free_mib = sist_free_space_mib(directory);
+    if (free_mib < 0) {
+        return;
+    }
+#else
     struct statvfs stat;
     if (statvfs(directory, &stat) != 0) {
         return;
     }
 
     const double free_mib = (double) stat.f_bavail * (double) stat.f_frsize / (1024 * 1024);
+#endif
 
     LOG_FATALF_NO_EXIT("database.c", "The %s (%s) is on a filesystem with %.1f MiB free", what, path, free_mib);
 }
@@ -176,8 +189,18 @@ void random_func(sqlite3_context *ctx, UNUSED(int argc), UNUSED(sqlite3_value **
 }
 
 
+/**
+ * spellfix1 is vendored (third-party/sqlite-spellfix), not part of the amalgamation the sqlite3
+ * port builds, so every connection that so much as prepares a statement against a search index
+ * has to be handed the module: a virtual table whose module is missing cannot even be opened.
+ */
+static void register_spellfix(database_t *db) {
+    CRASH_IF_NOT_SQLITE_OK(sqlite3_spellfix_init(db->db, NULL, NULL));
+}
+
 void database_initialize(database_t *db) {
     CRASH_IF_NOT_SQLITE_OK(sqlite3_open(db->filename, &db->db));
+    register_spellfix(db);
 
     LOG_DEBUGF("database.c", "Initializing database %s", db->filename);
     if (db->type == INDEX_DATABASE) {
@@ -193,6 +216,7 @@ void database_open(database_t *db) {
     LOG_DEBUGF("database.c", "Opening database %s (%d)", db->filename, db->type);
 
     CRASH_IF_NOT_SQLITE_OK(sqlite3_open(db->filename, &db->db));
+    register_spellfix(db);
     sqlite3_busy_timeout(db->db, 1000);
 
     // TODO: Optional argument?
@@ -535,7 +559,7 @@ index_descriptor_t *database_read_index_descriptor(database_t *db) {
     const char *root = (char *) sqlite3_column_text(stmt, 4);
     const char *name = (char *) sqlite3_column_text(stmt, 5);
     const char *rewrite_url = (char *) sqlite3_column_text(stmt, 6);
-    int timestamp = sqlite3_column_int(stmt, 7);
+    int64_t timestamp = sqlite3_column_int64(stmt, 7);
 
     index_descriptor_t *desc = malloc(sizeof(index_descriptor_t));
     desc->id = id;
@@ -892,7 +916,7 @@ int database_write_document(database_t *db, document_t *doc, const char *json_da
     sqlite3_bind_text(db->write_document_stmt, 2, parent_rel_path, -1, SQLITE_STATIC);
     sqlite3_bind_int64(db->write_document_stmt, 3, doc->mime);
     sqlite3_bind_int(db->write_document_stmt, 4, doc->mtime);
-    sqlite3_bind_int64(db->write_document_stmt, 5, (long) doc->size);
+    sqlite3_bind_int64(db->write_document_stmt, 5, (int64_t) doc->size);
     sqlite3_bind_int(db->write_document_stmt, 6, doc->thumbnail_count);
     if (json_data) {
         sqlite3_bind_text(db->write_document_stmt, 7, json_data, -1, SQLITE_STATIC);
@@ -932,7 +956,7 @@ void database_write_thumbnail(database_t *db, int doc_id, int num, void *data, s
 }
 
 
-void database_write_tag(database_t *db, long sid, char *tag) {
+void database_write_tag(database_t *db, int64_t sid, char *tag) {
     sqlite3_bind_int64(db->write_tag_stmt, 1, sid);
     sqlite3_bind_int(db->write_tag_stmt, 2, (int) (sid >> 32));
     sqlite3_bind_text(db->write_tag_stmt, 3, tag, -1, SQLITE_STATIC);
@@ -941,7 +965,7 @@ void database_write_tag(database_t *db, long sid, char *tag) {
     CRASH_IF_NOT_SQLITE_OK(sqlite3_reset(db->write_tag_stmt));
 }
 
-void database_delete_tag(database_t *db, long sid, char *tag) {
+void database_delete_tag(database_t *db, int64_t sid, char *tag) {
     sqlite3_bind_int64(db->delete_tag_stmt, 1, sid);
     sqlite3_bind_text(db->delete_tag_stmt, 2, tag, -1, SQLITE_STATIC);
 
@@ -1034,7 +1058,7 @@ void database_sync_mime_table(database_t *db) {
             "REPLACE INTO mime (id, name) VALUES (?,?)", -1, &stmt, NULL));
 
     while (*cur != 0) {
-        sqlite3_bind_int64(stmt, 1, (long) *cur);
+        sqlite3_bind_int64(stmt, 1, (int64_t) *cur);
         sqlite3_bind_text(stmt, 2, mime_get_mime_text(*cur), -1, NULL);
 
         CRASH_IF_STMT_FAIL(sqlite3_step(stmt));

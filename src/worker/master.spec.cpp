@@ -6,6 +6,8 @@
 
 #include <sqlite3.h>
 
+#include "tests/support/subprocess.h"
+
 /*
  * End-to-end tests of the scan master: they run the real `sist2 scan` binary, which spawns real
  * worker processes, and check what ended up in the index.
@@ -42,26 +44,26 @@ protected:
     }
 
     static void write_file(const fs::path &path) {
-        std::ofstream file(path);
+        // Binary: text mode would turn every \n into \r\n on Windows, so the same content
+        // would not produce the same bytes, size or checksum as it does elsewhere
+        std::ofstream file(path, std::ios::binary);
         file << "the quick brown fox jumps over the lazy dog\n";
     }
 
     int scan(const std::string &env, const int threads = 4, const std::string &extra_args = "",
              const std::string &args_before_path = "") {
-        const std::string command = env + " " + SIST2_BINARY + " scan --threads " + std::to_string(threads)
+        const std::string command = std::string(SIST2_BINARY) + " scan --threads " + std::to_string(threads)
                               + " " + extra_args
                               + " -o " + index.string()
                               + " " + args_before_path + " " + (dir / "files").string()
-                              + " > /dev/null 2>&1";
+                              + sist2::test::quiet();
 
-        const int status = system(command.c_str());
-
-        return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+        return sist2::test::run(command, env);
     }
 
     int count(const std::string &where) {
         sqlite3 *db;
-        if (sqlite3_open(index.c_str(), &db) != SQLITE_OK) {
+        if (sqlite3_open(index.string().c_str(), &db) != SQLITE_OK) {
             return -1;
         }
 
@@ -78,7 +80,7 @@ protected:
 
     std::string checksum(const std::string &path) {
         sqlite3 *db;
-        if (sqlite3_open(index.c_str(), &db) != SQLITE_OK) {
+        if (sqlite3_open(index.string().c_str(), &db) != SQLITE_OK) {
             return "";
         }
 
@@ -104,7 +106,7 @@ protected:
 
     int document_count() {
         sqlite3 *db;
-        if (sqlite3_open(index.c_str(), &db) != SQLITE_OK) {
+        if (sqlite3_open(index.string().c_str(), &db) != SQLITE_OK) {
             return -1;
         }
 
@@ -248,9 +250,9 @@ TEST_F(ScanMasterTest, IncrementalScanKeepsAnUnreadableUnchangedFile) {
 TEST_F(ScanMasterTest, ChecksumDoesNotDependOnHowTheFileWasRead) {
     const std::string content = "the gzip member content marker\n";
 
-    std::ofstream(dir / "files" / "on-disk.txt") << content;
+    std::ofstream(dir / "files" / "on-disk.txt", std::ios::binary) << content;
     // No known extension, so the mime type comes from libmagic reading the head first
-    std::ofstream(dir / "files" / "on-disk.qqq") << content;
+    std::ofstream(dir / "files" / "on-disk.qqq", std::ios::binary) << content;
     fs::copy(fs::path(SIST2_TEST_FILES_DIR) / "arc" / "text.txt.gz", dir / "files" / "text.txt.gz");
 
     ASSERT_EQ(scan("", 4, "--checksums"), 0);

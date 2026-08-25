@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include "tests/support/subprocess.h"
+
 #include <string>
 #include <vector>
 
@@ -171,7 +173,7 @@ TEST(Protocol, Int32RejectsEmptyPayload) {
 
 TEST(Protocol, WriteReadOverPipe) {
     int fds[2];
-    ASSERT_EQ(pipe(fds), 0);
+    ASSERT_EQ(sist2::test::make_pipe(fds), 0);
 
     const std::string json = R"({"content":"some text"})";
     ASSERT_EQ(frame_write(fds[1], FRAME_DOC, json.data(), json.size()), 0);
@@ -199,7 +201,7 @@ TEST(Protocol, WriteReadOverPipe) {
 
 TEST(Protocol, ReadReportsTruncatedStreamAsError) {
     int fds[2];
-    ASSERT_EQ(pipe(fds), 0);
+    ASSERT_EQ(sist2::test::make_pipe(fds), 0);
 
     // A header promising 32 bytes, followed by only 4 and then EOF
     constexpr uint32_t header[2] = {FRAME_DOC, 32};
@@ -215,7 +217,7 @@ TEST(Protocol, ReadReportsTruncatedStreamAsError) {
 
 TEST(Protocol, ReadRejectsOversizedFrame) {
     int fds[2];
-    ASSERT_EQ(pipe(fds), 0);
+    ASSERT_EQ(sist2::test::make_pipe(fds), 0);
 
     const uint32_t header[2] = {FRAME_DOC, FRAME_MAX_PAYLOAD + 1};
     ASSERT_EQ(write(fds[1], header, sizeof(header)), (ssize_t) sizeof(header));

@@ -8,7 +8,7 @@
 
 static inline int fs_read(struct vfile *f, void *buf, size_t size) {
     if (f->fd == -1) {
-        f->fd = open(f->filepath, O_RDONLY);
+        f->fd = sist_open(f->filepath, O_RDONLY | O_BINARY);
         if (f->fd == -1) {
             return -1;
         }

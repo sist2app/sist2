@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.19)
 option(SIST_DEBUG "Build a debug executable" on)
 option(SIST_FAST "Enable more optimisation flags" off)
 option(SIST_DEBUG_INFO "Turn on debug information in web interface" on)
-option(SIST_STATIC "Produce a fully static executable (musl only)" off)
+option(SIST_STATIC "Link libgcc, libstdc++ and the thread runtime statically (musl and mingw)" off)
 option(BUILD_TESTS "Build the test binaries" on)
 option(SIST_COVERAGE "Instrument libscan and sist2_core for gcov coverage" off)
 
@@ -27,11 +27,32 @@ endif ()
 project(sist2)
 set(CMAKE_C_STANDARD 11)
 
+# mingw ships no sanitizer runtimes for Windows targets, so the debug build cannot be produced
+# there. Saying so here beats a link failure several hundred object files later.
+if (WIN32 AND SIST_DEBUG)
+    message(FATAL_ERROR "SIST_DEBUG is not supported for the Windows build: mingw has no ASan. Configure with -DSIST_DEBUG=off")
+endif ()
+
 add_compile_definitions(
         # Before any system header is included, or glibc hides asprintf & co.
         _GNU_SOURCE
         "SIST_PLATFORM=${SIST_PLATFORM}"
 )
+
+if (WIN32)
+    # find_library() defaults to preferring an import library over the static archive, and
+    # pkg-config resolution goes through it: ffmpeg's -lpthread came back as libpthread.dll.a and
+    # dragged libwinpthread-1.dll into an otherwise self-contained binary. (The warning against
+    # doing this further down applies to the glibc build, where it makes -lm resolve to a static
+    # libm.a that cannot link. mingw has no such libm.)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".dll.a")
+
+    # msvcrt's printf understands neither %zu nor %lld, both of which sist2 uses throughout.
+    # This selects mingw's own conformant implementation, and with it gcc's gnu_printf checking.
+    # _FILE_OFFSET_BITS makes struct stat, off_t and lseek() 64-bit, which they are not by
+    # default on Windows: a file over 2GB would otherwise be indexed with a truncated size.
+    add_compile_definitions(__USE_MINGW_ANSI_STDIO=1 _FILE_OFFSET_BITS=64)
+endif ()
 
 if (SIST_DEBUG)
     add_compile_definitions(
@@ -53,6 +74,7 @@ add_library(
         libscan/util.h
         libscan/scan.h
         libscan/macros.h
+        libscan/win32.h libscan/win32.c
 
         libscan/text/text.c libscan/text/text.h
         libscan/arc/arc.c libscan/arc/arc.h
@@ -76,12 +98,28 @@ set_target_properties(scan PROPERTIES LINKER_LANGUAGE C)
 set(GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${GENERATED_DIR})
 
-add_executable(mime_gen scripts/mime_gen.c)
+# mime_gen runs during the build, so a cross build cannot use the target compiler for it. It is a
+# single freestanding C file with no dependencies, which makes compiling it by hand cheaper than
+# a second CMake project.
+if (CMAKE_CROSSCOMPILING)
+    find_program(HOST_C_COMPILER NAMES cc gcc clang REQUIRED)
+    set(MIME_GEN ${GENERATED_DIR}/mime_gen)
+
+    add_custom_command(
+            OUTPUT ${MIME_GEN}
+            COMMAND ${HOST_C_COMPILER} -O2 -o ${MIME_GEN} ${CMAKE_SOURCE_DIR}/scripts/mime_gen.c
+            DEPENDS ${CMAKE_SOURCE_DIR}/scripts/mime_gen.c
+            COMMENT "Building mime_gen for the build host"
+    )
+else ()
+    add_executable(mime_gen scripts/mime_gen.c)
+    set(MIME_GEN $<TARGET_FILE:mime_gen>)
+endif ()
 
 add_custom_command(
         OUTPUT ${GENERATED_DIR}/mime_generated.c
-        COMMAND mime_gen ${CMAKE_SOURCE_DIR}/scripts/mime.csv ${GENERATED_DIR}/mime_generated.c
-        DEPENDS mime_gen ${CMAKE_SOURCE_DIR}/scripts/mime.csv
+        COMMAND ${MIME_GEN} ${CMAKE_SOURCE_DIR}/scripts/mime.csv ${GENERATED_DIR}/mime_generated.c
+        DEPENDS ${MIME_GEN} ${CMAKE_SOURCE_DIR}/scripts/mime.csv
         COMMENT "Generating mime_generated.c"
 )
 
@@ -127,6 +165,7 @@ add_library(
         src/database/database_stats.c
         src/database/database_schema.c
         src/database/database_fts.c
+        src/database/database_fts_fuzzy.c
         src/web/web_fts.c
         src/database/database_embeddings.c
         src/ignorelist.c
@@ -140,10 +179,26 @@ add_library(
         src/worker/master.c src/worker/master.h)
 set_target_properties(sist2_core PROPERTIES LINKER_LANGUAGE C)
 
-add_executable(sist2 src/main.c)
+if (WIN32)
+    enable_language(RC)
+    # Carries the application manifest: UTF-8 paths and long path support
+    add_executable(sist2 src/main.c src/sist2.rc)
+else ()
+    add_executable(sist2 src/main.c)
+endif ()
 set_target_properties(sist2 PROPERTIES LINKER_LANGUAGE C)
 
 target_link_directories(sist2_core PUBLIC BEFORE ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/)
+
+# The libraries found by path below (mupdf, ffmpeg, libmagic) bring no import library
+# dependencies of their own, and Windows keeps sockets, crypto and the shell out of the CRT.
+if (WIN32)
+    set(SIST_WIN32_LIBRARIES
+            ws2_32 wsock32 bcrypt crypt32 secur32 ncrypt iphlpapi userenv
+            ole32 oleaut32 uuid shlwapi shell32 advapi32 user32 gdi32
+            winmm psapi dbghelp version wldap32 normaliz mfplat mfuuid strmiids
+    )
+endif ()
 
 find_package(PkgConfig REQUIRED)
 
@@ -153,7 +208,20 @@ find_package(CURL CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(ZLIB REQUIRED)
 find_library(MAGIC_LIB NAMES libmagic.a REQUIRED)
+# On Windows, libmagic is patched to use libtre for its regexes instead of the system's
+if (WIN32)
+    find_library(TRE_LIB NAMES tre REQUIRED)
+endif ()
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
+
+#
+# spellfix1, the fuzzy-search vocabulary. The sqlite3 port builds the amalgamation, which does not
+# carry ext/misc/, so the extension is vendored and compiled in: SQLITE_CORE links it statically
+# and src/database/database.c registers the module by hand instead of loading it at runtime.
+#
+add_library(sqlite_spellfix STATIC third-party/sqlite-spellfix/spellfix.c)
+target_compile_definitions(sqlite_spellfix PRIVATE SQLITE_CORE)
+target_link_libraries(sqlite_spellfix PUBLIC unofficial::sqlite3::sqlite3)
 find_package(OpenBLAS CONFIG REQUIRED)
 find_package(libgit2 CONFIG REQUIRED)
 find_package(libuv CONFIG REQUIRED)
@@ -163,6 +231,18 @@ find_package(BZip2 REQUIRED)
 find_package(lz4 REQUIRED)
 
 find_package(Threads REQUIRED)
+
+if (WIN32)
+    # Threads resolves to winpthread's import library, and -static cannot override an explicit
+    # -l because an import library is an archive too. -l: names the static archive by filename.
+    set(SIST_PTHREAD_LIBRARY -l:libpthread.a)
+
+    # Same for the shared libgcc that CMake adds implicitly for the C++ objects
+    list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES gcc_s)
+    list(REMOVE_ITEM CMAKE_CXX_IMPLICIT_LINK_LIBRARIES gcc_s)
+else ()
+    set(SIST_PTHREAD_LIBRARY ${CMAKE_THREAD_LIBS_INIT})
+endif ()
 find_package(Tesseract CONFIG REQUIRED)
 find_package(OpenJPEG CONFIG REQUIRED)
 find_package(JPEG REQUIRED)
@@ -230,11 +310,15 @@ target_compile_options(sist2 PRIVATE ${SIST_WARNING_OPTIONS})
 # libscan parses files nobody vetted, in a process that keeps running afterwards, so the
 # optimized binary is exactly the one that needs the checks. _FORTIFY_SOURCE is undefined
 # first because the distro gcc predefines it at -O and would warn about the redefinition.
-set(SIST_HARDENING_OPTIONS
-        -fstack-protector-strong
-        -U_FORTIFY_SOURCE
-        -D_FORTIFY_SOURCE=2
-)
+if (WIN32)
+    set(SIST_HARDENING_OPTIONS -fstack-protector-strong)
+else ()
+    set(SIST_HARDENING_OPTIONS
+            -fstack-protector-strong
+            -U_FORTIFY_SOURCE
+            -D_FORTIFY_SOURCE=2
+    )
+endif ()
 
 if (SIST_DEBUG)
     set(SIST_SANITIZE_OPTIONS
@@ -327,9 +411,11 @@ target_link_libraries(
         ${LIBXML2_LIBRARIES}
         Freetype::Freetype
 
-        z
+        # The imported target rather than a bare -lz: outside a linux sysroot there is no
+        # system zlib for the linker to fall back on
+        ZLIB::ZLIB
 
-        ${CMAKE_THREAD_LIBS_INIT}
+        ${SIST_PTHREAD_LIBRARY}
 
         ${GOMP_LIB}
         ${CMS_LIB}
@@ -456,14 +542,18 @@ target_link_libraries(
         unofficial::mongoose::mongoose
         CURL::libcurl
 
-        pthread
+        ${SIST_PTHREAD_LIBRARY}
 
         scan
 
         ${MAGIC_LIB}
+        ${TRE_LIB}
         unofficial::sqlite3::sqlite3
+        sqlite_spellfix
         OpenBLAS::OpenBLAS
         libuv::uv_a
+
+        ${SIST_WIN32_LIBRARIES}
 )
 
 target_link_libraries(sist2 PRIVATE sist2_core)
@@ -471,15 +561,29 @@ target_link_libraries(sist2 PRIVATE sist2_core)
 if (SIST_STATIC)
     target_link_options(sist2 PRIVATE -static)
 
-    # musl's mallocng returns every freed block to the kernel: ~594 mmap/munmap pairs
-    # per scanned file. mimalloc's archive overrides musl's weak malloc symbols.
-    find_package(mimalloc CONFIG REQUIRED)
-    target_link_libraries(sist2 PRIVATE mimalloc-static)
+    if (WIN32)
+        target_link_options(sist2 PRIVATE -static-libgcc -static-libstdc++)
+    endif ()
+
+    if (NOT WIN32)
+        # musl's mallocng returns every freed block to the kernel: ~594 mmap/munmap pairs
+        # per scanned file. mimalloc's archive overrides musl's weak malloc symbols.
+        find_package(mimalloc CONFIG REQUIRED)
+        target_link_libraries(sist2 PRIVATE mimalloc-static)
+    endif ()
 endif ()
 
 if (BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif ()
+
+# Dependencies pull Threads::Threads in on their own, so the imported target has to carry the
+# static archive too, not only the places sist2 links it directly. This runs after every
+# find_package that could re-import the target (GTest's config among them), because the property
+# is read at generate time and the last write is the one that counts.
+if (WIN32 AND TARGET Threads::Threads)
+    set_property(TARGET Threads::Threads PROPERTY INTERFACE_LINK_LIBRARIES ${SIST_PTHREAD_LIBRARY})
 endif ()
 
 #

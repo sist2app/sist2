@@ -151,7 +151,9 @@ static void *worker_loop(void *arg) {
 
     // A master that went away should end this process through the EOF path below, not through a
     // signal raised in the middle of writing a document
+#ifndef _WIN32
     signal(SIGPIPE, SIG_IGN);
+#endif
 
     while (TRUE) {
         frame_t frame;

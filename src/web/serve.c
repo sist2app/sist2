@@ -393,6 +393,9 @@ void index_info(struct mg_connection *nc) {
 
     if (WebCtx.search_backend == SQLITE_SEARCH_BACKEND) {
         cJSON_AddStringToObject(json, "searchBackend", "sqlite");
+        // A search index built with --skip-spellfix, or by a version that had none, has nothing
+        // to correct spellings against
+        cJSON_AddBoolToObject(json, "sqliteFuzzy", database_fts_has_vocab(WebCtx.search_db));
     } else {
         cJSON_AddStringToObject(json, "searchBackend", "elasticsearch");
     }

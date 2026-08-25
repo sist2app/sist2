@@ -254,7 +254,7 @@ scan_code_t parse_archive(scan_arc_ctx_t *ctx, vfile_t *f, document_t *doc, pcre
         while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
             struct stat entry_stat = *archive_entry_stat(entry);
             sub_job->vfile.st_size = entry_stat.st_size;
-            sub_job->vfile.mtime = (int) entry_stat.st_mtim.tv_sec;
+            sub_job->vfile.mtime = (int) STAT_MTIME(entry_stat);
 
             // A compressed stream that is not an archive has a single member; its name, size and
             // mtime are only known when the compression header carries them

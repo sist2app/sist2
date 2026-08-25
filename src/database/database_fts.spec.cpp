@@ -9,6 +9,8 @@
 
 #include <sqlite3.h>
 
+#include "tests/support/subprocess.h"
+
 extern "C" {
 #include "src/database/database.h"
 #include "src/ctx.h"
@@ -47,7 +49,7 @@ protected:
     void write_file(const std::string &name, const std::string &content) {
         fs::create_directories((dir / "files" / name).parent_path());
 
-        std::ofstream file(dir / "files" / name);
+        std::ofstream file(dir / "files" / name, std::ios::binary);
         file << content << "\n";
         file.close();
 
@@ -67,8 +69,7 @@ protected:
     }
 
     static int run(const std::string &command) {
-        const int status = system((command + " > /dev/null 2>&1").c_str());
-        return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+        return sist2::test::run(command + sist2::test::quiet());
     }
 
     long long query(const std::string &sql) {
@@ -81,7 +82,7 @@ protected:
 
     static long long query_file(const fs::path &file, const std::string &sql) {
         sqlite3 *db;
-        if (sqlite3_open(file.c_str(), &db) != SQLITE_OK) {
+        if (sqlite3_open(file.string().c_str(), &db) != SQLITE_OK) {
             return -1;
         }
 
@@ -101,7 +102,7 @@ protected:
 
     bool exec(const std::string &sql) {
         sqlite3 *db;
-        if (sqlite3_open(search_index.c_str(), &db) != SQLITE_OK) {
+        if (sqlite3_open(search_index.string().c_str(), &db) != SQLITE_OK) {
             return false;
         }
 
@@ -139,7 +140,7 @@ protected:
         std::vector<long long> ids;
 
         sqlite3 *db;
-        if (sqlite3_open(search_index.c_str(), &db) != SQLITE_OK) {
+        if (sqlite3_open(search_index.string().c_str(), &db) != SQLITE_OK) {
             return ids;
         }
 
@@ -158,7 +159,7 @@ protected:
 
     /** What `sist2 web` sets up so a highlight can read the document text back */
     database_t *load_index_database() {
-        database_t *db = database_create(index.c_str(), INDEX_DATABASE);
+        database_t *db = database_create(index.string().c_str(), INDEX_DATABASE);
         database_open(db);
 
         WebCtx.index_count = 1;
@@ -203,12 +204,12 @@ protected:
                             char **after = nullptr, int model = 0,
                             const std::vector<float> &embedding = {},
                             const char *query = nullptr, int highlight = FALSE,
-                            int context_size = 0) {
+                            int context_size = 0, int fuzzy = FALSE) {
         cJSON *result = database_fts_search(db, query, nullptr, 0, 0, 0, 0, page_size, nullptr,
                                             nullptr, nullptr, sort_asc, sort, 0, after, FALSE,
                                             highlight, context_size, model,
                                             embedding.empty() ? nullptr : embedding.data(),
-                                            (int) embedding.size());
+                                            (int) embedding.size(), fuzzy);
 
         std::vector<Hit> hits;
         if (result == nullptr) {
@@ -288,7 +289,7 @@ TEST_F(SqliteIndexTest, PathsOfEveryIndexAtOnce) {
     const long long index_id = query("SELECT DISTINCT index_id FROM path_index");
     ASSERT_GT(index_id, 0);
 
-    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
     database_open(db);
 
     cJSON *of_index = database_fts_get_paths(db, (int) index_id, 1, 3, nullptr, FALSE);
@@ -310,7 +311,7 @@ TEST_F(SqliteIndexTest, EmbeddingForAnUnknownModelIsRejected) {
     ASSERT_EQ(scan(), 0);
     ASSERT_EQ(sqlite_index(), 0);
 
-    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
     database_open(db);
 
     // Every real run logs warnings; the mismatch is only formatted when they are on
@@ -321,7 +322,7 @@ TEST_F(SqliteIndexTest, EmbeddingForAnUnknownModelIsRejected) {
 
     cJSON *result = database_fts_search(db, nullptr, nullptr, 0, 0, 0, 0, 10, nullptr, nullptr,
                                         nullptr, TRUE, FTS_SORT_SCORE, 0, nullptr, FALSE, FALSE,
-                                        0, 1, embedding.data(), (int) embedding.size());
+                                        0, 1, embedding.data(), (int) embedding.size(), FALSE);
 
     EXPECT_EQ(result, nullptr);
 
@@ -428,7 +429,7 @@ TEST_F(SqliteIndexTest, DocumentWithSeveralEmbeddingsIsReturnedOnce) {
         ASSERT_TRUE(add_embedding(ids[0], 1, start, -1, {1, 0, 0, 0}));
     }
 
-    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
     database_open(db);
 
     const std::vector<Hit> hits = search(db, FTS_SORT_NAME, TRUE, 100);
@@ -465,7 +466,7 @@ TEST_F(SqliteIndexTest, EmbeddingSortRanksByTheBestChunk) {
         }
     }
 
-    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
     database_open(db);
 
     const std::vector<Hit> hits = search(db, FTS_SORT_EMBEDDING, FALSE, 100, nullptr, 1, query);
@@ -489,7 +490,7 @@ TEST_F(SqliteIndexTest, EmbeddingSortKeepsDocumentsWithoutAnEmbedding) {
     ASSERT_TRUE(register_model(1, 4));
     ASSERT_TRUE(add_embedding(ids[0], 1, 0, -1, query));
 
-    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
     database_open(db);
 
     const std::vector<Hit> hits = search(db, FTS_SORT_EMBEDDING, FALSE, 100, nullptr, 1, query);
@@ -515,7 +516,7 @@ TEST_F(SqliteIndexTest, DescendingSortPagesThroughDocumentsThatTie) {
     // Every file was written with the same length, so they all tie on size
     ASSERT_EQ(query("SELECT count(DISTINCT size) FROM document_index"), 1);
 
-    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
     database_open(db);
 
     for (const int sort_asc: {1, 0}) {
@@ -557,7 +558,7 @@ TEST_F(SqliteIndexTest, EmbeddingSearchExcerptsTheChunkThatMatched) {
     ASSERT_TRUE(add_embedding(id, 1, (long long) two_at, (long long) three_at, {0, 1, 0}));
     ASSERT_TRUE(add_embedding(id, 1, (long long) three_at, -1, {0, 0, 1}));
 
-    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
     database_open(db);
     database_t *index_db = load_index_database();
 
@@ -608,7 +609,7 @@ TEST_F(SqliteIndexTest, ChunkExcerptMarksTheQueryTerms) {
     ASSERT_TRUE(add_embedding(id, 1, 0, (long long) two_at, {1, 0}));
     ASSERT_TRUE(add_embedding(id, 1, (long long) two_at, -1, {0, 1}));
 
-    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
     database_open(db);
     database_t *index_db = load_index_database();
 
@@ -635,7 +636,7 @@ TEST_F(SqliteIndexTest, EmbeddingSearchWithoutAQueryStillHighlightsTheName) {
         ASSERT_TRUE(add_embedding(id, 1, 0, -1, {1, 0}));
     }
 
-    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
     database_open(db);
     database_t *index_db = load_index_database();
 
@@ -664,7 +665,7 @@ TEST_F(SqliteIndexTest, ChunkOutsideTheContentFallsBackToTheWholeText) {
     ASSERT_TRUE(register_model(1, 2));
     ASSERT_TRUE(add_embedding(id, 1, 999999, 1000500, {1, 0}));
 
-    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
     database_open(db);
     database_t *index_db = load_index_database();
 
@@ -699,7 +700,7 @@ TEST_F(SqliteIndexTest, ChunkBoundaryInsideACharacterDoesNotCutIt) {
     ASSERT_TRUE(register_model(1, 2));
     ASSERT_TRUE(add_embedding(id, 1, 50, 140, {1, 0}));
 
-    database_t *db = database_create(search_index.c_str(), FTS_DATABASE);
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
     database_open(db);
     database_t *index_db = load_index_database();
 
@@ -727,4 +728,192 @@ TEST_F(SqliteIndexTest, ChunkBoundaryInsideACharacterDoesNotCutIt) {
 
     unload_index_database(index_db);
     database_close(db, FALSE);
+}
+
+TEST_F(SqliteIndexTest, VocabularyIsBuiltFromTheIndexedWords) {
+    write_file("hashes.txt", "encyclopedia deadbeef12345678");
+
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term WHERE term = 'encyclopedia'"), 1);
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term WHERE term = 'document'"), 1);
+
+    // A long word with digits in it is an identifier, not something anybody misspells
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term WHERE term = 'deadbeef12345678'"), 0);
+
+    // Every word of the vocabulary is a word of the search index, and knows its spellfix1 row
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term t"
+                    " WHERE NOT EXISTS (SELECT 1 FROM search_vocab v WHERE v.term = t.term)"), 0);
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term t"
+                    " WHERE NOT EXISTS (SELECT 1 FROM vocab_vocab s WHERE s.id = t.id)"), 0);
+}
+
+TEST_F(SqliteIndexTest, SkipSpellfixLeavesNoVocabulary) {
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index("--skip-spellfix"), 0);
+
+    // -1: the table was never created
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term"), -1);
+    EXPECT_EQ(matches("alpha"), 8);
+}
+
+/** A vocabulary that is left behind would be corrected against without ever being updated */
+TEST_F(SqliteIndexTest, SkipSpellfixDropsAnExistingVocabulary) {
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    ASSERT_GT(query("SELECT count(*) FROM vocab_term"), 0);
+
+    write_file("late.txt", "encyclopedia");
+
+    ASSERT_EQ(scan("--incremental"), 0);
+    ASSERT_EQ(sqlite_index("--skip-spellfix"), 0);
+
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term"), -1);
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_vocab"), -1);
+
+    // An index that is already up to date takes the same path
+    ASSERT_EQ(sqlite_index("--skip-spellfix"), 0);
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term"), -1);
+}
+
+/** A number is looked up rather than misspelled: correcting one to another only costs results */
+TEST_F(SqliteIndexTest, NumbersAreLeftOutOfTheVocabulary) {
+    write_file("years.txt", "2024 1999 report");
+
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term WHERE term = 'report'"), 1);
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term WHERE term GLOB '[0-9]*' AND NOT term GLOB '*[^0-9]*'"), 0);
+}
+
+TEST_F(SqliteIndexTest, FuzzySearchFindsAMisspelledWord) {
+    write_file("word.txt", "encyclopedia");
+
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
+    database_open(db);
+    database_t *index_db = load_index_database();
+
+    EXPECT_TRUE(search(db, FTS_SORT_SCORE, TRUE, 10, nullptr, 0, {}, "encyclopdia").empty());
+
+    const std::vector<Hit> hits = search(db, FTS_SORT_SCORE, TRUE, 10, nullptr, 0, {},
+                                         "encyclopdia", TRUE, 20, TRUE);
+
+    ASSERT_EQ(hits.size(), 1);
+    // The word that matched is what the excerpt marks, not the one that was typed
+    EXPECT_NE(hits[0].content_highlight.find("<mark>encyclopedia</mark>"), std::string::npos)
+                        << "excerpt: " << hits[0].content_highlight;
+
+    unload_index_database(index_db);
+    database_close(db, FALSE);
+}
+
+/** An index built with --skip-spellfix answers a fuzzy search the way a plain one does */
+TEST_F(SqliteIndexTest, FuzzySearchWithoutAVocabularyMatchesWhatWasTyped) {
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index("--skip-spellfix"), 0);
+
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
+    database_open(db);
+
+    EXPECT_EQ(search(db, FTS_SORT_SCORE, TRUE, 10, nullptr, 0, {}, "alpha", FALSE, 0, TRUE).size(), 8u);
+    EXPECT_TRUE(search(db, FTS_SORT_SCORE, TRUE, 10, nullptr, 0, {}, "alpna", FALSE, 0, TRUE).empty());
+
+    database_close(db, FALSE);
+}
+
+/**
+ * A term is only expanded where fts5 takes an expression. Everywhere else the group it would be
+ * replaced with is a syntax error, and a query that fails comes back as an empty result set: the
+ * search silently finds nothing with Fuzzy on and everything with it off.
+ */
+TEST_F(SqliteIndexTest, FuzzySearchLeavesTermOnlyPositionsAlone) {
+    // Near-spellings of the words the queries below use, so there is something to expand them with
+    write_file("near.txt", "alpna zebar nome pith filt");
+
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
+    database_open(db);
+
+    for (const char *query: {"\"alpha zebra\"", "zebr*", "alpha OR zebra", "name : file", "name:file",
+                             "{name path} : file", "^alpha", "NEAR(alpha zebra, 5)",
+                             "alpha + zebra"}) {
+        const size_t plain = search(db, FTS_SORT_SCORE, TRUE, 20, nullptr, 0, {}, query).size();
+        const size_t fuzzy = search(db, FTS_SORT_SCORE, TRUE, 20, nullptr, 0, {}, query, FALSE, 0, TRUE).size();
+
+        EXPECT_GT(plain, 0u) << "query: " << query;
+        // Fewer hits than the query that was typed means fts5 rejected the expanded one
+        EXPECT_GE(fuzzy, plain) << "query: " << query;
+    }
+
+    // Expanding a phrase or a prefix term into alternatives would change what it means
+    EXPECT_EQ(search(db, FTS_SORT_SCORE, TRUE, 20, nullptr, 0, {}, "\"alpha zebra\"", FALSE, 0, TRUE).size(), 8u);
+    EXPECT_EQ(search(db, FTS_SORT_SCORE, TRUE, 20, nullptr, 0, {}, "zebr*", FALSE, 0, TRUE).size(), 8u);
+
+    database_close(db, FALSE);
+}
+
+/**
+ * fts5 concatenates adjacent phrases with an implicit AND, but two adjacent expressions have no
+ * production of their own: the group a term is expanded into is a syntax error next to anything
+ * the query did not spell an operator between, and a query that fails comes back empty.
+ */
+TEST_F(SqliteIndexTest, FuzzySearchCorrectsEveryWordOfAQuery) {
+    write_file("near.txt", "alpna zebar documnet nome pith filt");
+
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
+    database_open(db);
+
+    // No document has both words as they were typed, and correcting the second one finds them all
+    EXPECT_TRUE(search(db, FTS_SORT_SCORE, TRUE, 20, nullptr, 0, {}, "alpha zebar").empty());
+    EXPECT_EQ(search(db, FTS_SORT_SCORE, TRUE, 20, nullptr, 0, {}, "alpha zebar", FALSE, 0, TRUE).size(), 9u);
+
+    for (const char *query: {"alpha zebra", "alpha zebra document", "alpha OR zebra",
+                             "alpha AND zebra", "alpha NOT nothinghere", "name : file alpha",
+                             "^alpha zebra", "alpha \"zebra document\"",
+                             "alpha NEAR(zebra document, 5)", "alpha document + number",
+                             "(alpha zebra) AND document"}) {
+        const size_t plain = search(db, FTS_SORT_SCORE, TRUE, 20, nullptr, 0, {}, query).size();
+        const size_t fuzzy = search(db, FTS_SORT_SCORE, TRUE, 20, nullptr, 0, {}, query, FALSE, 0, TRUE).size();
+
+        EXPECT_GT(plain, 0u) << "query: " << query;
+        // Fewer hits than the query that was typed means fts5 rejected the expanded one
+        EXPECT_GE(fuzzy, plain) << "query: " << query;
+    }
+
+    database_close(db, FALSE);
+}
+
+TEST_F(SqliteIndexTest, IncrementalUpdateKeepsTheVocabularyInSync) {
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    ASSERT_EQ(query("SELECT count(*) FROM vocab_term WHERE term = 'zebra'"), 1);
+
+    for (int i = 0; i < 8; i++) {
+        write_file("file-" + std::to_string(i) + ".txt", "alpha encyclopedia number " + std::to_string(i));
+    }
+
+    ASSERT_EQ(scan("--incremental"), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term WHERE term = 'encyclopedia'"), 1);
+    // Nothing has that word any more, so correcting a spelling to it would only cost results
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term WHERE term = 'zebra'"), 0);
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_vocab WHERE word = 'zebra'"), 0);
+
+    // The vocabulary an incremental run keeps is the one a rebuild would have written
+    const long long incremental = query("SELECT count(*) FROM vocab_term");
+    ASSERT_EQ(sqlite_index("--rebuild"), 0);
+    EXPECT_EQ(query("SELECT count(*) FROM vocab_term"), incremental);
 }

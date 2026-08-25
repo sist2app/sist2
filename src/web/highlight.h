@@ -12,6 +12,15 @@
  */
 char **highlight_query_terms(const char *query);
 
+/**
+ * Word characters, as close to fts5's unicode61 tokenizer as byte comparisons get: every non-ASCII
+ * byte belongs to a word, so UTF-8 sequences stay whole. Case folding is ASCII-only, so a query
+ * for "CAFÉ" does not highlight "café" the way the tokenizer that matched it would have.
+ */
+int fts_is_word_byte(unsigned char c);
+
+int fts_is_fts5_operator(const char *word, size_t len);
+
 void highlight_free_terms(char **terms);
 
 /**

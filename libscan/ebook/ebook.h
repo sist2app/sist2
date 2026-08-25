@@ -4,7 +4,7 @@
 #include "../scan.h"
 
 typedef struct {
-    long content_size;
+    int64_t content_size;
     int tn_size;
     int enable_tn;
     const char *tesseract_lang;

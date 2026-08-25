@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
-#   docker buildx build --target artifact -o type=local,dest=. .   -> static binary only
-#   docker buildx build .                                          -> runtime image
+#   docker buildx build --target artifact -o type=local,dest=. .          -> static linux binary
+#   docker buildx build --target artifact-windows -o type=local,dest=. .  -> windows binary
+#   docker buildx build .                                                 -> runtime image
 #
 # Two builds of the same source: the portable binary is static musl, the image is glibc. Mime
 # detection spends most of its time in libmagic's regexes, and musl's TRE runs them ~1.5x slower
@@ -78,6 +79,75 @@ RUN case "${TARGETARCH}" in \
 
 FROM scratch AS artifact
 COPY --from=build-musl /build/build/sist2 /sist2
+
+
+# The Windows binary, cross-compiled with mingw-w64. Building it on Linux rather than a Windows
+# runner keeps it on the same vcpkg machinery as the others, and both ffmpeg and mupdf take their
+# portable code path when the host is not Windows.
+FROM ubuntu:24.04 AS build-mingw
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        build-essential mingw-w64 mingw-w64-tools ninja-build git curl zip unzip tar pkg-config \
+        ca-certificates python3 python3-pip autoconf autoconf-archive automake libtool libtool-bin \
+        nasm yasm gettext perl bison flex texinfo bc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Debian's mingw defaults to the win32 thread model, which ships no winpthreads. sist2, tesseract
+# and leptonica all need pthreads.
+RUN for tool in gcc g++; do \
+        update-alternatives --set x86_64-w64-mingw32-${tool} /usr/bin/x86_64-w64-mingw32-${tool}-posix; \
+    done
+
+# Windows import libraries are lowercase in the sysroot. Ports that spell them with capitals
+# (tesseract asks for -lWs2_32) resolve only on a case-insensitive filesystem.
+RUN cd /usr/x86_64-w64-mingw32/lib \
+    && for lib in ws2_32 wsock32 bcrypt crypt32 iphlpapi secur32 shlwapi userenv winmm psapi \
+                  dbghelp mfplat mfuuid strmiids ole32 oleaut32 uuid gdi32 advapi32 shell32; do \
+        capitalized=$(echo "${lib}" | sed 's/^\(.\)/\u\1/'); \
+        if [ -e "lib${lib}.a" ] && [ ! -e "lib${capitalized}.a" ]; then \
+            ln -s "lib${lib}.a" "lib${capitalized}.a"; \
+        fi; \
+    done \
+    && ln -sf libws2_32.a libWS2_32.a
+
+ENV VCPKG_FORCE_SYSTEM_BINARIES=1
+RUN pip install --break-system-packages --no-cache-dir cmake==4.4.2
+
+RUN git clone https://github.com/microsoft/vcpkg /vcpkg \
+    && git -C /vcpkg checkout 9e593bb18ea69cc5095e012465dcd675a822ed0d \
+    && /vcpkg/bootstrap-vcpkg.sh -disableMetrics
+
+WORKDIR /build
+
+COPY vcpkg.json .
+COPY overlay-ports overlay-ports
+RUN --mount=type=cache,target=/root/.cache/vcpkg \
+    /vcpkg/vcpkg install --triplet=x64-mingw-static-release --host-triplet=x64-linux-release \
+        --x-manifest-root=/build --x-install-root=/build/vcpkg_installed
+
+COPY . .
+
+COPY --from=frontend /build/sist2-vue/dist sist2-vue/dist
+
+# BUILD_TESTS is off because nothing in this image would run the result. They do build for
+# Windows (and pass under wine); only the ASan and UBSan variants are Linux-only.
+RUN cmake -B build \
+        -DSIST_PLATFORM=x64_windows \
+        -DVCPKG_TARGET_TRIPLET=x64-mingw-static-release \
+        -DVCPKG_HOST_TRIPLET=x64-linux-release \
+        -DSIST_DEBUG=off \
+        -DSIST_DEBUG_INFO=on \
+        -DBUILD_TESTS=off \
+        -DSIST_STATIC=on \
+        -DVCPKG_INSTALLED_DIR=/build/vcpkg_installed \
+        -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=/build/scripts/mingw-w64-x86_64.cmake \
+        -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake \
+    && cmake --build build -j "$(nproc)" \
+    && x86_64-w64-mingw32-strip build/sist2.exe
+
+
+FROM scratch AS artifact-windows
+COPY --from=build-mingw /build/build/sist2.exe /sist2.exe
 
 
 # Same steps against glibc. The base matches the runtime image, so the binary links against the

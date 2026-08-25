@@ -311,7 +311,7 @@ static void report_crash(worker_t *worker) {
                 BLANK_STR "The process was working on %s\n"
                 BLANK_STR "Please consider creating a bug report at https://github.com/simon987/sist2/issues !\n"
                 BLANK_STR "sist2 is an open source project and relies on the collaboration of its users to diagnose and fix bugs.\n",
-                strsignal(worker->term_signal),
+                sist_signal_name(worker->term_signal),
                 job_filepath
         );
     } else {

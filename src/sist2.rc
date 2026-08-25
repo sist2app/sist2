@@ -1,0 +1,4 @@
+#include <winuser.h>
+
+// CREATEPROCESS_MANIFEST_RESOURCE_ID: the manifest the loader applies to the executable itself
+1 24 "sist2.manifest"

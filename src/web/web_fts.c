@@ -32,6 +32,7 @@ typedef struct {
     int fetch_aggregations;
     int highlight;
     int highlight_context_size;
+    int fuzzy;
     int model;
     float *embedding;
     int embedding_size;
@@ -180,7 +181,7 @@ fts_search_req_t *get_search_req(struct mg_http_message *hm) {
     json_value req_query, req_paths, req_size_min, req_size_max, req_date_min, req_date_max, req_page_size,
             req_index_ids, req_mime_types, req_tags, req_sort_asc, req_sort, req_seed, req_after,
             req_fetch_aggregations, req_highlight, req_highlight_context_size, req_embedding, req_model,
-            req_search_in_path;
+            req_search_in_path, req_fuzzy;
 
     if (!cJSON_IsObject(json) ||
         (req_query = get_json_string(json, "query")).invalid ||
@@ -198,6 +199,7 @@ fts_search_req_t *get_search_req(struct mg_http_message *hm) {
         (req_index_ids = get_json_number_array(json, "indexIds")).invalid ||
         (req_mime_types = get_json_array(json, "mimeTypes")).invalid ||
         (req_highlight = get_json_bool(json, "highlight")).invalid ||
+        (req_fuzzy = get_json_bool(json, "fuzzy")).invalid ||
         (req_search_in_path = get_json_bool(json, "searchInPath")).invalid ||
         (req_highlight_context_size = get_json_number(json, "highlightContextSize")).invalid ||
         (req_embedding = get_json_number_array(json, "embedding")).invalid ||
@@ -280,6 +282,7 @@ fts_search_req_t *get_search_req(struct mg_http_message *hm) {
     req->tags = req_tags.val ? json_array_to_c_array(req_tags.val) : NULL;
     req->fetch_aggregations = req_fetch_aggregations.val ? req_fetch_aggregations.val->valueint : FALSE;
     req->highlight = req_highlight.val ? req_highlight.val->valueint : FALSE;
+    req->fuzzy = req_fuzzy.val ? req_fuzzy.val->valueint : FALSE;
     req->highlight_context_size = req_highlight_context_size.val
                                   ? req_highlight_context_size.val->valueint
                                   : DEFAULT_HIGHLIGHT_CONTEXT_SIZE;
@@ -415,13 +418,13 @@ void fts_search(struct mg_connection *nc, struct mg_http_message *hm) {
     }
 
     cJSON *json = database_fts_search(WebCtx.search_db, req->query, req->paths,
-                                      (long) req->size_min, (long) req->size_max,
-                                      (long) req->date_min, (long) req->date_max,
+                                      (int64_t) req->size_min, (int64_t) req->size_max,
+                                      (int64_t) req->date_min, (int64_t) req->date_max,
                                       req->page_size, req->index_ids, req->mime_types,
                                       req->tags, req->sort_asc, req->sort, req->seed,
                                       req->after, req->fetch_aggregations, req->highlight,
                                       req->highlight_context_size, req->model,
-                                      req->embedding, req->embedding_size);
+                                      req->embedding, req->embedding_size, req->fuzzy);
 
     if (json == NULL) {
         HTTP_REPLY_BAD_REQUEST

@@ -53,25 +53,25 @@ void noop_logf(const char *filepath, int level, char *format, ...);
  * Parser context factories. Every context is returned by value, so tests own theirs and can
  * mutate it freely without affecting any other test.
  */
-scan_text_ctx_t make_text_ctx(long content_size = 500);
+scan_text_ctx_t make_text_ctx(int64_t content_size = 500);
 
-scan_ebook_ctx_t make_ebook_ctx(long content_size = 500, int fast_epub_parse = FALSE);
+scan_ebook_ctx_t make_ebook_ctx(int64_t content_size = 500, int fast_epub_parse = FALSE);
 
 scan_comic_ctx_t make_comic_ctx(int tn_size = 500, int enable_tn = TRUE);
 
 scan_media_ctx_t make_media_ctx(int tn_size = 500, int tn_count = 1);
 
-scan_ooxml_ctx_t make_ooxml_ctx(long content_size = 500, int enable_tn = TRUE);
+scan_ooxml_ctx_t make_ooxml_ctx(int64_t content_size = 500, int enable_tn = TRUE);
 
-scan_mobi_ctx_t make_mobi_ctx(long content_size = 500);
+scan_mobi_ctx_t make_mobi_ctx(int64_t content_size = 500);
 
 scan_raw_ctx_t make_raw_ctx(int tn_size = 500, int enable_tn = TRUE);
 
-scan_msdoc_ctx_t make_msdoc_ctx(long content_size = 500);
+scan_msdoc_ctx_t make_msdoc_ctx(int64_t content_size = 500);
 
-scan_wpd_ctx_t make_wpd_ctx(long content_size = 500);
+scan_wpd_ctx_t make_wpd_ctx(int64_t content_size = 500);
 
-scan_json_ctx_t make_json_ctx(long content_size = 5000);
+scan_json_ctx_t make_json_ctx(int64_t content_size = 5000);
 
 scan_font_ctx_t make_font_ctx(int enable_tn = TRUE);
 
@@ -85,7 +85,7 @@ scan_arc_ctx_t make_arc_ctx(archive_mode_t mode, const char *passphrase = nullpt
  * Email context. Attachments and mbox messages are handed to the parser installed with
  * ArcTest::recurse_into(), the same way archive entries are.
  */
-scan_email_ctx_t make_email_ctx(long content_size = 5000);
+scan_email_ctx_t make_email_ctx(int64_t content_size = 5000);
 
 /* Document helpers */
 

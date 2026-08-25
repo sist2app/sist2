@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <cstdint>
+
 #include <atomic>
 #include <thread>
 #include <vector>
@@ -172,7 +174,7 @@ TEST(Queue, MultiProducerMultiConsumerLosesNothing) {
         consumers.emplace_back([&] {
             void *popped;
             while ((popped = queue_pop(queue)) != nullptr) {
-                consumed_sum += (long) popped;
+                consumed_sum += (intptr_t) popped;
                 consumed_count += 1;
             }
         });
@@ -196,9 +198,9 @@ TEST(Queue, MultiProducerMultiConsumerLosesNothing) {
     }
 
     const int total = producer_count * per_producer;
-    long expected_sum = 0;
+    intptr_t expected_sum = 0;
     for (long n = 0; n < total; n++) {
-        expected_sum += (long) item(n);
+        expected_sum += (intptr_t) item(n);
     }
 
     ASSERT_EQ(consumed_count.load(), total);

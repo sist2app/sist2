@@ -108,6 +108,10 @@ class Sist2ElasticsearchQuery {
 
         q["searchInPath"] = getters.optSearchInPath;
 
+        if (getters.fuzzy) {
+            q["fuzzy"] = true;
+        }
+
         return q;
     }
 }

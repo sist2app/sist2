@@ -6,6 +6,8 @@
 
 #include <sqlite3.h>
 
+#include "tests/support/subprocess.h"
+
 /*
  * Every format libscan can read needs a branch in get_file_type() to be reached at all. A parser
  * can keep passing its own tests while nothing dispatches to it: WordPerfect support was dropped
@@ -64,19 +66,16 @@ protected:
     }
 
     int scan() {
-        const std::string command = std::string(SIST2_BINARY) + " scan --threads 1"
-                                    + " -o " + index.string()
-                                    + " " + (dir / "files").string()
-                                    + " > /dev/null 2>&1";
-
-        const int status = system(command.c_str());
-        return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+        return sist2::test::run(std::string(SIST2_BINARY) + " scan --threads 1"
+                                + " -o " + index.string()
+                                + " " + (dir / "files").string()
+                                + sist2::test::quiet());
     }
 
     /** Length of the extracted text of the single document in the index, or -1 */
     long long content_length() {
         sqlite3 *db;
-        if (sqlite3_open(index.c_str(), &db) != SQLITE_OK) {
+        if (sqlite3_open(index.string().c_str(), &db) != SQLITE_OK) {
             return -1;
         }
 
@@ -95,7 +94,7 @@ protected:
     /** First column of the first row, or "" */
     std::string scalar(const std::string &sql) {
         sqlite3 *db;
-        if (sqlite3_open(index.c_str(), &db) != SQLITE_OK) {
+        if (sqlite3_open(index.string().c_str(), &db) != SQLITE_OK) {
             return "";
         }
 
@@ -115,7 +114,7 @@ protected:
 
     std::string mime_of_document() {
         sqlite3 *db;
-        if (sqlite3_open(index.c_str(), &db) != SQLITE_OK) {
+        if (sqlite3_open(index.string().c_str(), &db) != SQLITE_OK) {
             return "";
         }
 

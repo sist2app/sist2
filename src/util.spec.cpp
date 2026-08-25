@@ -1,5 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <cstdint>
+
+#include "tests/support/subprocess.h"
+
 #include <set>
 #include <string>
 
@@ -122,7 +126,7 @@ TEST(ParseSid, ValidSid) {
     ASSERT_EQ(sid.index_id, 0xa);
     ASSERT_EQ(sid.doc_id, 0xb);
     ASSERT_STREQ(sid.sid_str, "0000000a.0000000b");
-    ASSERT_EQ(sid.sid_int64, ((long) 0xa << 32) | 0xb);
+    ASSERT_EQ(sid.sid_int64, ((int64_t) 0xa << 32) | 0xb);
 }
 
 TEST(ParseSid, MissingSeparatorIsRejected) {
@@ -148,7 +152,12 @@ TEST(Path, AbspathResolvesRelativePath) {
     char *abs = abspath("/tmp/../tmp");
 
     ASSERT_NE(abs, nullptr);
+#ifdef _WIN32
+    // An absolute path carries a drive there, so only the resolved tail is comparable
+    ASSERT_STREQ(abs + 2, "/tmp");
+#else
     ASSERT_STREQ(abs, "/tmp");
+#endif
 
     free(abs);
 }
@@ -160,7 +169,7 @@ TEST(Path, AbspathReturnsNullForMissingPath) {
 }
 
 TEST(Path, ExpandpathExpandsHome) {
-    setenv("HOME", "/home/sist2-test", TRUE);
+    sist2::test::set_test_env("HOME", "/home/sist2-test");
 
     char *expanded = expandpath("~/documents");
 

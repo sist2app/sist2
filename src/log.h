@@ -5,6 +5,13 @@
 #include <signal.h>
 #include <stddef.h>
 
+// Raised before a fatal exit so a debugger stops with the stack still up. Windows has no SIGUSR1.
+#ifdef _WIN32
+#define RAISE_FATAL() ((void) 0)
+#else
+#define RAISE_FATAL() raise(SIGUSR1)
+#endif
+
 #define LOG_MAX_LENGTH 8192
 
 /** Best-effort write of a log line; retries partial writes, drops the line on error */
@@ -38,11 +45,11 @@ void log_write(int fd, const char *buf, size_t len);
 
 #define LOG_FATALF(filepath, fmt, ...)\
     sist_logf(filepath, LOG_SIST_FATAL, fmt, __VA_ARGS__);\
-    raise(SIGUSR1);                   \
+    RAISE_FATAL();                    \
     exit(-1)
 #define LOG_FATAL(filepath, str) \
     sist_log(filepath, LOG_SIST_FATAL, str);\
-    raise(SIGUSR1);                   \
+    RAISE_FATAL();                    \
     exit(-1)
 #define LOG_FATALF_NO_EXIT(filepath, fmt, ...) \
     sist_logf(filepath, LOG_SIST_FATAL, fmt, __VA_ARGS__)
@@ -52,7 +59,7 @@ void log_write(int fd, const char *buf, size_t len);
 #include "sist.h"
 
 /* printf attribute: a mismatched format argument in a log line is a crash, not a wrong message */
-void sist_logf(const char *filepath, int level, char *format, ...) __attribute__((format(printf, 3, 4)));
+void sist_logf(const char *filepath, int level, char *format, ...) __attribute__((format(SIST_PRINTF_FORMAT, 3, 4)));
 
 void vsist_logf(const char *filepath, int level, char *format, va_list ap);
 

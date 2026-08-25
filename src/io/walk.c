@@ -3,7 +3,6 @@
 #include "src/parsing/fs_util.h"
 #include "src/worker/master.h"
 
-#include <dirent.h>
 #include <pthread.h>
 
 #define STR_STARTS_WITH(x, y) (strncmp(y, x, strlen(y) - 1) == 0)
@@ -13,7 +12,7 @@ int sub_strings[30];
 #define EXCLUDED(str) (pcre_exec(ScanCtx.exclude, ScanCtx.exclude_extra, str, strlen(str), 0, 0, sub_strings, sizeof(sub_strings)) >= 0)
 
 static void queue_parse_job(const char *filepath, const struct stat *info) {
-    scan_master_submit(ScanCtx.master, filepath, (int) info->st_mtim.tv_sec, info->st_size);
+    scan_master_submit(ScanCtx.master, filepath, (int) STAT_MTIME(*info), info->st_size);
 }
 
 // Skip an entry (and its subtree, for directories) when it is beyond the
@@ -37,7 +36,7 @@ static int is_pruned(const char *path, int level) {
 }
 
 static int walk_recurse(const char *dirpath, int level) {
-    DIR *dir = opendir(dirpath);
+    sist_dir_t *dir = sist_opendir(dirpath);
     if (dir == NULL) {
         LOG_ERRORF("walk.c", "Could not open directory %s (%s)", dirpath, strerror(errno));
         // Match nftw(): failing to open the root is fatal, unreadable subdirectories are skipped
@@ -46,23 +45,26 @@ static int walk_recurse(const char *dirpath, int level) {
 
     char *path = malloc(PATH_MAX);
     struct stat info;
-    struct dirent *entry;
+    const char *name;
 
     // dirpath only ends with '/' when scanning the filesystem root
     const char *sep = dirpath[strlen(dirpath) - 1] == '/' ? "" : "/";
 
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+    while ((name = sist_readdir(dir, &info)) != NULL) {
+        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
             continue;
         }
 
-        snprintf(path, PATH_MAX, "%s%s%s", dirpath, sep, entry->d_name);
+        snprintf(path, PATH_MAX, "%s%s%s", dirpath, sep, name);
 
-        // Do not follow symlinks (equivalent to nftw() FTW_PHYS)
-        if (lstat(path, &info) != 0) {
+#ifndef _WIN32
+        // Do not follow symlinks (equivalent to nftw() FTW_PHYS); on Windows sist_readdir()
+        // already filled `info` from the find data
+        if (sist_lstat(path, &info) != 0) {
             LOG_ERRORF("walk.c", "Could not stat %s (%s)", path, strerror(errno));
             continue;
         }
+#endif
 
         if (is_pruned(path, level)) {
             continue;
@@ -76,7 +78,7 @@ static int walk_recurse(const char *dirpath, int level) {
     }
 
     free(path);
-    closedir(dir);
+    sist_closedir(dir);
     return 0;
 }
 
@@ -86,10 +88,7 @@ int walk_directory_tree(const char *dirpath) {
     root[sizeof(root) - 1] = '\0';
 
     // Strip trailing slashes so constructed paths match nftw() output
-    size_t len = strlen(root);
-    while (len > 1 && root[len - 1] == '/') {
-        root[--len] = '\0';
-    }
+    path_strip_trailing_slashes(root);
 
     if (is_pruned(root, 0)) {
         return 0;
@@ -108,7 +107,7 @@ int iterate_file_list(void *input_file) {
         // Remove trailing newline
         *(buf + strlen(buf) - 1) = '\0';
 
-        int stat_ret = stat(buf, &info);
+        int stat_ret = sist_stat(buf, &info);
 
         if (stat_ret != 0) {
             LOG_ERRORF("walk.c", "Could not stat file %s (%s)", buf, strerror(errno));
@@ -135,7 +134,7 @@ int iterate_file_list(void *input_file) {
             LOG_FATALF("walk.c", "File is not a children of root folder (%s): %s", ScanCtx.index.desc.root, buf);
         }
 
-        scan_master_submit(ScanCtx.master, absolute_path, (int) info.st_mtim.tv_sec, info.st_size);
+        scan_master_submit(ScanCtx.master, absolute_path, (int) STAT_MTIME(info), info.st_size);
         free(absolute_path);
     }
 

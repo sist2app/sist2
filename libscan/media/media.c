@@ -1018,39 +1018,57 @@ int vfile_read(void *ptr, uint8_t *buf, int buf_size) {
 
 typedef struct {
     size_t size;
-    FILE *file;
+    size_t pos;
     void *buf;
 } memfile_t;
 
 int memfile_read(void *ptr, uint8_t *buf, int buf_size) {
     memfile_t *mem = ptr;
 
-    size_t ret = fread(buf, 1, buf_size, mem->file);
-
-    if (ret == 0 && feof(mem->file)) {
+    const size_t remaining = mem->size - mem->pos;
+    if (remaining == 0) {
         return AVERROR_EOF;
     }
 
-    return (int) ret;
+    const size_t chunk = (size_t) buf_size < remaining ? (size_t) buf_size : remaining;
+    memcpy(buf, (const char *) mem->buf + mem->pos, chunk);
+    mem->pos += chunk;
+
+    return (int) chunk;
 }
 
-long memfile_seek(void *ptr, long offset, int whence) {
+// Matches AVIOContext's seek callback, which is 64-bit on every platform
+int64_t memfile_seek(void *ptr, int64_t offset, int whence) {
     memfile_t *mem = ptr;
+    int64_t target;
 
-    if (whence == 0x10000) {
-        return (long) mem->size;
+    switch (whence) {
+        case 0x10000: // AVSEEK_SIZE
+            return (int64_t) mem->size;
+        case SEEK_SET:
+            target = offset;
+            break;
+        case SEEK_CUR:
+            target = (int64_t) mem->pos + offset;
+            break;
+        case SEEK_END:
+            target = (int64_t) mem->size + offset;
+            break;
+        default:
+            return AVERROR_EOF;
     }
 
-    int ret = fseek(mem->file, offset, whence);
-    if (ret != 0) {
+    if (target < 0 || target > (int64_t) mem->size) {
         return AVERROR_EOF;
     }
 
-    return ftell(mem->file);
+    mem->pos = (size_t) target;
+    return target;
 }
 
 int memfile_open(vfile_t *f, memfile_t *mem) {
     mem->size = f->st_size;
+    mem->pos = 0;
 
     mem->buf = malloc(mem->size);
     if (mem->buf == NULL) {
@@ -1058,7 +1076,6 @@ int memfile_open(vfile_t *f, memfile_t *mem) {
     }
 
     int ret = f->read(f, mem->buf, mem->size);
-    mem->file = fmemopen(mem->buf, mem->size, "rb");
 
     if (f->calculate_checksum) {
         safe_digest_update(f->sha1_ctx, mem->buf, mem->size);
@@ -1068,23 +1085,17 @@ int memfile_open(vfile_t *f, memfile_t *mem) {
         f->has_checksum = TRUE;
     }
 
-    return ((size_t) ret == mem->size && mem->file != NULL) ? 0 : -1;
+    return (size_t) ret == mem->size ? 0 : -1;
 }
 
-int memfile_open_buf(void *buf, size_t buf_len, memfile_t *mem) {
-    mem->size = (int) buf_len;
-
+void memfile_open_buf(void *buf, size_t buf_len, memfile_t *mem) {
+    mem->size = buf_len;
+    mem->pos = 0;
     mem->buf = buf;
-    mem->file = fmemopen(mem->buf, mem->size, "rb");
-
-    return mem->file != NULL ? 0 : -1;
 }
 
 void memfile_close(memfile_t *mem) {
-    if (mem->buf != NULL) {
-        free(mem->buf);
-        fclose(mem->file);
-    }
+    free(mem->buf);
 }
 
 void parse_media_vfile(scan_media_ctx_t *ctx, struct vfile *f, document_t *doc, const char *mime_str) {
@@ -1107,7 +1118,7 @@ void parse_media_vfile(scan_media_ctx_t *ctx, struct vfile *f, document_t *doc, 
     if (f->st_size <= (size_t) ctx->max_media_buffer) {
         int ret = memfile_open(f, &memfile);
         if (ret == 0) {
-            CTX_LOG_DEBUGF(f->filepath, "Loading media file in memory (%ldB)", f->st_size);
+            CTX_LOG_DEBUGF(f->filepath, "Loading media file in memory (%zuB)", f->st_size);
             io_ctx = avio_alloc_context(buffer, AVIO_BUF_SIZE, 0, &memfile, memfile_read, NULL, memfile_seek);
         }
     }
@@ -1165,16 +1176,9 @@ int store_image_thumbnail(scan_media_ctx_t *ctx, void *buf, size_t buf_len, docu
 
     unsigned char *buffer = (unsigned char *) av_malloc(AVIO_BUF_SIZE);
 
-    int ret = memfile_open_buf(buf, buf_len, &memfile);
-    if (ret == 0) {
-        CTX_LOG_DEBUGF(doc->filepath, "Loading media file in memory (%ldB)", buf_len);
-        io_ctx = avio_alloc_context(buffer, AVIO_BUF_SIZE, 0, &memfile, memfile_read, NULL, memfile_seek);
-    } else {
-        avformat_close_input(&pFormatCtx);
-        avformat_free_context(pFormatCtx);
-        fclose(memfile.file);
-        return FALSE;
-    }
+    memfile_open_buf(buf, buf_len, &memfile);
+    CTX_LOG_DEBUGF(doc->filepath, "Loading media file in memory (%zuB)", buf_len);
+    io_ctx = avio_alloc_context(buffer, AVIO_BUF_SIZE, 0, &memfile, memfile_read, NULL, memfile_seek);
 
     pFormatCtx->pb = io_ctx;
 
@@ -1184,7 +1188,6 @@ int store_image_thumbnail(scan_media_ctx_t *ctx, void *buf, size_t buf_len, docu
         avformat_close_input(&pFormatCtx);
         avformat_free_context(pFormatCtx);
         avio_context_free(&io_ctx);
-        fclose(memfile.file);
         return FALSE;
     }
 
@@ -1204,7 +1207,6 @@ int store_image_thumbnail(scan_media_ctx_t *ctx, void *buf, size_t buf_len, docu
         avformat_free_context(pFormatCtx);
         av_free(io_ctx->buffer);
         avio_context_free(&io_ctx);
-        fclose(memfile.file);
         return FALSE;
     }
 
@@ -1218,7 +1220,6 @@ int store_image_thumbnail(scan_media_ctx_t *ctx, void *buf, size_t buf_len, docu
         avformat_free_context(pFormatCtx);
         av_free(io_ctx->buffer);
         avio_context_free(&io_ctx);
-        fclose(memfile.file);
         return FALSE;
     }
 
@@ -1240,7 +1241,6 @@ int store_image_thumbnail(scan_media_ctx_t *ctx, void *buf, size_t buf_len, docu
 
     av_free(io_ctx->buffer);
     avio_context_free(&io_ctx);
-    fclose(memfile.file);
 
     return TRUE;
 }

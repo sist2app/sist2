@@ -127,6 +127,12 @@ target_compile_definitions(libmupdf
     $<$<BOOL:${ENABLE_OCR}>:HAVE_TESSERACT>
     $<$<BOOL:${ENABLE_OCR}>:HAVE_LEPTONICA>
 )
+
+if (MINGW)
+  # fitz/system.h turns the SSE4.1 deskew path on for _M_X64, which mingw defines for MSVC
+  # compatibility. gcc then compiles the intrinsics without -msse4.1 and rejects them.
+  target_compile_definitions(libmupdf PRIVATE ARCH_HAS_SSE=0)
+endif()
 target_link_libraries(libmupdf
   PRIVATE
     freetype

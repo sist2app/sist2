@@ -86,7 +86,7 @@ void noop_logf(const char *, int, char *, ...) {
     // noop
 }
 
-scan_text_ctx_t make_text_ctx(long content_size) {
+scan_text_ctx_t make_text_ctx(int64_t content_size) {
     scan_text_ctx_t ctx = {};
 
     ctx.content_size = content_size;
@@ -96,7 +96,7 @@ scan_text_ctx_t make_text_ctx(long content_size) {
     return ctx;
 }
 
-scan_ebook_ctx_t make_ebook_ctx(long content_size, int fast_epub_parse) {
+scan_ebook_ctx_t make_ebook_ctx(int64_t content_size, int fast_epub_parse) {
     scan_ebook_ctx_t ctx = {};
 
     ctx.content_size = content_size;
@@ -137,7 +137,7 @@ scan_media_ctx_t make_media_ctx(int tn_size, int tn_count) {
     return ctx;
 }
 
-scan_ooxml_ctx_t make_ooxml_ctx(long content_size, int enable_tn) {
+scan_ooxml_ctx_t make_ooxml_ctx(int64_t content_size, int enable_tn) {
     scan_ooxml_ctx_t ctx = {};
 
     ctx.content_size = content_size;
@@ -148,7 +148,7 @@ scan_ooxml_ctx_t make_ooxml_ctx(long content_size, int enable_tn) {
     return ctx;
 }
 
-scan_mobi_ctx_t make_mobi_ctx(long content_size) {
+scan_mobi_ctx_t make_mobi_ctx(int64_t content_size) {
     scan_mobi_ctx_t ctx = {};
 
     ctx.content_size = content_size;
@@ -170,7 +170,7 @@ scan_raw_ctx_t make_raw_ctx(int tn_size, int enable_tn) {
     return ctx;
 }
 
-scan_msdoc_ctx_t make_msdoc_ctx(long content_size) {
+scan_msdoc_ctx_t make_msdoc_ctx(int64_t content_size) {
     scan_msdoc_ctx_t ctx = {};
 
     ctx.content_size = content_size;
@@ -180,7 +180,7 @@ scan_msdoc_ctx_t make_msdoc_ctx(long content_size) {
     return ctx;
 }
 
-scan_wpd_ctx_t make_wpd_ctx(long content_size) {
+scan_wpd_ctx_t make_wpd_ctx(int64_t content_size) {
     scan_wpd_ctx_t ctx = {};
 
     ctx.content_size = content_size;
@@ -190,7 +190,7 @@ scan_wpd_ctx_t make_wpd_ctx(long content_size) {
     return ctx;
 }
 
-scan_json_ctx_t make_json_ctx(long content_size) {
+scan_json_ctx_t make_json_ctx(int64_t content_size) {
     scan_json_ctx_t ctx = {};
 
     ctx.content_size = content_size;
@@ -246,7 +246,7 @@ scan_arc_ctx_t make_arc_ctx(archive_mode_t mode, const char *passphrase) {
     return ctx;
 }
 
-scan_email_ctx_t make_email_ctx(long content_size) {
+scan_email_ctx_t make_email_ctx(int64_t content_size) {
     scan_email_ctx_t ctx = {};
 
     ctx.content_size = content_size;
@@ -326,7 +326,8 @@ void fuzz_buffer(char *buf, size_t *buf_len, int width, int n, int trunc_p) {
 
 static int fs_read(struct vfile *f, void *buf, size_t size) {
     if (f->fd == -1) {
-        f->fd = open(f->filepath, O_RDONLY);
+        // O_BINARY, or Windows rewrites CRLF and stops at 0x1a in every binary test file
+        f->fd = sist_open(f->filepath, O_RDONLY | O_BINARY);
         if (f->fd == -1) {
             return -1;
         }
@@ -372,10 +373,10 @@ void ScanTest::load_path(const std::string &path) {
 
     memset(&f, 0, sizeof(f));
 
-    f.mtime = (int) info.st_mtim.tv_sec;
+    f.mtime = (int) STAT_MTIME(info);
     f.st_size = info.st_size;
 
-    f.fd = open(path.c_str(), O_RDONLY);
+    f.fd = sist_open(path.c_str(), O_RDONLY | O_BINARY);
 
     if (f.fd == -1) {
         FAIL() << FILE_NOT_FOUND_ERR << " (" << path << ")";

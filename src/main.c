@@ -51,7 +51,7 @@ void database_scan_begin(scan_args_t *args) {
         strcpy(original_desc->rewrite_url, desc->rewrite_url);
         strcpy(original_desc->name, desc->name);
 
-        time(&original_desc->timestamp);
+        original_desc->timestamp = (int64_t) time(NULL);
 
         database_write_index_descriptor(db, original_desc);
         free(original_desc);
@@ -61,7 +61,7 @@ void database_scan_begin(scan_args_t *args) {
     } else {
         // Create new descriptor
 
-        time(&desc->timestamp);
+        desc->timestamp = (int64_t) time(NULL);
         strcpy(desc->version, Version);
         desc->version_major = VersionMajor;
         desc->version_minor = VersionMinor;
@@ -167,9 +167,8 @@ void initialize_scan_context(scan_args_t *args) {
     ScanCtx.media_ctx.tn_count = args->tn_count;
     ScanCtx.media_ctx.log = log_callback;
     ScanCtx.media_ctx.logf = logf_callback;
-    ScanCtx.media_ctx.max_media_buffer = (long) args->max_memory_buffer_mib * 1024 * 1024;
+    ScanCtx.media_ctx.max_media_buffer = (int64_t) args->max_memory_buffer_mib * 1024 * 1024;
     ScanCtx.media_ctx.read_subtitles = args->read_subtitles;
-    ScanCtx.media_ctx.read_subtitles = args->tn_count;
 
     if (args->ocr_images) {
         ScanCtx.media_ctx.tesseract_lang = args->tesseract_lang;
@@ -415,7 +414,7 @@ void sist2_sqlite_index(sqlite_index_args_t *args) {
 
     database_fts_attach(db, args->search_index_path);
 
-    database_fts_index(db, args->rebuild);
+    database_fts_index(db, args->rebuild, args->skip_spellfix);
 
     if (args->optimize) {
         database_fts_optimize(db);
@@ -501,6 +500,10 @@ int set_to_negative_if_value_is_zero(UNUSED(struct argparse *self), const struct
 
 int main(int argc, const char *argv[]) {
     setlocale(LC_ALL, "");
+
+#ifdef _WIN32
+    sist_enable_console_vt();
+#endif
 
     // argparse permutes argv in place, so the worker command line is built from a copy taken here
     ScanCtx.argc = argc;
@@ -608,6 +611,8 @@ int main(int argc, const char *argv[]) {
                         "Rebuild the whole search index instead of only applying the changes since the last run."),
             OPT_BOOLEAN(0, "optimize", &sqlite_index_args->optimize,
                         "Merge the search index into a single b-tree when done. Slow, and rarely worth it."),
+            OPT_BOOLEAN(0, "skip-spellfix", &sqlite_index_args->skip_spellfix,
+                        "Leave the search index without the vocabulary that fuzzy searches are corrected against."),
 
             OPT_GROUP("Web options"),
             OPT_STRING(0, "es-url", &common_es_url, "Elasticsearch url. DEFAULT: http://localhost:9200"),

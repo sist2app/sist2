@@ -77,6 +77,7 @@ typedef struct {
     char *search_index_path;
     int rebuild;
     int optimize;
+    int skip_spellfix;
 } sqlite_index_args_t;
 
 typedef enum {

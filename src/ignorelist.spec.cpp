@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include "tests/support/subprocess.h"
+
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -32,7 +34,7 @@ protected:
         if (had_tmpdir) {
             original_tmpdir = tmpdir;
         }
-        setenv("TMPDIR", root.c_str(), TRUE);
+        sist2::test::set_test_env("TMPDIR", root);
 
         ScanCtx.index.desc.root_len = (int) (root.size() + 1);
         ignorelist = ignorelist_create();
@@ -45,9 +47,9 @@ protected:
         // Left pointing at the deleted directory, temp_directory_path() throws in
         // every later suite.
         if (had_tmpdir) {
-            setenv("TMPDIR", original_tmpdir.c_str(), TRUE);
+            sist2::test::set_test_env("TMPDIR", original_tmpdir);
         } else {
-            unsetenv("TMPDIR");
+            sist2::test::unset_test_env("TMPDIR");
         }
     }
 

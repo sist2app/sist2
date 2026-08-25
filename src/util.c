@@ -1,7 +1,9 @@
 #include "util.h"
 #include "src/ctx.h"
 
+#ifndef _WIN32
 #include <wordexp.h>
+#endif
 
 #define PBSTR "========================================"
 #define PBWIDTH 40
@@ -55,6 +57,9 @@ void shell_escape(char *dst, const char *src) {
 }
 
 char *expandpath(const char *path) {
+#ifdef _WIN32
+    return sist_expand_env(path);
+#else
     char tmp[PATH_MAX * 2];
 
     shell_escape(tmp, path);
@@ -79,6 +84,7 @@ char *expandpath(const char *path) {
 
     wordfree(&w);
     return expanded;
+#endif
 }
 
 int PrintingProgressBar = 0;
@@ -91,7 +97,7 @@ void progress_bar_print_json(size_t done, size_t count, size_t tn_size, size_t i
 
     size_t log_len = snprintf(
             log_str, sizeof(log_str),
-            "{\"progress\": {\"done\":%lu,\"count\":%lu,\"tn_size\":%lu,\"index_size\":%lu,\"waiting\":%s}}\n",
+            "{\"progress\": {\"done\":%zu,\"count\":%zu,\"tn_size\":%zu,\"index_size\":%zu,\"waiting\":%s}}\n",
             done, count, tn_size, index_size, BOOLEAN_STRING(waiting)
     );
 
@@ -168,7 +174,7 @@ const char *find_file_in_paths(const char *paths[], const char *filename) {
         free(apath);
 
         struct stat info;
-        int ret = stat(path, &info);
+        int ret = sist_stat(path, &info);
         if (ret != -1) {
             return paths[i];
         }
@@ -351,6 +357,11 @@ struct timespec timespec_add(struct timespec ts1, long usec) {
 int random_index_id() {
     unsigned int id = 0;
 
+#ifdef _WIN32
+    if (sist_random_bytes(&id, sizeof(id)) != 0) {
+        id = 0;
+    }
+#else
     FILE *urandom = fopen("/dev/urandom", "rb");
     if (urandom != NULL) {
         if (fread(&id, sizeof(id), 1, urandom) != 1) {
@@ -358,6 +369,7 @@ int random_index_id() {
         }
         fclose(urandom);
     }
+#endif
 
     if (id == 0) {
         id = (unsigned int) time(NULL) ^ ((unsigned int) getpid() << 16);

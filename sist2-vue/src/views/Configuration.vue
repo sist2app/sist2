@@ -133,7 +133,7 @@
                         $t("opt.tagOrOperator")
                         }}
                     </b-form-checkbox>
-                    <b-form-checkbox :disabled="uiSqliteMode" :checked="optFuzzy" @input="setOptFuzzy">
+                    <b-form-checkbox :disabled="!fuzzyAvailable" :checked="optFuzzy" @input="setOptFuzzy">
                         {{ $t("opt.fuzzy") }}
                     </b-form-checkbox>
 
@@ -299,6 +299,7 @@ export default {
     computed: {
         ...mapGetters([
             "uiSqliteMode",
+            "fuzzyAvailable",
             "optTheme",
             "optDisplay",
             "optColumns",

@@ -100,7 +100,11 @@ static const char *temp_directory() {
     if (directory == nullptr) {
         directory = getenv("TMPDIR");
     }
-    return directory == nullptr ? "/tmp" : directory;
+    if (directory != nullptr) {
+        return directory;
+    }
+
+    return sist_temp_dir();
 }
 
 /**

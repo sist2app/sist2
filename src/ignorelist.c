@@ -15,7 +15,7 @@ char *get_tempdir() {
         return tempdir_env;
     }
 
-    return "/tmp/";
+    return (char *) sist_temp_dir();
 }
 
 void ignorelist_destroy(ignorelist_t* ignorelist) {
@@ -52,7 +52,7 @@ void ignorelist_load_ignore_file(ignorelist_t *ignorelist, const char *filepath)
     FILE *file;
     char line[PATH_MAX * 2];
 
-    file = fopen(filepath, "r");
+    file = sist_fopen(filepath, "r");
 
     if(file == NULL) {
         // No ignore list

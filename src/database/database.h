@@ -12,6 +12,9 @@ typedef struct index_descriptor index_descriptor_t;
 extern const char *IndexDatabaseSchema;
 extern const char *FtsDatabaseSchema;
 
+/** third-party/sqlite-spellfix/spellfix.c, compiled in rather than loaded at runtime */
+int sqlite3_spellfix_init(sqlite3 *db, char **error, const struct sqlite3_api_routines *api);
+
 typedef enum {
     INDEX_DATABASE,
     FTS_DATABASE
@@ -93,7 +96,7 @@ typedef struct {
 typedef struct {
     const char *path;
     const char *parent;
-    long size;
+    int64_t size;
 } treemap_row_t;
 
 
@@ -148,7 +151,7 @@ int database_mark_document(database_t *db, const char *id, int mtime);
 
 int database_mark_walked_document(database_t *db, const char *id, int mtime);
 
-database_iterator_t *database_create_treemap_iterator(database_t *db, long threshold);
+database_iterator_t *database_create_treemap_iterator(database_t *db, int64_t threshold);
 
 treemap_row_t database_treemap_iter(database_iterator_t *iter);
 
@@ -183,7 +186,25 @@ void database_fatal_sqlite_error(database_t *db, const char *file, int line, int
 
 void database_fts_attach(database_t *db, const char *fts_database_path);
 
-void database_fts_index(database_t *db, int rebuild);
+/** The first column of the first row the statement returns, or fallback when it returns none */
+long long database_fts_scalar(database_t *db, const char *sql, long long fallback);
+
+/**
+ * Brings the vocabulary of the search index in line with the words it holds. rebuild starts from
+ * an empty one; prune reads the term list a second time to drop the words no document has any more.
+ */
+void database_fts_build_vocab(database_t *db, int rebuild, int prune);
+
+/** Whether this search index carries the vocabulary a fuzzy search needs */
+int database_fts_has_vocab(database_t *db);
+
+/** Leaves the search index without a vocabulary, so a fuzzy search matches what was typed */
+void database_fts_drop_vocab(database_t *db);
+
+/** The query with its words expanded to their near spellings, or NULL when there is no vocabulary */
+char *database_fts_fuzzy_expand(database_t *db, const char *query);
+
+void database_fts_index(database_t *db, int rebuild, int skip_spellfix);
 
 void database_fts_optimize(database_t *db);
 
@@ -194,22 +215,22 @@ cJSON *database_fts_get_mimetypes(database_t *db);
 
 database_summary_stats_t database_fts_get_date_range(database_t *db);
 
-cJSON *database_fts_search(database_t *db, const char *query, char **paths, long size_min,
-                           long size_max, long date_min, long date_max, int page_size,
+cJSON *database_fts_search(database_t *db, const char *query, char **paths, int64_t size_min,
+                           int64_t size_max, int64_t date_min, int64_t date_max, int page_size,
                            int *index_ids, char **mime_types, char **tags, int sort_asc,
                            fts_sort_t sort, int seed, char **after, int fetch_aggregations,
                            int highlight, int highlight_context_size, int model,
-                           const float *embedding, int embedding_size);
+                           const float *embedding, int embedding_size, int fuzzy);
 
-void database_write_tag(database_t *db, long sid, char *tag);
+void database_write_tag(database_t *db, int64_t sid, char *tag);
 
-void database_fts_write_tag(database_t *db, long sid, char *tag);
+void database_fts_write_tag(database_t *db, int64_t sid, char *tag);
 
-void database_delete_tag(database_t *db, long sid, char *tag);
+void database_delete_tag(database_t *db, int64_t sid, char *tag);
 
 void database_fts_detach(database_t *db);
 
-cJSON *database_fts_get_document(database_t *db, long sid);
+cJSON *database_fts_get_document(database_t *db, int64_t sid);
 
 void database_fts_sync_tags(database_t *db);
 

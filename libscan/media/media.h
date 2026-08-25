@@ -19,7 +19,7 @@ typedef struct {
     /** Number of thumbnails to generate for videos */
     int tn_count;
 
-    long max_media_buffer;
+    int64_t max_media_buffer;
     int read_subtitles;
 
     const char *tesseract_lang;

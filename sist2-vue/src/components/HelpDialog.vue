@@ -46,7 +46,7 @@
 
     <p v-html="$t('help.defaultOperator')"></p>
 
-    <p v-html="$t('help.fuzzy')"></p>
+    <p v-html="$store.state.uiSqliteMode ? $t('help.fuzzySqlite') : $t('help.fuzzy')"></p>
 
     <br>
 

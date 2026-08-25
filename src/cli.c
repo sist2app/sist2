@@ -27,6 +27,7 @@ const char *TESS_DATAPATHS[] = {
         "/usr/share/tesseract-ocr/tessdata/",
         "/usr/share/tesseract-ocr/4.00/tessdata/",
         "/usr/share/tesseract-ocr/5/tessdata/",
+        "./tessdata/",
         "./",
         NULL
 };
@@ -293,7 +294,7 @@ int scan_args_validate(scan_args_t *args, int argc, const char **argv) {
             args->list_file = stdin;
             LOG_DEBUG("cli.c", "Using stdin as list file");
         } else {
-            args->list_file = fopen(args->list_path, "r");
+            args->list_file = sist_fopen(args->list_path, "r");
 
             if (args->list_file == NULL) {
                 LOG_FATALF("main.c", "List file could not be opened: %s (%s)", args->list_path, strerror(errno));
@@ -329,14 +330,14 @@ int scan_args_validate(scan_args_t *args, int argc, const char **argv) {
 
 int load_external_file(const char *file_path, char **dst) {
     struct stat info;
-    int res = stat(file_path, &info);
+    int res = sist_stat(file_path, &info);
 
     if (res == -1) {
         LOG_ERRORF("cli.c", "Error opening file '%s': %s\n", file_path, strerror(errno));
         return 1;
     }
 
-    int fd = open(file_path, O_RDONLY);
+    int fd = sist_open(file_path, O_RDONLY | O_BINARY);
     if (fd == -1) {
         LOG_ERRORF("cli.c", "Error opening file '%s': %s\n", file_path, strerror(errno));
         return 1;

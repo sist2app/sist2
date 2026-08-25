@@ -128,19 +128,20 @@ static inline int parse_sid(sist_id_t *sid, const char doc_sid_str[SIST_SID_LEN]
         return FALSE;
     }
 
-    // strtol reads to the terminator, so leaving the ninth byte to the stack makes the value
-    // depend on whatever was there
+    // strtoull reads to the terminator, so leaving the ninth byte to the stack makes the value
+    // depend on whatever was there. Unsigned and long long because eight hex digits overflow a
+    // signed 32-bit long, which is what long is on Windows.
     char tmp[9] = {0};
 
     memcpy(tmp, doc_sid_str, 8);
-    sid->index_id = (int) strtol(tmp, NULL, 16);
+    sid->index_id = (int) strtoull(tmp, NULL, 16);
     memcpy(tmp, doc_sid_str + 9, 8);
-    sid->doc_id = (int) strtol(tmp, NULL, 16);
+    sid->doc_id = (int) strtoull(tmp, NULL, 16);
 
     memcpy(sid->sid_str, doc_sid_str, SIST_SID_LEN - 1);
     *(sid->sid_str + SIST_SID_LEN - 1) = '\0';
 
-    sid->sid_int64 = ((long) sid->index_id << 32) | sid->doc_id;
+    sid->sid_int64 = ((int64_t) sid->index_id << 32) | sid->doc_id;
 
     return TRUE;
 }

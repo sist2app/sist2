@@ -35,7 +35,9 @@ typedef struct text_buffer {
 static inline int utf8_validchr2(const char *s) {
     if (0x00 == (0x80 & *s)) {
         return TRUE;
-    } else if (0xf0 == (0xf8 & *s)) {
+    }
+
+    if (0xf0 == (0xf8 & *s)) {
         if ((0x80 != (0xc0 & s[1])) || (0x80 != (0xc0 & s[2])) ||
             (0x80 != (0xc0 & s[3]))) {
             return FALSE;
@@ -90,7 +92,7 @@ static inline dyn_buffer_t dyn_buffer_create() {
     return buf;
 }
 
-static inline void grow_buffer(dyn_buffer_t *buf, size_t size) {
+static inline void grow_buffer(dyn_buffer_t *buf, const size_t size) {
     if (buf->cur + size > buf->size) {
         do {
             buf->size *= 2;
@@ -107,14 +109,14 @@ static inline void grow_buffer_small(dyn_buffer_t *buf) {
     }
 }
 
-static inline void dyn_buffer_write(dyn_buffer_t *buf, const void *data, size_t size) {
+static inline void dyn_buffer_write(dyn_buffer_t *buf, const void *data, const size_t size) {
     grow_buffer(buf, size);
 
     memcpy(buf->buf + buf->cur, data, size);
     buf->cur += size;
 }
 
-static inline void dyn_buffer_write_char(dyn_buffer_t *buf, char c) {
+static inline void dyn_buffer_write_char(dyn_buffer_t *buf, const char c) {
     grow_buffer_small(buf);
 
     *(buf->buf + buf->cur) = c;
@@ -130,28 +132,28 @@ static inline void dyn_buffer_append_string(dyn_buffer_t *buf, const char *str) 
     dyn_buffer_write(buf, str, strlen(str));
 }
 
-static inline void dyn_buffer_write_int(dyn_buffer_t *buf, int d) {
+static inline void dyn_buffer_write_int(dyn_buffer_t *buf, const int d) {
     grow_buffer_small(buf);
 
     *(int *) (buf->buf + buf->cur) = d;
     buf->cur += sizeof(int);
 }
 
-static inline void dyn_buffer_write_short(dyn_buffer_t *buf, uint16_t s) {
+static inline void dyn_buffer_write_short(dyn_buffer_t *buf, const uint16_t s) {
     grow_buffer_small(buf);
 
     *(uint16_t *) (buf->buf + buf->cur) = s;
     buf->cur += sizeof(uint16_t);
 }
 
-static inline void dyn_buffer_write_long(dyn_buffer_t *buf, unsigned long l) {
+static inline void dyn_buffer_write_long(dyn_buffer_t *buf, const unsigned long l) {
     grow_buffer_small(buf);
 
     *(unsigned long *) (buf->buf + buf->cur) = l;
     buf->cur += sizeof(unsigned long);
 }
 
-static inline void dyn_buffer_destroy(dyn_buffer_t *buf) {
+static inline void dyn_buffer_destroy(const dyn_buffer_t *buf) {
     free(buf->buf);
 }
 
@@ -159,7 +161,7 @@ static inline void text_buffer_destroy(text_buffer_t *buf) {
     dyn_buffer_destroy(&buf->dyn_buffer);
 }
 
-static inline text_buffer_t text_buffer_create(long max_size) {
+static inline text_buffer_t text_buffer_create(const long max_size) {
     text_buffer_t text_buf;
 
     text_buf.dyn_buffer = dyn_buffer_create();
@@ -169,7 +171,7 @@ static inline text_buffer_t text_buffer_create(long max_size) {
     return text_buf;
 }
 
-static inline int text_buffer_append_char(text_buffer_t *buf, int c) {
+static inline int text_buffer_append_char(text_buffer_t *buf, const int c) {
 
     if (SHOULD_IGNORE_CHAR(c) || c == ' ') {
         if (!buf->last_char_was_whitespace && buf->dyn_buffer.cur != 0) {
@@ -218,7 +220,7 @@ static inline void text_buffer_terminate_string(text_buffer_t *buf) {
 }
 
 // Naive UTF16 -> ascii conversion
-static inline int text_buffer_append_string16_le(text_buffer_t *buf, const char *str, size_t len) {
+static inline int text_buffer_append_string16_le(text_buffer_t *buf, const char *str, const size_t len) {
     int ret = 0;
     for (size_t i = 1; i < len; i += 2) {
         ret = text_buffer_append_char(buf, str[i]);
@@ -226,7 +228,7 @@ static inline int text_buffer_append_string16_le(text_buffer_t *buf, const char 
     return ret;
 }
 
-static inline int text_buffer_append_string16_be(text_buffer_t *buf, const char *str, size_t len) {
+static inline int text_buffer_append_string16_be(text_buffer_t *buf, const char *str, const size_t len) {
     int ret = 0;
     for (size_t i = 0; i < len; i += 2) {
         ret = text_buffer_append_char(buf, str[i]);
@@ -240,7 +242,7 @@ static inline int text_buffer_append_string16_be(text_buffer_t *buf, const char 
     (0xe0 == (0xf0 & *ptr) && ptr - str > (long) len - 3) || \
     (0xf0 == (0xf8 & *ptr) && ptr - str > (long) len - 4))
 
-static inline int text_buffer_append_string(text_buffer_t *buf, const char *str, size_t len) {
+static inline int text_buffer_append_string(text_buffer_t *buf, const char *str, const size_t len) {
 
     const char *ptr = str;
     const char *oldPtr = ptr;
@@ -262,7 +264,7 @@ static inline int text_buffer_append_string(text_buffer_t *buf, const char *str,
     char tmp[16] = {0};
 
     do {
-        ptr = (char *) utf8codepoint(ptr, &c);
+        ptr = utf8codepoint(ptr, &c);
         *(int *) tmp = 0x00000000;
         memcpy(tmp, oldPtr, ptr - oldPtr);
         oldPtr = ptr;
@@ -271,7 +273,7 @@ static inline int text_buffer_append_string(text_buffer_t *buf, const char *str,
             continue;
         }
 
-        int ret = text_buffer_append_char(buf, c);
+        const int ret = text_buffer_append_char(buf, c);
 
         if (ret != 0) {
             return ret;
@@ -339,7 +341,7 @@ static inline void *read_all(vfile_t *f, size_t *size) {
 
 #define STACK_BUFFER_SIZE (size_t)(4096 * 8)
 
-static inline void safe_digest_update(EVP_MD_CTX *ctx, void *buf, size_t size) {
+static inline void safe_digest_update(EVP_MD_CTX *ctx, const void *buf, const size_t size) {
     unsigned char stack_buf[STACK_BUFFER_SIZE];
 
     void *sha1_buf;
@@ -358,7 +360,7 @@ static inline void safe_digest_update(EVP_MD_CTX *ctx, void *buf, size_t size) {
     }
 }
 
-static inline parse_job_t *create_parse_job(const char *filepath, int mtime, size_t st_size) {
+static inline parse_job_t *create_parse_job(const char *filepath, const int mtime, const size_t st_size) {
     parse_job_t *job = (parse_job_t *) calloc(1, sizeof(parse_job_t));
 
     job->parent[0] = '\0';
@@ -389,9 +391,9 @@ static inline parse_job_t *create_parse_job(const char *filepath, int mtime, siz
 }
 
 
-static inline int meta_contains_key (meta_line_t *meta_head, enum metakey key) {
+static inline int meta_contains_key (meta_line_t *meta_head, const enum metakey key) {
 
-    meta_line_t *meta = meta_head;
+    const meta_line_t *meta = meta_head;
     while (meta != NULL) {
         if (meta->key == key) {
             return TRUE;

@@ -50,8 +50,23 @@ jobs:
         include:
           - arch: x64
             runner: ubuntu-24.04
+            target: artifact
+            built: sist2
+            asset: sist2-x64-linux-static
+            cache: x64-musl
           - arch: arm64
             runner: ubuntu-24.04-arm
+            target: artifact
+            built: sist2
+            asset: sist2-arm64-linux-static
+            cache: arm64-musl
+          # Cross-compiled with mingw-w64, so it runs on the same x64 linux runner as the others
+          - arch: x64-windows
+            runner: ubuntu-24.04
+            target: artifact-windows
+            built: sist2.exe
+            asset: sist2-x64-windows.exe
+            cache: x64-mingw
     name: static binary (${{ matrix.arch }})
     needs: version
     runs-on: ${{ matrix.runner }}
@@ -76,18 +91,18 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          target: artifact
+          target: ${{ matrix.target }}
           outputs: type=local,dest=./dist-static
-          cache-from: type=registry,ref=${{ env.GHCR_IMAGE }}-buildcache:${{ matrix.arch }}-musl
-          cache-to: type=registry,ref=${{ env.GHCR_IMAGE }}-buildcache:${{ matrix.arch }}-musl,mode=max
+          cache-from: type=registry,ref=${{ env.GHCR_IMAGE }}-buildcache:${{ matrix.cache }}
+          cache-to: type=registry,ref=${{ env.GHCR_IMAGE }}-buildcache:${{ matrix.cache }},mode=max
 
       - name: Name the binary
-        run: mv dist-static/sist2 "sist2-${{ matrix.arch }}-linux-static"
+        run: mv "dist-static/${{ matrix.built }}" "${{ matrix.asset }}"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: sist2-${{ matrix.arch }}-linux-static
-          path: sist2-${{ matrix.arch }}-linux-static
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
           if-no-files-found: error
           # Re-running a failed job would otherwise leave two artifacts of the same name
           overwrite: true
@@ -201,7 +216,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          pattern: sist2-*-linux-static
+          pattern: sist2-*
           path: artifacts
           merge-multiple: true
 
@@ -214,13 +229,10 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/sist2-*-linux-static
+            artifacts/sist2-*
             artifacts/SHA256SUMS
           generate_release_notes: true
           body: |
             ```
             docker pull sist2app/sist2:${{ steps.version.outputs.version }}
             ```
-
-# TODO: windows job — mingw-w64 cross build on ubuntu-24.04 with the vcpkg x64-mingw-static
-# triplet. Blocked on the fork()/shared-mmap worker pool in src/tpool.c.

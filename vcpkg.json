@@ -8,7 +8,8 @@
   "dependencies": [
     {
       "name": "mimalloc",
-      "features": ["override"]
+      "features": ["override"],
+      "platform": "!windows"
     },
     "openblas",
     "libantiword2",

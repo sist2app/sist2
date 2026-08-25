@@ -23,6 +23,8 @@ file(GLOB_RECURSE SIST2_SPEC_SOURCES CONFIGURE_DEPENDS
 set(TEST_SUPPORT_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/support/scan_fixture.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/support/scan_fixture.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/support/subprocess.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/support/subprocess.h
         ${CMAKE_CURRENT_SOURCE_DIR}/support/test_env.cpp
 )
 
@@ -42,6 +44,20 @@ function(sist2_add_test)
     set_target_properties(${T_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
     target_compile_options(${T_NAME} PRIVATE -g -fno-omit-frame-pointer)
+
+    if (WIN32)
+        # utf8h declares its functions __attribute__((weak)). ELF folds those together; the COFF
+        # comdat gcc emits for them from a C++ translation unit does not, and every spec file that
+        # reaches utf8.h then defines them again. The definitions are identical.
+        #
+        # -static so the binaries carry libgcc, libstdc++ and libssp rather than needing them
+        # beside the executable, as SIST_STATIC does for sist2 itself.
+        target_link_options(
+                ${T_NAME} PRIVATE
+                -Wl,--allow-multiple-definition
+                -static -static-libgcc -static-libstdc++
+        )
+    endif ()
     target_include_directories(${T_NAME} PRIVATE ${CMAKE_SOURCE_DIR} ${GENERATED_DIR})
     target_compile_definitions(
             ${T_NAME} PRIVATE

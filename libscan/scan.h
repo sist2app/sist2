@@ -5,6 +5,7 @@
 #define _GNU_SOURCE
 #endif
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -19,7 +20,7 @@
 #define UNUSED(x) __attribute__((__unused__))  x
 
 typedef void (*logf_callback_t)(const char *filepath, int level, char *format, ...)
-        __attribute__((format(printf, 3, 4)));
+        __attribute__((format(SIST_PRINTF_FORMAT, 3, 4)));
 
 typedef void (*log_callback_t)(const char *filepath, int level, char *str);
 
@@ -105,13 +106,13 @@ typedef struct meta_line {
     size_t size;
     union {
         char str_val[1];
-        unsigned long long_val;
+        uint64_t long_val;
     };
 } meta_line_t;
 
 
 typedef struct document {
-    unsigned long size;
+    uint64_t size;
     unsigned int mime;
     int mtime;
     int base;
@@ -129,7 +130,7 @@ __attribute__((warn_unused_result))
 typedef int (*read_func_t)(struct vfile *, void *buf, size_t size);
 
 __attribute__((warn_unused_result))
-typedef long (*seek_func_t)(struct vfile *, long offset, int whence);
+typedef int64_t (*seek_func_t)(struct vfile *, int64_t offset, int whence);
 
 typedef void (*close_func_t)(struct vfile *);
 
@@ -155,8 +156,8 @@ typedef struct vfile {
     EVP_MD_CTX *sha1_ctx;
     unsigned char sha1_digest[SHA1_DIGEST_LENGTH];
     // Reading a file twice (mime detection, then parsing) must not digest its head twice
-    long read_offset;
-    long digested_bytes;
+    int64_t read_offset;
+    int64_t digested_bytes;
 
     void *rewind_buffer;
     int rewind_buffer_size;

@@ -6,7 +6,7 @@
 
 typedef struct {
     int enable_tn;
-    long content_size;
+    int64_t content_size;
     log_callback_t log;
     logf_callback_t logf;
 } scan_ooxml_ctx_t;

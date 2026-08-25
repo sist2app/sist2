@@ -80,3 +80,31 @@ jobs:
         env:
           TESSDATA_PREFIX: /usr/share/tesseract-ocr/5/tessdata
         run: ctest --test-dir build --output-on-failure -j "$(nproc)"
+
+  windows:
+    name: cross build (x64-windows)
+    runs-on: ubuntu-24.04
+    # A cold vcpkg build (ffmpeg, mupdf, tesseract, openblas from source) is the worst case
+    timeout-minutes: 350
+    env:
+      DOCKER_BUILD_SUMMARY: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Compile-and-link check only: there is nothing here to execute a PE binary. The test
+      # binaries do build for Windows and pass under wine, so this job could grow to run them;
+      # the ASan and UBSan variants stay Linux-only, since mingw ships no sanitizer runtimes.
+      - name: Build the Windows binary
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: artifact-windows
+          outputs: type=local,dest=./dist-windows
+          cache-from: type=gha,scope=mingw
+          cache-to: type=gha,scope=mingw,mode=max
+
+      - name: Check the binary is a PE executable
+        run: file dist-windows/sist2.exe | grep -q "PE32+ executable"

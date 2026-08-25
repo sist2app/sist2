@@ -4,9 +4,15 @@
 #include <string>
 #include <thread>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 #include <unistd.h>
+#endif
 
 extern "C" {
 #include "src/index/web.h"
@@ -18,15 +24,32 @@ extern "C" {
  * log was "Indexed 1000 documents" and the task never ended.
  */
 
+#ifdef _WIN32
+#define close_socket closesocket
+#define SHUT_RDWR SD_BOTH
+using socket_t = SOCKET;
+static constexpr socket_t invalid_socket = INVALID_SOCKET;
+#else
+#define close_socket close
+using socket_t = int;
+static constexpr socket_t invalid_socket = -1;
+#endif
+
 /** Accepts one connection and holds it open without ever writing a response */
 class SilentServer {
 public:
     SilentServer() {
+#ifdef _WIN32
+        // libcurl has already started Winsock by the time a test runs, but the fixture must not
+        // depend on that ordering
+        WSADATA wsa_data;
+        WSAStartup(MAKEWORD(2, 2), &wsa_data);
+#endif
         listen_fd = socket(AF_INET, SOCK_STREAM, 0);
-        EXPECT_NE(listen_fd, -1);
+        EXPECT_NE(listen_fd, invalid_socket);
 
         int reuse = 1;
-        setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+        setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, (const char *) &reuse, sizeof(reuse));
 
         sockaddr_in addr = {};
         addr.sin_family = AF_INET;
@@ -47,11 +70,19 @@ public:
 
     ~SilentServer() {
         shutdown(listen_fd, SHUT_RDWR);
+#ifdef _WIN32
+        // Windows leaves a blocking accept() parked on a shut-down listener, so the socket is
+        // closed to release it. Elsewhere the descriptor is closed after the join: closing one a
+        // thread is blocked on is undefined, and the number can be handed to another socket.
+        close_socket(listen_fd);
         accept_thread.join();
-        if (accepted_fd != -1) {
-            close(accepted_fd);
+#else
+        accept_thread.join();
+        close_socket(listen_fd);
+#endif
+        if (accepted_fd != invalid_socket) {
+            close_socket(accepted_fd);
         }
-        close(listen_fd);
     }
 
     std::string url() const {
@@ -59,8 +90,8 @@ public:
     }
 
 private:
-    int listen_fd = -1;
-    int accepted_fd = -1;
+    socket_t listen_fd = invalid_socket;
+    socket_t accepted_fd = invalid_socket;
     int port = 0;
     std::thread accept_thread;
 };

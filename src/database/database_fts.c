@@ -70,7 +70,7 @@ int database_fts_get_max_path_depth(database_t *db) {
     return max_depth;
 }
 
-static long long fts_scalar(database_t *db, const char *sql, long long fallback) {
+long long database_fts_scalar(database_t *db, const char *sql, long long fallback) {
     sqlite3_stmt *stmt;
     CRASH_IF_NOT_SQLITE_OK(sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL));
 
@@ -111,7 +111,7 @@ static void fts_set_state(database_t *db, long long version, int dirty, long lon
     sqlite3_finalize(stmt);
 }
 
-void database_fts_index(database_t *db, int rebuild) {
+void database_fts_index(database_t *db, int rebuild, int skip_spellfix) {
 
     // An index database created by an older version does not have it, and finding the changed
     // documents without it means scanning the whole document table
@@ -119,15 +119,15 @@ void database_fts_index(database_t *db, int rebuild) {
             db->db, "CREATE INDEX IF NOT EXISTS document_version_idx ON document(version);",
             NULL, NULL, NULL));
 
-    long long source_version = fts_scalar(db, "SELECT max(id) FROM version", 0);
-    long long indexed_version = fts_scalar(
+    long long source_version = database_fts_scalar(db, "SELECT max(id) FROM version", 0);
+    long long indexed_version = database_fts_scalar(
             db,
             "SELECT version FROM fts.index_state"
             " WHERE index_id = (SELECT id FROM descriptor) AND dirty = 0",
             0);
-    long long own_documents = fts_scalar(
+    long long own_documents = database_fts_scalar(
             db, "SELECT documents FROM fts.index_state WHERE index_id = (SELECT id FROM descriptor)", 0);
-    long long all_documents = fts_scalar(db, "SELECT sum(documents) FROM fts.index_state", 0);
+    long long all_documents = database_fts_scalar(db, "SELECT sum(documents) FROM fts.index_state", 0);
 
     // Documents keep the version of the scan that last wrote them, so anything above the version
     // this search index was built from is what needs to be re-tokenised.
@@ -152,7 +152,7 @@ void database_fts_index(database_t *db, int rebuild) {
                 " SELECT ((SELECT id FROM descriptor) << 32) | id FROM document WHERE version > ?",
                 indexed_version);
 
-        changed = fts_scalar(db, "SELECT count(*) FROM fts_changed", 0);
+        changed = database_fts_scalar(db, "SELECT count(*) FROM fts_changed", 0);
 
         // Deleting a row one at a time costs more than re-tokenising it, so past a certain share of
         // the index it is cheaper to throw the whole search table away and start over.
@@ -167,7 +167,7 @@ void database_fts_index(database_t *db, int rebuild) {
     }
 
     if (!incremental) {
-        changed = fts_scalar(db, "SELECT count(*) FROM document WHERE version > 0", 0);
+        changed = database_fts_scalar(db, "SELECT count(*) FROM document WHERE version > 0", 0);
     }
 
     LOG_INFOF("database_fts.c", "Creating content table (%s, source version %lld, indexed version %lld)",
@@ -176,7 +176,7 @@ void database_fts_index(database_t *db, int rebuild) {
     long long new_documents = 0;
 
     if (incremental) {
-        new_documents = fts_scalar(
+        new_documents = database_fts_scalar(
                 db,
                 "SELECT count(*) FROM fts_changed"
                 " WHERE NOT EXISTS (SELECT 1 FROM fts.document_index d WHERE d.id = fts_changed.id)", 0);
@@ -186,13 +186,22 @@ void database_fts_index(database_t *db, int rebuild) {
                 "INSERT OR IGNORE INTO fts_changed (id)"
                 " SELECT ((SELECT id FROM descriptor) << 32) | id FROM delete_list;", NULL, NULL, NULL));
 
-        changed = fts_scalar(db, "SELECT count(*) FROM fts_changed", 0);
+        changed = database_fts_scalar(db, "SELECT count(*) FROM fts_changed", 0);
 
         if (changed == 0) {
             LOG_INFO("database_fts.c", "Search index is up to date");
 
             CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, "DROP TABLE fts_changed;", NULL, NULL, NULL));
             fts_set_state(db, source_version, FALSE, own_documents);
+
+            // Nothing was tokenised, so the vocabulary is up to date as well — unless it was
+            // never built, which is what a search index made by an older version looks like
+            if (skip_spellfix) {
+                // The index is left without one, however up to date it is
+                database_fts_drop_vocab(db);
+            } else if (!database_fts_has_vocab(db)) {
+                database_fts_build_vocab(db, TRUE, FALSE);
+            }
             return;
         }
 
@@ -364,6 +373,17 @@ void database_fts_index(database_t *db, int rebuild) {
         CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, "DROP TABLE fts_changed;", NULL, NULL, NULL));
     }
 
+    if (skip_spellfix) {
+        // A vocabulary that is not kept up to date corrects spellings to words the corpus no
+        // longer has, so the flag leaves the index without one rather than with a stale one
+        database_fts_drop_vocab(db);
+    } else {
+        // A run that only added documents cannot have taken a word away from the corpus
+        const int prune = incremental && changed > new_documents;
+
+        database_fts_build_vocab(db, !incremental, prune);
+    }
+
     // A full run indexed every document of this index, so the changed set is the document count.
     long long documents = incremental ? own_documents + new_documents - deleted_documents : changed;
 
@@ -474,7 +494,7 @@ cJSON *database_fts_get_mimetypes(database_t *db) {
     return json;
 }
 
-const char *size_where_clause(long size_min, long size_max) {
+const char *size_where_clause(int64_t size_min, int64_t size_max) {
     if (size_min > 0 && size_max > 0) {
         return "size BETWEEN @size_min AND @size_max";
     } else if (size_min > 0) {
@@ -486,7 +506,7 @@ const char *size_where_clause(long size_min, long size_max) {
     return NULL;
 }
 
-const char *date_where_clause(long date_min, long date_max) {
+const char *date_where_clause(int64_t date_min, int64_t date_max) {
     if (date_min > 0 && date_max > 0) {
         return "mtime BETWEEN @date_min AND @date_max";
     } else if (date_min > 0) {
@@ -839,12 +859,12 @@ static void add_highlight(cJSON *row, cJSON *source, long long id, char **terms,
     free(content);
 }
 
-cJSON *database_fts_search(database_t *db, const char *query, char **paths, long size_min,
-                           long size_max, long date_min, long date_max, int page_size,
+cJSON *database_fts_search(database_t *db, const char *query, char **paths, int64_t size_min,
+                           int64_t size_max, int64_t date_min, int64_t date_max, int page_size,
                            int *index_ids, char **mime_types, char **tags, int sort_asc,
                            fts_sort_t sort, int seed, char **after, int fetch_aggregations,
                            int highlight, int highlight_context_size, int model,
-                           const float *embedding, int embedding_size) {
+                           const float *embedding, int embedding_size, int fuzzy) {
 
     if (embedding) {
         int model_embedding_size = database_fts_get_model_size(db, model);
@@ -853,6 +873,13 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
                          model, embedding_size, model_embedding_size);
             return NULL;
         }
+    }
+
+    // The expanded query replaces the one that was typed everywhere below, so the excerpts are
+    // marked from the spellings that actually matched
+    char *expanded_query = fuzzy ? database_fts_fuzzy_expand(db, query) : NULL;
+    if (expanded_query != NULL) {
+        query = expanded_query;
     }
 
     char *path_where = path_where_clause(paths);
@@ -1027,9 +1054,10 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
         } else if (sort == FTS_SORT_SCORE || sort == FTS_SORT_EMBEDDING) {
             sqlite3_bind_double(stmt, 3, strtod(after[0], NULL));
         } else {
-            sqlite3_bind_int64(stmt, 3, strtol(after[0], NULL, 10));
+            sqlite3_bind_int64(stmt, 3, strtoll(after[0], NULL, 10));
         }
-        sqlite3_bind_int64(stmt, 4, strtol(after[1], NULL, 10));
+        // The cursor's tiebreaker is a document id, which is wider than a long on Windows
+        sqlite3_bind_int64(stmt, 4, strtoll(after[1], NULL, 10));
     }
     if (sort == FTS_SORT_RANDOM) {
         sqlite3_bind_int(stmt, 5, seed);
@@ -1182,6 +1210,9 @@ cJSON *database_fts_search(database_t *db, const char *query, char **paths, long
     }
     free(where);
     free(sql);
+    if (expanded_query) {
+        free(expanded_query);
+    }
     if (fetch_aggregations) {
         free(agg_where);
         free(agg_sql);
@@ -1209,7 +1240,7 @@ void database_fts_sync_tags(database_t *db) {
             NULL, NULL, NULL));
 }
 
-cJSON *database_fts_get_document(database_t *db, long sid) {
+cJSON *database_fts_get_document(database_t *db, int64_t sid) {
     sqlite3_bind_int64(db->fts_get_document, 1, sid);
 
     int ret = sqlite3_step(db->fts_get_document);
@@ -1278,7 +1309,7 @@ cJSON *database_fts_get_tags(database_t *db) {
 
     return json;
 }
-void database_fts_write_tag(database_t *db, long sid, char *tag) {
+void database_fts_write_tag(database_t *db, int64_t sid, char *tag) {
     sqlite3_bind_int64(db->fts_write_tag_stmt, 1, sid);
     sqlite3_bind_int(db->fts_write_tag_stmt, 2, (int) (sid >> 32));
     sqlite3_bind_text(db->fts_write_tag_stmt, 3, tag, -1, SQLITE_STATIC);
