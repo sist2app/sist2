@@ -39,6 +39,7 @@
 <script>
 import {mapGetters, mapMutations} from "vuex";
 import {CLIPTransformerModel} from "@/ml/CLIPTransformerModel"
+import {TransformerModel} from "@/ml/TransformerModel"
 import {debounce as _debounce} from "@/util";
 import MLIcon from "@/components/icons/MlIcon.vue";
 import Sist2AdminApi from "@/Sist2Api";
@@ -51,7 +52,8 @@ export default {
             modelLoadingProgress: 0,
             modelLoaded: false,
             model: null,
-            modelName: null
+            modelName: null,
+            modelError: null
         }
     },
     computed: {
@@ -80,6 +82,10 @@ export default {
             setEmbeddingModel: "setEmbeddingsModel",
         }),
         async loadModel() {
+            if (this.modelError) {
+                throw new Error(this.modelError);
+            }
+
             this.modelLoading = true;
 
             await this.model.init(async progress => {
@@ -118,13 +124,26 @@ export default {
 
             const modelInfo = Sist2AdminApi.models().find(m => m.name === name);
 
-            if (modelInfo.name === "CLIP") {
-                const tokenizerUrl = new URL("./tokenizer.json", modelInfo.url).href;
-                this.model = new CLIPTransformerModel(modelInfo.url, tokenizerUrl)
-                this.setEmbeddingModel(modelInfo.id);
-            } else {
-                throw new Error("Unknown model: " + name);
+            this.setEmbeddingModel(modelInfo.id);
+
+            // Runs while the bar is mounting, so a model that cannot be loaded is reported when
+            // the user types rather than thrown into the render
+            if (!modelInfo.url) {
+                this.model = null;
+                this.modelError = `The ${name} model was registered without a URL, so its ` +
+                    "embeddings cannot be searched from here. The user script that wrote them has " +
+                    "to point at an .onnx text encoder.";
+                return;
             }
+
+            this.modelError = null;
+
+            // Every model keeps its tokenizer next to it
+            const tokenizerUrl = new URL("./tokenizer.json", modelInfo.url).href;
+
+            this.model = modelInfo.name === "CLIP"
+                ? new CLIPTransformerModel(modelInfo.url, tokenizerUrl)
+                : new TransformerModel(modelInfo.url, tokenizerUrl, modelInfo.size);
         },
         onBadgeClick() {
             this.$store.commit("setEmbedding", null);
