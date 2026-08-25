@@ -796,6 +796,36 @@ static void best_chunk(sqlite3_stmt *stmt, long long id, long long *start, long 
  * generated from, or -1 for the whole of it. The query terms are still marked inside it, so an
  * embeddings search that also carries a query reads the way a plain one does.
  */
+/**
+ * The page each fragment of the excerpt was taken from, so that a result can be opened at the page
+ * it matched on. Paginated documents only.
+ */
+static void add_fragment_pages(cJSON *row, const cJSON *source, const char *content,
+                               const char *const *fragments, int fragment_count) {
+    const cJSON *page_breaks = cJSON_GetObjectItem(source, "page_breaks");
+
+    if (!cJSON_IsString(page_breaks)) {
+        return;
+    }
+
+    int break_count;
+    size_t *breaks = highlight_parse_page_breaks(page_breaks->valuestring, &break_count);
+
+    if (breaks == NULL) {
+        return;
+    }
+
+    cJSON *pages = cJSON_CreateArray();
+
+    for (int i = 0; i < fragment_count; i++) {
+        const int page = highlight_fragment_page(content, fragments[i], breaks, break_count);
+        cJSON_AddItemToArray(pages, cJSON_CreateNumber(page));
+    }
+
+    cJSON_AddItemToObject(row, "hit_pages", pages);
+    free(breaks);
+}
+
 static void add_highlight(cJSON *row, cJSON *source, long long id, char **terms, int context_size,
                           long long chunk_start, long long chunk_end) {
     char *const no_terms[] = {NULL};
@@ -850,6 +880,7 @@ static void add_highlight(cJSON *row, cJSON *source, long long id, char **terms,
     char *marked = highlight_text(chunk_text, use_terms, context_size);
     if (marked != NULL) {
         cJSON_AddStringToObject(highlight, "content", marked);
+        add_fragment_pages(row, source, content, (const char *const[]) {marked}, 1);
         free(marked);
     }
 

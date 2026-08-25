@@ -224,3 +224,106 @@ char *highlight_text(const char *text, char *const *terms, int context_words) {
 
     return out.buf;
 }
+
+#define MAX_PAGE_BREAKS 65536
+
+size_t *highlight_parse_page_breaks(const char *csv, int *count) {
+    *count = 0;
+
+    if (csv == NULL || *csv == '\0') {
+        return NULL;
+    }
+
+    int capacity = 16;
+    size_t *breaks = malloc(capacity * sizeof(size_t));
+
+    const char *cur = csv;
+    while (*cur != '\0' && *count < MAX_PAGE_BREAKS) {
+        char *end;
+        const unsigned long long offset = strtoull(cur, &end, 10);
+
+        if (end == cur) {
+            break;
+        }
+
+        if (*count == capacity) {
+            capacity *= 2;
+            breaks = realloc(breaks, capacity * sizeof(size_t));
+        }
+
+        breaks[*count] = (size_t) offset;
+        *count += 1;
+
+        cur = *end == ',' ? end + 1 : end;
+    }
+
+    if (*count == 0) {
+        free(breaks);
+        return NULL;
+    }
+
+    return breaks;
+}
+
+/**
+ * The text of a fragment, without the tags a highlighter wrapped its matches in. first_match is
+ * set to where the first match starts in it, so that a fragment straddling a page break is placed
+ * on the page it matched on rather than the one it starts on. Caller frees.
+ */
+static char *strip_marks(const char *fragment, size_t *first_match) {
+    char *plain = malloc(strlen(fragment) + 1);
+    size_t len = 0;
+
+    *first_match = 0;
+
+    for (const char *cur = fragment; *cur != '\0';) {
+        if (strncmp(cur, "<mark>", 6) == 0) {
+            if (*first_match == 0) {
+                *first_match = len;
+            }
+            cur += 6;
+        } else if (strncmp(cur, "</mark>", 7) == 0) {
+            cur += 7;
+        } else {
+            plain[len++] = *cur++;
+        }
+    }
+
+    plain[len] = '\0';
+
+    return plain;
+}
+
+int highlight_fragment_page(const char *text, const char *fragment, const size_t *breaks,
+                            int break_count) {
+    if (text == NULL || fragment == NULL || breaks == NULL || break_count == 0) {
+        return 0;
+    }
+
+    size_t first_match;
+    char *plain = strip_marks(fragment, &first_match);
+    const char *at = *plain == '\0' ? NULL : strstr(text, plain);
+    free(plain);
+
+    if (at == NULL) {
+        return 0;
+    }
+
+    at += first_match;
+
+    // The offsets a scan writes count code points, so that the browser can use them on a UTF-16
+    // string; continuation bytes belong to the code point that started before them
+    size_t code_points = 0;
+    for (const char *cur = text; cur < at; cur++) {
+        if (((unsigned char) *cur & 0xC0) != 0x80) {
+            code_points += 1;
+        }
+    }
+
+    int page = 0;
+    while (page < break_count && breaks[page] <= code_points) {
+        page += 1;
+    }
+
+    return page;
+}

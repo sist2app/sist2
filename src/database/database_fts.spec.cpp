@@ -14,6 +14,8 @@
 extern "C" {
 #include "src/database/database.h"
 #include "src/ctx.h"
+#include "src/util.h"
+#include "src/web/serve.h"
 }
 
 /*
@@ -197,6 +199,7 @@ protected:
         bool has_content_highlight = false;
         long long chunk_start = -1;
         long long chunk_end = -1;
+        std::vector<int> hit_pages;
     };
 
     /** One page of results, with the cursor each hit would be paged after */
@@ -239,6 +242,11 @@ protected:
                     hit.content_highlight = content->valuestring;
                     hit.has_content_highlight = true;
                 }
+            }
+
+            const cJSON *page;
+            cJSON_ArrayForEach(page, cJSON_GetObjectItem(row, "hit_pages")) {
+                hit.hit_pages.push_back((int) page->valuedouble);
             }
 
             const cJSON *chunk = cJSON_GetObjectItem(row, "chunk");
@@ -943,4 +951,120 @@ TEST_F(SqliteIndexTest, GetDocumentReadsTheTextBack) {
     cJSON_Delete(json);
     unload_index_database(index_db);
     database_close(db, FALSE);
+}
+
+/**
+ * The page the excerpt of a result was taken from, so that a search result can be opened at the
+ * page it matched on.
+ */
+TEST_F(SqliteIndexTest, SearchResultsCarryThePageTheyMatchedOn) {
+    fs::copy_file(fs::path(SIST2_TEST_FILES_DIR) / "ebook" / "General_-_Candle_Making.pdf",
+                  dir / "files" / "candles.pdf");
+
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
+    database_open(db);
+    database_t *index_db = load_index_database();
+
+    const std::vector<Hit> hits = search(db, FTS_SORT_SCORE, FALSE, 10, nullptr, 0, {},
+                                         "mould", TRUE, 30);
+
+    ASSERT_EQ(hits.size(), 1);
+    ASSERT_TRUE(hits[0].has_content_highlight);
+    ASSERT_EQ(hits[0].hit_pages.size(), 1);
+    // The word is first read on the second page of the leaflet
+    EXPECT_EQ(hits[0].hit_pages[0], 2) << hits[0].content_highlight;
+
+    unload_index_database(index_db);
+    database_close(db, FALSE);
+}
+
+/** A document that is not paginated has no page to point at */
+TEST_F(SqliteIndexTest, SearchResultsOfAPlainTextFileCarryNoPage) {
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
+    database_open(db);
+    database_t *index_db = load_index_database();
+
+    const std::vector<Hit> hits = search(db, FTS_SORT_SCORE, FALSE, 10, nullptr, 0, {},
+                                         "zebra", TRUE, 30);
+
+    ASSERT_FALSE(hits.empty());
+    EXPECT_TRUE(hits[0].hit_pages.empty());
+
+    unload_index_database(index_db);
+    database_close(db, FALSE);
+}
+
+/**
+ * The page each fragment of an Elasticsearch hit was taken from. Elasticsearch returns the passage
+ * that matched but not where it was, so `sist2 web` fills it in from the index the document is in.
+ */
+TEST_F(SqliteIndexTest, ElasticsearchHitsCarryThePageOfEachFragment) {
+    fs::copy_file(fs::path(SIST2_TEST_FILES_DIR) / "ebook" / "General_-_Candle_Making.pdf",
+                  dir / "files" / "candles.pdf");
+
+    ASSERT_EQ(scan(), 0);
+    ASSERT_EQ(sqlite_index(), 0);
+
+    database_t *db = database_create(search_index.string().c_str(), FTS_DATABASE);
+    database_open(db);
+    database_t *index_db = load_index_database();
+
+    const long long sid = query("SELECT id FROM document_index WHERE name = \'candles\'");
+    ASSERT_NE(sid, -1);
+
+    cJSON *document = database_fts_get_document(db, sid);
+    ASSERT_NE(document, nullptr);
+    const char *page_breaks = cJSON_GetObjectItem(document, "page_breaks")->valuestring;
+
+    char sid_str[SIST_SID_LEN];
+    format_sid(sid_str, (int) (sid >> 32), (int) (sid & 0xFFFFFFFF));
+
+    cJSON *hit = cJSON_CreateObject();
+    cJSON_AddStringToObject(hit, "_id", sid_str);
+    cJSON_AddStringToObject(cJSON_AddObjectToObject(hit, "_source"), "page_breaks", page_breaks);
+
+    cJSON *fragments = cJSON_AddArrayToObject(cJSON_AddObjectToObject(hit, "highlight"), "content");
+    cJSON_AddItemToArray(fragments, cJSON_CreateString("Prepare the <mark>Mould</mark> 1. Make sure"));
+    cJSON_AddItemToArray(fragments, cJSON_CreateString("To Remove the <mark>Mould</mark>"));
+    cJSON_AddItemToArray(fragments, cJSON_CreateString("nowhere in the <mark>document</mark>"));
+
+    cJSON *response = cJSON_CreateObject();
+    cJSON *hits = cJSON_AddArrayToObject(cJSON_AddObjectToObject(response, "hits"), "hits");
+    cJSON_AddItemToArray(hits, hit);
+
+    char *body = cJSON_PrintUnformatted(response);
+    char *annotated = es_add_hit_pages(body, strlen(body));
+    ASSERT_NE(annotated, nullptr);
+
+    cJSON *parsed = cJSON_Parse(annotated);
+    const cJSON *pages = cJSON_GetObjectItem(
+            cJSON_GetArrayItem(cJSON_GetObjectItem(cJSON_GetObjectItem(parsed, "hits"), "hits"), 0),
+            "hit_pages");
+
+    ASSERT_EQ(cJSON_GetArraySize(pages), 3);
+    EXPECT_EQ(cJSON_GetArrayItem(pages, 0)->valuedouble, 6);
+    EXPECT_EQ(cJSON_GetArrayItem(pages, 1)->valuedouble, 9);
+    // A fragment that is not part of the text has no page
+    EXPECT_EQ(cJSON_GetArrayItem(pages, 2)->valuedouble, 0);
+
+    cJSON_Delete(parsed);
+    cJSON_Delete(response);
+    cJSON_Delete(document);
+    free(annotated);
+    free(body);
+    unload_index_database(index_db);
+    database_close(db, FALSE);
+}
+
+/** A response with no paginated document is left alone */
+TEST_F(SqliteIndexTest, ElasticsearchHitsOfAPlainTextFileAreLeftAlone) {
+    const char *body = R"({"hits":{"hits":[{"_id":"0000000a.0000000b","_source":{"name":"x"}}]}})";
+
+    ASSERT_EQ(es_add_hit_pages(body, strlen(body)), nullptr);
 }

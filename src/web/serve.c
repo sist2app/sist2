@@ -5,6 +5,7 @@
 #include "src/index/web.h"
 #include "src/auth0/auth0_c_api.h"
 #include "src/web/web_util.h"
+#include "src/web/highlight.h"
 #include "src/cli.h"
 #include <time.h>
 
@@ -202,6 +203,110 @@ void thumbnail(struct mg_connection *nc, struct mg_http_message *hm) {
     }
 
     serve_thumbnail(nc, hm, sid.index_id, sid.doc_id, 0);
+}
+
+/** The text of a document of a search result, or NULL when the index it came from is not loaded */
+static char *hit_content(const cJSON *hit) {
+    const cJSON *id = cJSON_GetObjectItem(hit, "_id");
+
+    if (!cJSON_IsString(id)) {
+        return NULL;
+    }
+
+    sist_id_t sid;
+
+    if (strlen(id->valuestring) != SIST_SID_LEN - 1 || !parse_sid(&sid, id->valuestring)) {
+        return NULL;
+    }
+
+    const index_t *idx = web_get_index_by_id(sid.index_id);
+
+    if (idx == NULL || idx->db == NULL) {
+        return NULL;
+    }
+
+    return database_get_content(idx->db, sid.doc_id);
+}
+
+static void add_hit_pages(cJSON *hit) {
+    const cJSON *source = cJSON_GetObjectItem(hit, "_source");
+    const cJSON *page_breaks = cJSON_GetObjectItem(source, "page_breaks");
+
+    if (!cJSON_IsString(page_breaks)) {
+        return;
+    }
+
+    const cJSON *highlight = cJSON_GetObjectItem(hit, "highlight");
+    // A fuzzy search highlights both fields; the frontend shows the nGram one
+    const cJSON *fragments = cJSON_GetObjectItem(highlight, "content.nGram");
+
+    if (!cJSON_IsArray(fragments)) {
+        fragments = cJSON_GetObjectItem(highlight, "content");
+    }
+
+    if (!cJSON_IsArray(fragments)) {
+        return;
+    }
+
+    int break_count;
+    size_t *breaks = highlight_parse_page_breaks(page_breaks->valuestring, &break_count);
+
+    if (breaks == NULL) {
+        return;
+    }
+
+    char *content = hit_content(hit);
+
+    if (content != NULL) {
+        cJSON *pages = cJSON_CreateArray();
+
+        const cJSON *fragment;
+        cJSON_ArrayForEach(fragment, fragments) {
+            const int page = cJSON_IsString(fragment)
+                             ? highlight_fragment_page(content, fragment->valuestring, breaks, break_count)
+                             : 0;
+            cJSON_AddItemToArray(pages, cJSON_CreateNumber(page));
+        }
+
+        cJSON_AddItemToObject(hit, "hit_pages", pages);
+        free(content);
+    }
+
+    free(breaks);
+}
+
+/*
+ * Elasticsearch quotes the passage that matched but never says where in the document it was, and
+ * the text is not part of _source either, so it is read back from the index it came from. A
+ * response that gets nothing added is sent on as it arrived.
+ */
+char *es_add_hit_pages(const char *body, size_t size) {
+    char *buf = malloc(size + 1);
+    memcpy(buf, body, size);
+    buf[size] = '\0';
+
+    // Only a paginated document carries them, and most searches return none
+    if (strstr(buf, "\"page_breaks\"") == NULL) {
+        free(buf);
+        return NULL;
+    }
+
+    cJSON *json = cJSON_Parse(buf);
+    free(buf);
+
+    if (json == NULL) {
+        return NULL;
+    }
+
+    cJSON *hit;
+    cJSON_ArrayForEach(hit, cJSON_GetObjectItem(cJSON_GetObjectItem(json, "hits"), "hits")) {
+        add_hit_pages(hit);
+    }
+
+    char *annotated = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+
+    return annotated;
 }
 
 void search(struct mg_connection *nc, struct mg_http_message *hm) {
@@ -757,9 +862,15 @@ static void ev_router(struct mg_connection *nc, int ev, void *ev_data) {
                 response_t *r = ctx->response;
 
                 if (r->status_code == 200) {
-                    web_send_headers(nc, 200, r->size, "Content-Type: application/json");
-                    mg_send(nc, r->body, r->size);
+                    char *annotated = es_add_hit_pages(r->body, r->size);
+                    const char *response = annotated == NULL ? r->body : annotated;
+                    const size_t response_size = annotated == NULL ? r->size : strlen(annotated);
+
+                    web_send_headers(nc, 200, response_size, "Content-Type: application/json");
+                    mg_send(nc, response, response_size);
                     nc->is_resp = 0;
+
+                    free(annotated);
                 } else if (r->status_code == 0) {
                     sist_log("serve.c", LOG_SIST_ERROR, "Could not connect to elasticsearch!");
 

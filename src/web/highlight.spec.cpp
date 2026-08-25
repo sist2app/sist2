@@ -435,3 +435,65 @@ TEST(HighlightText, ContextLargerThanTheCapIsClamped) {
 TEST(HighlightTerms, FreeingNullIsAllowed) {
     highlight_free_terms(nullptr);
 }
+
+/** Owns the page break array for the duration of a test */
+class PageBreaks {
+public:
+    explicit PageBreaks(const char *csv) : breaks_(highlight_parse_page_breaks(csv, &count_)) {}
+
+    ~PageBreaks() { free(breaks_); }
+
+    const size_t *get() const { return breaks_; }
+
+    int count() const { return count_; }
+
+    std::vector<size_t> list() const { return {breaks_, breaks_ + count_}; }
+
+private:
+    int count_ = 0;
+    size_t *breaks_;
+};
+
+TEST(PageBreaksParse, ReadsTheOffsetsAScanWrote) {
+    ASSERT_EQ(PageBreaks("0,31,1036").list(), (std::vector<size_t>{0, 31, 1036}));
+}
+
+TEST(PageBreaksParse, EmptyForADocumentThatIsNotPaginated) {
+    ASSERT_EQ(PageBreaks("").get(), nullptr);
+    ASSERT_EQ(PageBreaks(nullptr).get(), nullptr);
+}
+
+TEST(FragmentPage, FindsThePageAFragmentCameFrom) {
+    const char *text = "page one text page two text page three text";
+    const PageBreaks breaks("0,14,28");
+
+    ASSERT_EQ(highlight_fragment_page(text, "page <mark>one</mark>", breaks.get(), breaks.count()), 1);
+    ASSERT_EQ(highlight_fragment_page(text, "page <mark>two</mark>", breaks.get(), breaks.count()), 2);
+    ASSERT_EQ(highlight_fragment_page(text, "page <mark>three</mark>", breaks.get(), breaks.count()), 3);
+}
+
+/** The excerpt starts a few words before the match, which can be on the page before it */
+TEST(FragmentPage, AnswersWithThePageTheMatchIsOn) {
+    const char *text = "page one text page two text";
+    const PageBreaks breaks("0,14");
+
+    ASSERT_EQ(highlight_fragment_page(text, "one text page <mark>two</mark>", breaks.get(), breaks.count()), 2);
+}
+
+TEST(FragmentPage, CountsCodePointsRatherThanBytes) {
+    // Two code points, four bytes, before the second page starts
+    const char *text = "éé page two";
+    const PageBreaks breaks("0,3");
+
+    ASSERT_EQ(highlight_fragment_page(text, "<mark>page</mark>", breaks.get(), breaks.count()), 2);
+}
+
+TEST(FragmentPage, ZeroWhenTheFragmentIsNotPartOfTheText) {
+    const PageBreaks breaks("0,14");
+
+    ASSERT_EQ(highlight_fragment_page("page one text", "<mark>elsewhere</mark>", breaks.get(), breaks.count()), 0);
+}
+
+TEST(FragmentPage, ZeroForADocumentThatIsNotPaginated) {
+    ASSERT_EQ(highlight_fragment_page("page one text", "<mark>one</mark>", nullptr, 0), 0);
+}

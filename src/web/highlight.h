@@ -30,4 +30,16 @@ void highlight_free_terms(char **terms);
  */
 char *highlight_text(const char *text, char *const *terms, int context_words);
 
+/**
+ * The page offsets a scan wrote for a paginated document ("0,31,1036"), as code point offsets into
+ * its text. Returns NULL when the document has none; free the array when done.
+ */
+size_t *highlight_parse_page_breaks(const char *csv, int *count);
+
+/**
+ * The 1-based page a marked-up fragment of the text was taken from, or 0 when the fragment is not
+ * part of it. The <mark> tags a highlighter added are ignored.
+ */
+int highlight_fragment_page(const char *text, const char *fragment, const size_t *breaks, int break_count);
+
 #endif

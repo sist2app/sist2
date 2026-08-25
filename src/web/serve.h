@@ -13,4 +13,10 @@ void serve(const char *listen_address);
 /** Body of the Elasticsearch _update request that adds or removes one tag. Caller frees. */
 char *tag_script_body(const char *source, const char *tag);
 
+/**
+ * An Elasticsearch search response with the page each highlight fragment was taken from added to
+ * its hits. Returns NULL when there is nothing to add. Caller frees.
+ */
+char *es_add_hit_pages(const char *body, size_t size);
+
 #endif
