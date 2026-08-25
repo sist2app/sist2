@@ -273,13 +273,15 @@ size_t *highlight_parse_page_breaks(const char *csv, int *count) {
 static char *strip_marks(const char *fragment, size_t *first_match) {
     char *plain = malloc(strlen(fragment) + 1);
     size_t len = 0;
+    int found = 0;
 
     *first_match = 0;
 
     for (const char *cur = fragment; *cur != '\0';) {
         if (strncmp(cur, "<mark>", 6) == 0) {
-            if (*first_match == 0) {
+            if (!found) {
                 *first_match = len;
+                found = 1;
             }
             cur += 6;
         } else if (strncmp(cur, "</mark>", 7) == 0) {
@@ -294,15 +296,19 @@ static char *strip_marks(const char *fragment, size_t *first_match) {
     return plain;
 }
 
-int highlight_fragment_page(const char *text, const char *fragment, const size_t *breaks,
-                            int break_count) {
+int highlight_fragment_page(const char *text, size_t search_from, const char *fragment,
+                            const size_t *breaks, int break_count) {
     if (text == NULL || fragment == NULL || breaks == NULL || break_count == 0) {
         return 0;
     }
 
+    if (search_from > strlen(text)) {
+        search_from = 0;
+    }
+
     size_t first_match;
     char *plain = strip_marks(fragment, &first_match);
-    const char *at = *plain == '\0' ? NULL : strstr(text, plain);
+    const char *at = *plain == '\0' ? NULL : strstr(text + search_from, plain);
     free(plain);
 
     if (at == NULL) {

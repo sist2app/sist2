@@ -1043,9 +1043,13 @@ TEST_F(SqliteIndexTest, ElasticsearchHitsCarryThePageOfEachFragment) {
     ASSERT_NE(annotated, nullptr);
 
     cJSON *parsed = cJSON_Parse(annotated);
-    const cJSON *pages = cJSON_GetObjectItem(
-            cJSON_GetArrayItem(cJSON_GetObjectItem(cJSON_GetObjectItem(parsed, "hits"), "hits"), 0),
-            "hit_pages");
+    const cJSON *annotated_hit =
+            cJSON_GetArrayItem(cJSON_GetObjectItem(cJSON_GetObjectItem(parsed, "hits"), "hits"), 0);
+    const cJSON *pages = cJSON_GetObjectItem(annotated_hit, "hit_pages");
+
+    // Nothing downstream reads the offsets themselves
+    EXPECT_EQ(cJSON_GetObjectItem(cJSON_GetObjectItem(annotated_hit, "_source"), "page_breaks"),
+              nullptr);
 
     ASSERT_EQ(cJSON_GetArraySize(pages), 3);
     EXPECT_EQ(cJSON_GetArrayItem(pages, 0)->valuedouble, 6);
@@ -1065,6 +1069,18 @@ TEST_F(SqliteIndexTest, ElasticsearchHitsCarryThePageOfEachFragment) {
 /** A response with no paginated document is left alone */
 TEST_F(SqliteIndexTest, ElasticsearchHitsOfAPlainTextFileAreLeftAlone) {
     const char *body = R"({"hits":{"hits":[{"_id":"0000000a.0000000b","_source":{"name":"x"}}]}})";
+
+    ASSERT_EQ(es_add_hit_pages(body, strlen(body)), nullptr);
+}
+
+/**
+ * A request that asks for the text of a document is not a search: its one fragment is the whole
+ * document, which would be read back and scanned for nothing.
+ */
+TEST_F(SqliteIndexTest, ElasticsearchHitsThatCarryTheirTextAreLeftAlone) {
+    const char *body = R"({"hits":{"hits":[{"_id":"0000000a.0000000b","_source":)"
+                       R"({"content":"page one text","page_breaks":"0,14"},)"
+                       R"("highlight":{"content":["page <mark>one</mark> text"]}}]}})";
 
     ASSERT_EQ(es_add_hit_pages(body, strlen(body)), nullptr);
 }

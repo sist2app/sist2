@@ -228,12 +228,19 @@ static char *hit_content(const cJSON *hit) {
     return database_get_content(idx->db, sid.doc_id);
 }
 
-static void add_hit_pages(cJSON *hit) {
-    const cJSON *source = cJSON_GetObjectItem(hit, "_source");
+/** TRUE when the hit was modified */
+static int add_hit_pages(cJSON *hit) {
+    cJSON *source = cJSON_GetObjectItem(hit, "_source");
     const cJSON *page_breaks = cJSON_GetObjectItem(source, "page_breaks");
 
     if (!cJSON_IsString(page_breaks)) {
-        return;
+        return FALSE;
+    }
+
+    // A request that asks for the text itself is not a search: its one fragment is the whole
+    // document, and the frontend places the hits inside it on its own
+    if (cJSON_IsString(cJSON_GetObjectItem(source, "content"))) {
+        return FALSE;
     }
 
     const cJSON *highlight = cJSON_GetObjectItem(hit, "highlight");
@@ -245,14 +252,18 @@ static void add_hit_pages(cJSON *hit) {
     }
 
     if (!cJSON_IsArray(fragments)) {
-        return;
+        return FALSE;
     }
 
     int break_count;
     size_t *breaks = highlight_parse_page_breaks(page_breaks->valuestring, &break_count);
 
+    // Only this function reads them, and a long document's offsets are larger than the excerpt
+    // they place
+    cJSON_DeleteItemFromObject(source, "page_breaks");
+
     if (breaks == NULL) {
-        return;
+        return TRUE;
     }
 
     char *content = hit_content(hit);
@@ -263,7 +274,7 @@ static void add_hit_pages(cJSON *hit) {
         const cJSON *fragment;
         cJSON_ArrayForEach(fragment, fragments) {
             const int page = cJSON_IsString(fragment)
-                             ? highlight_fragment_page(content, fragment->valuestring, breaks, break_count)
+                             ? highlight_fragment_page(content, 0, fragment->valuestring, breaks, break_count)
                              : 0;
             cJSON_AddItemToArray(pages, cJSON_CreateNumber(page));
         }
@@ -273,6 +284,8 @@ static void add_hit_pages(cJSON *hit) {
     }
 
     free(breaks);
+
+    return TRUE;
 }
 
 /*
@@ -298,9 +311,16 @@ char *es_add_hit_pages(const char *body, size_t size) {
         return NULL;
     }
 
+    int any = FALSE;
+
     cJSON *hit;
     cJSON_ArrayForEach(hit, cJSON_GetObjectItem(cJSON_GetObjectItem(json, "hits"), "hits")) {
-        add_hit_pages(hit);
+        any |= add_hit_pages(hit);
+    }
+
+    if (!any) {
+        cJSON_Delete(json);
+        return NULL;
     }
 
     char *annotated = cJSON_PrintUnformatted(json);
