@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Rebuild the public demo from scratch: wipe the old indices, scan every corpus,
-# generate the CLIP embeddings, push everything to Elasticsearch and restart the
-# frontend. Run it after a release, once.
+# generate the embeddings the user scripts add, push everything to Elasticsearch and
+# restart the frontend. Run it after a release, once.
 #
 # Host-specific settings live in demo/.env (see env.example); it is not in git.
 
@@ -10,15 +10,17 @@ cd "$(dirname "$0")"
 
 pull=1
 clip=1
-rebuild_clip_image=0
+sbert=1
+rebuild_scripts_image=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --no-pull) pull=0 ;;
     --skip-clip) clip=0 ;;
-    --rebuild-clip-image) rebuild_clip_image=1 ;;
+    --skip-sbert) sbert=0 ;;
+    --rebuild-scripts-image) rebuild_scripts_image=1 ;;
     -h|--help)
-      echo "usage: $0 [--no-pull] [--skip-clip] [--rebuild-clip-image]"
+      echo "usage: $0 [--no-pull] [--skip-clip] [--skip-sbert] [--rebuild-scripts-image]"
       exit 0
       ;;
     *) echo "unknown argument: $1" >&2; exit 1 ;;
@@ -51,10 +53,11 @@ corpora=(
   "40-test-files|demo_files|Test files"
   "50-clip|clip-demo-images|CLIP demo"
 )
-# The one index the CLIP script runs on
+# The index each user script runs on
 clip_index="50-clip"
+sbert_index="20-encyclopedias"
 
-clip_image="sist2-demo-clip:${SIST2_IMAGE##*:}"
+scripts_image="sist2-demo-scripts:${SIST2_IMAGE##*:}"
 threads=${THREADS:-$(nproc)}
 
 sist2() {
@@ -70,10 +73,10 @@ if [ "$pull" = 1 ]; then
   docker pull "$SIST2_IMAGE"
 fi
 
-if [ "$clip" = 1 ]; then
-  if [ "$rebuild_clip_image" = 1 ] || ! docker image inspect "$clip_image" > /dev/null 2>&1; then
-    echo "==> Building $clip_image (torch + CLIP on top of the sist2 image)"
-    docker build --build-arg "SIST2_IMAGE=$SIST2_IMAGE" -t "$clip_image" -f clip.Dockerfile .
+if [ "$clip" = 1 ] || [ "$sbert" = 1 ]; then
+  if [ "$rebuild_scripts_image" = 1 ] || ! docker image inspect "$scripts_image" > /dev/null 2>&1; then
+    echo "==> Building $scripts_image (torch, CLIP and sentence-transformers on top of the sist2 image)"
+    docker build --build-arg "SIST2_IMAGE=$SIST2_IMAGE" -t "$scripts_image" -f scripts.Dockerfile .
   fi
 fi
 
@@ -106,9 +109,22 @@ if [ "$clip" = 1 ]; then
     --entrypoint /bin/bash \
     -v "$DATA_DIR:/data:ro" \
     -v "$INDEX_DIR:/indices" \
-    "$clip_image" \
+    "$scripts_image" \
     -c "cd /opt/sist2-script-clip && exec python run.py '/indices/${clip_index}.sist2' \
         --num-tags=1 --tags-file=general.txt --color='#dcd7ff'"
+fi
+
+if [ "$sbert" = 1 ]; then
+  # One embedding per document, not one per chunk: the demo serves Elasticsearch, and
+  # `sist2 index` only pushes the first chunk of a document to it. Chunked retrieval is
+  # a SQLite search index feature until the nested mapping lands.
+  echo "==> Generating the sentence embeddings"
+  docker run --rm \
+    --entrypoint /bin/bash \
+    -v "$INDEX_DIR:/indices" \
+    "$scripts_image" \
+    -c "cd /opt/sist2-script-sbert && exec python run.py '/indices/${sbert_index}.sist2' \
+        --max-chunks=1"
 fi
 
 # The first push resets the mappings, which drops every document of the previous run
