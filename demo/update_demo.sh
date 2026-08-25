@@ -115,16 +115,14 @@ if [ "$clip" = 1 ]; then
 fi
 
 if [ "$sbert" = 1 ]; then
-  # One embedding per document, not one per chunk: the demo serves Elasticsearch, and
-  # `sist2 index` only pushes the first chunk of a document to it. Chunked retrieval is
-  # a SQLite search index feature until the nested mapping lands.
+  # One embedding per chunk: an embeddings search scores the passage that matched and quotes it
+  # back as the excerpt of the result, which needs Elasticsearch 8.11 or later
   echo "==> Generating the sentence embeddings"
   docker run --rm \
     --entrypoint /bin/bash \
     -v "$INDEX_DIR:/indices" \
     "$scripts_image" \
-    -c "cd /opt/sist2-script-sbert && exec python run.py '/indices/${sbert_index}.sist2' \
-        --max-chunks=1"
+    -c "cd /opt/sist2-script-sbert && exec python run.py '/indices/${sbert_index}.sist2'"
 fi
 
 # The first push resets the mappings, which drops every document of the previous run
