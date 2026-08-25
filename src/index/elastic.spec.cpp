@@ -171,3 +171,41 @@ TEST_F(ElasticMappingsTest, EveryEmbeddingTemplateHasAChunkTwin) {
                             << "no dynamic template for " << twin;
     }
 }
+
+/**
+ * A page of results carries a vector for every hit if the client asks for _source without knowing
+ * to exclude them, which is megabytes per page. Elasticsearch searches vectors through their own
+ * index, and the passage of a chunk is read from its stored field, so nothing needs them in
+ * _source: the mapping is what keeps them out, whatever the client sends.
+ */
+TEST_F(ElasticMappingsTest, VectorsAreNotPartOfTheSource) {
+    const cJSON *source = cJSON_GetObjectItem(mappings, "_source");
+    ASSERT_NE(source, nullptr) << "no _source mapping: every hit carries its vectors";
+
+    const cJSON *excludes = cJSON_GetObjectItem(source, "excludes");
+    ASSERT_TRUE(cJSON_IsArray(excludes));
+
+    std::vector<std::string> excluded;
+    const cJSON *entry;
+    cJSON_ArrayForEach(entry, excludes) {
+        ASSERT_TRUE(cJSON_IsString(entry));
+        excluded.emplace_back(entry->valuestring);
+    }
+
+    for (const char *field: {"emb", "emb_chunks"}) {
+        EXPECT_NE(std::find(excluded.begin(), excluded.end(), field), excluded.end())
+                            << field << " is part of _source";
+    }
+}
+
+/** The passage an embeddings search quotes is read back from the stored field, not from _source */
+TEST_F(ElasticMappingsTest, ChunkTextIsStored) {
+    const cJSON *chunks = cJSON_GetObjectItem(cJSON_GetObjectItem(mappings, "properties"), "emb_chunks");
+    ASSERT_NE(chunks, nullptr);
+
+    const cJSON *text = cJSON_GetObjectItem(cJSON_GetObjectItem(chunks, "properties"), "text");
+    ASSERT_NE(text, nullptr);
+
+    EXPECT_TRUE(cJSON_IsTrue(cJSON_GetObjectItem(text, "store")))
+                        << "emb_chunks.text is not stored: the inner hit has no passage to quote";
+}

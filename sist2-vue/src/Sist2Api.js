@@ -111,18 +111,23 @@ class Sist2Api {
      * the kNN inner hit, and the query terms, if the search carries any, are marked here.
      */
     setHitChunk(hit) {
-        const chunk = hit.inner_hits?.chunk?.hits?.hits[0]?._source;
+        const fields = hit.inner_hits?.chunk?.hits?.hits[0]?.fields;
 
         delete hit.inner_hits;
 
-        if (!chunk?.text) {
+        const text = fields?.["emb_chunks.text"]?.[0];
+
+        if (!text) {
             return;
         }
 
-        hit.chunk = {start: chunk.start, end: chunk.end};
+        hit.chunk = {
+            start: fields["emb_chunks.start"]?.[0],
+            end: fields["emb_chunks.end"]?.[0]
+        };
 
         const excerpt = excerptText(
-            chunk.text,
+            text,
             queryTerms(store.getters.searchText),
             Number(store.getters.optFragmentSize)
         );

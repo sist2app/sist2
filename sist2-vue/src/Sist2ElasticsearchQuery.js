@@ -215,9 +215,10 @@ class Sist2ElasticsearchQuery {
                     inner_hits: {
                         name: "chunk",
                         size: 1,
-                        _source: {
-                            includes: ["emb_chunks.start", "emb_chunks.end", "emb_chunks.text"]
-                        }
+                        // The chunks are not in _source: the passage is read from the stored field
+                        _source: false,
+                        stored_fields: ["emb_chunks.text"],
+                        docvalue_fields: ["emb_chunks.start", "emb_chunks.end"]
                     }
                 }
             } else if (hasKnn) {

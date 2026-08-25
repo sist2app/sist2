@@ -1,5 +1,11 @@
 {
   "date_detection": false,
+  "_source": {
+    "excludes": [
+      "emb",
+      "emb_chunks"
+    ]
+  },
   "dynamic_templates": [
     {
       "emb_384_any": {
@@ -399,7 +405,8 @@
         },
         "text": {
           "type": "text",
-          "index": false
+          "index": false,
+          "store": true
         }
       }
     }
