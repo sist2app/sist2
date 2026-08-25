@@ -12,6 +12,12 @@ export const SCRIPT_TEMPLATES = {
         script: null,
         extra_args: "--num-tags=1 --tags-file=general.txt --color=#dcd7ff"
     },
+    "SBERT - Generate embeddings of document text to search it by meaning": {
+        type: "git",
+        git_repository: "https://github.com/sist2app/sist2-script-sbert",
+        script: null,
+        extra_args: "--chunk-size=1200 --chunk-overlap=200 --batch-size=32"
+    },
     "Whisper - Speech to text with OpenAI Whisper": {
         type: "git",
         git_repository: "https://github.com/simon987/sist2-script-whisper",
