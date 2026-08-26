@@ -456,3 +456,17 @@ image/jp2, jp2
 +application/pgp-encrypted,
 +application/vnd.ms-outlook-pst, pst|ost
 +image/heif, heif|hif
++application/vnd.openxmlformats-officedocument.wordprocessingml.template, dotx
++application/vnd.openxmlformats-officedocument.spreadsheetml.template, xltx
++application/vnd.openxmlformats-officedocument.presentationml.template, potx
++application/vnd.openxmlformats-officedocument.presentationml.slideshow, ppsx
++application/vnd.ms-word.document.macroEnabled.12, docm
++application/vnd.ms-word.template.macroEnabled.12, dotm
++application/vnd.ms-excel.sheet.macroEnabled.12, xlsm
++application/vnd.ms-excel.template.macroEnabled.12, xltm
++application/vnd.ms-excel.addin.macroEnabled.12, xlam
++application/vnd.ms-excel.sheet.binary.macroEnabled.12, xlsb
++application/vnd.ms-powerpoint.presentation.macroEnabled.12, pptm
++application/vnd.ms-powerpoint.template.macroEnabled.12, potm
++application/vnd.ms-powerpoint.slideshow.macroEnabled.12, ppsm
++application/vnd.ms-powerpoint.addin.macroEnabled.12, ppam

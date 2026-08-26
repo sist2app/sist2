@@ -79,6 +79,27 @@ TEST(Mime, ParserMasks) {
     ASSERT_FALSE(IS_ARC(mime_get_mime_by_string("text/plain")));
 }
 
+/**
+ * Macro-enabled and template OOXML files are zip files: without an extension entry of their own,
+ * they fall back to libmagic, which reports application/zip for the ones it cannot pick apart, and
+ * the whole archive gets indexed member by member.
+ */
+TEST(Mime, MacroEnabledAndTemplateOoxmlAreDocuments) {
+    const char *const EXTENSIONS[] = {
+            "docx", "dotx", "docm", "dotm",
+            "xlsx", "xltx", "xlsm", "xltm", "xlam", "xlsb",
+            "pptx", "potx", "ppsx", "pptm", "potm", "ppsm", "ppam",
+    };
+
+    for (const char *ext: EXTENSIONS) {
+        const unsigned int mime = mime_get_mime_by_ext(ext);
+
+        ASSERT_NE(mime, 0u) << ext;
+        ASSERT_TRUE(IS_DOC(mime)) << ext;
+        ASSERT_FALSE(IS_ARC(mime)) << ext;
+    }
+}
+
 /** Every mime id must map back to its own text, and no two ids may collide */
 TEST(Mime, IdsAreUniqueAndReversible) {
     unsigned int *ids = get_mime_ids();
