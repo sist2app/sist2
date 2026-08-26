@@ -28,7 +28,7 @@ char *realpath(const char *path, char *resolved);
  * open() and fopen() taking a UTF-8 path. The CRT's narrow calls convert through the process code
  * page, which only carries every filename when the UTF-8 manifest applies; these always do.
  */
-int sist_open(const char *path, int flags);
+int sist_open(const char *path, int flags, ...);
 
 FILE *sist_fopen(const char *path, const char *mode);
 

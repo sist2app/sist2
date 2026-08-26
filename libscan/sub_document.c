@@ -102,8 +102,9 @@ int sub_document_submit(parse_callback_t parse, vfile_t *f, parse_job_t *sub_job
     strcpy(sub_job->vfile.filepath, sub_job->filepath);
     sub_job->base = (int) (strrchr(sub_job->filepath, '/') - sub_job->filepath) + 1;
 
-    const char *dot = strrchr(sub_job->filepath, '.');
-    if (dot != NULL && (dot - sub_job->filepath) > (long) strlen(f->filepath)) {
+    // Only the last path component is its own name; every one before it belongs to a parent
+    const char *dot = strrchr(sub_job->filepath + sub_job->base, '.');
+    if (dot != NULL) {
         sub_job->ext = (int) (dot - sub_job->filepath + 1);
     } else {
         // No extension of its own: the media type comes from the content instead

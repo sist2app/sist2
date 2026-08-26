@@ -251,15 +251,6 @@ static inline int text_buffer_append_string(text_buffer_t *buf, const char *str,
         return 0;
     }
 
-    if (len <= 4) {
-        for (size_t i = 0; i < len; i++) {
-            if (((utf8_int32_t) 0xffffff80 & str[i]) == 0 && SHOULD_KEEP_CHAR(str[i])) {
-                dyn_buffer_write_char(&buf->dyn_buffer, str[i]);
-            }
-        }
-        return 0;
-    }
-
     utf8_int32_t c;
     char tmp[16] = {0};
 

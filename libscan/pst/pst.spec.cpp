@@ -71,8 +71,8 @@ TEST_F(PstTest, MessagesAreParsedAsEmail) {
     const std::string text = get_meta(sub_docs.at(0), MetaContent)->str_val;
 
     // The headers a mailbox is searched by are indexed along with the body
-    ASSERT_NE(text.find("Subject:original email"), std::string::npos);
-    ASSERT_NE(text.find("Date:Wed, 30 Aug 2017 19:26:04 +0000"), std::string::npos);
+    ASSERT_NE(text.find("Subject: original email"), std::string::npos);
+    ASSERT_NE(text.find("Date: Wed, 30 Aug 2017 19:26:04 +0000"), std::string::npos);
     ASSERT_NE(text.find("This is the original email"), std::string::npos);
 }
 

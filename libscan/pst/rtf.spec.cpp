@@ -90,7 +90,33 @@ TEST(RtfTest, MaxSizeIsRespected) {
     }
     rtf += "}";
 
-    ASSERT_LE(to_text(rtf, 64).size(), 68);
+    ASSERT_LE(to_text(rtf, 64).size(), 64u);
+}
+
+/** \ucN says how many characters stand in for a \uN escape, and Outlook writes \uc0 */
+TEST(RtfTest, UnicodeFallbackCount) {
+    ASSERT_EQ(to_text(R"({\rtf1\ansi\uc0 caf\u233 Xtra})"), "caféXtra");
+    ASSERT_EQ(to_text(R"({\rtf1\ansi\uc2 caf\u233 ??tra})"), "cafétra");
+}
+
+/** A body may hold raw 8bit bytes rather than the \'hh form, and they are latin-1 all the same */
+TEST(RtfTest, RawEightBitBytes) {
+    ASSERT_EQ(to_text("{\\rtf1\\ansi caf\xe9}"), "café");
+}
+
+/** A body made of escapes rather than literal text stops at max_size like any other */
+TEST(RtfTest, MaxSizeIsRespectedForEscapes) {
+    std::string hex = R"({\rtf1\ansi )";
+    std::string words = R"({\rtf1\ansi )";
+    for (int i = 0; i < 20000; i++) {
+        hex += R"(\'41)";
+        words += R"(word\par )";
+    }
+    hex += "}";
+    words += "}";
+
+    ASSERT_LE(to_text(hex, 1024).size(), 1024u);
+    ASSERT_LE(to_text(words, 1024).size(), 1024u);
 }
 
 /** A document that ends in the middle of a group, a control word or an escape */

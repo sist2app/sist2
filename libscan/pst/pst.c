@@ -15,6 +15,7 @@
 #ifdef _WIN32
 
 #include <io.h>
+#include <sys/stat.h>
 
 #else
 
@@ -32,6 +33,9 @@
  * Markup shrinks on the way to text, hence the factor. */
 #define PST_BODY_SIZE_FACTOR 4
 #define PST_MIN_BODY_SIZE ((size_t) 64 * 1024)
+
+/* libpff hands a body out whole, so its size is the allocation one costs */
+#define PST_MAX_BODY_SIZE ((size_t) 256 * 1024 * 1024)
 
 #define PST_MAX_ATTACHMENT_SIZE ((size64_t) 512 * 1024 * 1024)
 #define PST_MAX_SPILL_SIZE ((int64_t) 4 * 1024 * 1024 * 1024)
@@ -317,9 +321,11 @@ static char *message_body(libpff_item_t *message, size_t max_size, char *content
     libpff_error_t *error = NULL;
     size_t size = 0;
 
-    if (libpff_message_get_plain_text_body_size(message, &size, &error) == 1 && size > 1) {
+    if (libpff_message_get_plain_text_body_size(message, &size, &error) == 1 && size > 1 &&
+        size <= PST_MAX_BODY_SIZE) {
         char *body = malloc(size);
-        if (libpff_message_get_plain_text_body(message, (uint8_t *) body, size, &error) == 1) {
+        if (body != NULL &&
+            libpff_message_get_plain_text_body(message, (uint8_t *) body, size, &error) == 1) {
             snprintf(content_type, content_type_size, "text/plain; charset=utf-8");
             *out_size = MIN(size - 1, max_size);
             return body;
@@ -328,9 +334,11 @@ static char *message_body(libpff_item_t *message, size_t max_size, char *content
     }
     libpff_error_free(&error);
 
-    if (libpff_message_get_html_body_size(message, &size, &error) == 1 && size > 1) {
+    if (libpff_message_get_html_body_size(message, &size, &error) == 1 && size > 1 &&
+        size <= PST_MAX_BODY_SIZE) {
         char *body = malloc(size);
-        if (libpff_message_get_html_body(message, (uint8_t *) body, size, &error) == 1) {
+        if (body != NULL &&
+            libpff_message_get_html_body(message, (uint8_t *) body, size, &error) == 1) {
             const uint32_t codepage =
                     item_codepage(message, LIBPFF_ENTRY_TYPE_MESSAGE_BODY_CODEPAGE);
             snprintf(content_type, content_type_size, "text/html; charset=%s",
@@ -343,9 +351,11 @@ static char *message_body(libpff_item_t *message, size_t max_size, char *content
     }
     libpff_error_free(&error);
 
-    if (libpff_message_get_rtf_body_size(message, &size, &error) == 1 && size > 1) {
+    if (libpff_message_get_rtf_body_size(message, &size, &error) == 1 && size > 1 &&
+        size <= PST_MAX_BODY_SIZE) {
         char *rtf = malloc(size);
-        if (libpff_message_get_rtf_body(message, (uint8_t *) rtf, size, &error) == 1) {
+        if (rtf != NULL &&
+            libpff_message_get_rtf_body(message, (uint8_t *) rtf, size, &error) == 1) {
             char *body = rtf_to_text(rtf, size - 1, max_size, out_size);
             free(rtf);
 
@@ -828,7 +838,7 @@ static char *spill_to_temp_file(scan_pst_ctx_t *ctx, vfile_t *f) {
     }
     snprintf(path, PATH_MAX, "%s/sist2-pst-%s.tmp", temp_directory(), name);
 
-    fd = sist_open(path, O_CREAT | O_EXCL | O_RDWR | O_BINARY);
+    fd = sist_open(path, O_CREAT | O_EXCL | O_RDWR | O_BINARY, _S_IREAD | _S_IWRITE);
 #else
     snprintf(path, PATH_MAX, "%s/sist2-pst-XXXXXX", temp_directory());
     fd = mkstemp(path);
@@ -849,6 +859,7 @@ static char *spill_to_temp_file(scan_pst_ctx_t *ctx, vfile_t *f) {
     }
 
     char *buf = malloc(PST_SPILL_BUF_SIZE);
+    int64_t written = 0;
     int failed = FALSE;
 
     while (TRUE) {
@@ -862,15 +873,28 @@ static char *spill_to_temp_file(scan_pst_ctx_t *ctx, vfile_t *f) {
         if (bytes_read == 0) {
             break;
         }
+        // The size the container declared is what was checked, and it does not have to be true
+        if (written + bytes_read > PST_MAX_SPILL_SIZE) {
+            CTX_LOG_ERRORF(f->filepath, "Skipped, more than %" PRId64 " bytes to copy to disk",
+                           (int64_t) PST_MAX_SPILL_SIZE);
+            failed = TRUE;
+            break;
+        }
         if (fwrite(buf, 1, bytes_read, file) != (size_t) bytes_read) {
             CTX_LOG_ERRORF(f->filepath, "Could not write %s, out of space?", path);
             failed = TRUE;
             break;
         }
+        written += bytes_read;
     }
 
     free(buf);
-    fclose(file);
+
+    // The last block is still buffered until here, so this is where running out of space shows
+    if (fclose(file) != 0 && !failed) {
+        CTX_LOG_ERRORF(f->filepath, "Could not write %s, out of space?", path);
+        failed = TRUE;
+    }
 
     if (failed) {
         remove(path);

@@ -7,6 +7,16 @@
 /* Parameters are 32bit at most, and one written past that is not a number anyone meant */
 #define RTF_MAX_PARAMETER 0xffffffL
 
+/* \ucN says how many characters follow a \uN escape as a substitute; a real one is a handful */
+#define RTF_MAX_UC 32
+
+#define RTF_APPEND(codepoint)                                              \
+    do {                                                                   \
+        if (text_buffer_append_char(&tex, (codepoint)) == TEXT_BUF_FULL) { \
+            goto done;                                                     \
+        }                                                                  \
+    } while (0)
+
 /** Neither past the last codepoint nor one of the surrogates, which are not characters */
 static int is_codepoint(long value) {
     return value > 0 && value <= 0x10ffff && (value < 0xd800 || value > 0xdfff);
@@ -39,10 +49,11 @@ char *rtf_to_text(const char *rtf, size_t size, size_t max_size, size_t *out_siz
     int skip_depth = -1;
     // Characters a \uN escape is followed by as a substitute for readers that cannot read it
     int skip_fallback = 0;
+    int uc = 1;
     int group_start = FALSE;
 
     for (size_t i = 0; i < size && rtf[i] != '\0';) {
-        const char c = rtf[i];
+        const unsigned char c = (unsigned char) rtf[i];
 
         if (c == '{') {
             depth += 1;
@@ -82,7 +93,7 @@ char *rtf_to_text(const char *rtf, size_t size, size_t max_size, size_t *out_siz
                     const int value = (int) strtol(hex, NULL, 16);
                     if (skip_depth < 0 && skip_fallback == 0) {
                         // The codepage is not known here; the bytes are read as latin-1
-                        text_buffer_append_char(&tex, value);
+                        RTF_APPEND(value);
                     }
                     if (skip_fallback > 0) {
                         skip_fallback -= 1;
@@ -90,7 +101,7 @@ char *rtf_to_text(const char *rtf, size_t size, size_t max_size, size_t *out_siz
                     i += 3;
                 } else {
                     if (skip_depth < 0) {
-                        text_buffer_append_char(&tex, rtf[i]);
+                        RTF_APPEND((unsigned char) rtf[i]);
                     }
                     i += 1;
                 }
@@ -132,22 +143,22 @@ char *rtf_to_text(const char *rtf, size_t size, size_t max_size, size_t *out_siz
             } else if (strcmp(word, "par") == 0 || strcmp(word, "line") == 0 ||
                        strcmp(word, "row") == 0) {
                 if (skip_depth < 0) {
-                    text_buffer_append_char(&tex, '\n');
+                    RTF_APPEND('\n');
                 }
             } else if (strcmp(word, "tab") == 0 || strcmp(word, "cell") == 0) {
                 if (skip_depth < 0) {
-                    text_buffer_append_char(&tex, '\t');
+                    RTF_APPEND('\t');
                 }
             } else if (strcmp(word, "u") == 0 && has_parameter) {
                 // A negative parameter is the codepoint as a signed 16bit integer
                 const long codepoint = negative ? 65536 - parameter : parameter;
 
                 if (skip_depth < 0 && is_codepoint(codepoint)) {
-                    text_buffer_append_char(&tex, (int) codepoint);
+                    RTF_APPEND((int) codepoint);
                 }
-                skip_fallback = 1;
+                skip_fallback = uc;
             } else if (strcmp(word, "uc") == 0 && has_parameter) {
-                skip_fallback = 0;
+                uc = negative ? 0 : (int) (parameter > RTF_MAX_UC ? RTF_MAX_UC : parameter);
             }
 
             group_start = FALSE;
@@ -157,8 +168,8 @@ char *rtf_to_text(const char *rtf, size_t size, size_t max_size, size_t *out_siz
         if (skip_depth < 0 && c != '\r' && c != '\n') {
             if (skip_fallback > 0) {
                 skip_fallback -= 1;
-            } else if (text_buffer_append_char(&tex, c) == TEXT_BUF_FULL) {
-                break;
+            } else {
+                RTF_APPEND(c);
             }
         }
 
@@ -166,8 +177,19 @@ char *rtf_to_text(const char *rtf, size_t size, size_t max_size, size_t *out_siz
         i += 1;
     }
 
+    done:
     text_buffer_terminate_string(&tex);
 
-    *out_size = tex.dyn_buffer.cur - 1;
+    // The buffer stops on the codepoint that crosses max_size rather than before it
+    size_t text_size = tex.dyn_buffer.cur - 1;
+    if (text_size > max_size) {
+        text_size = max_size;
+        while (text_size > 0 && ((unsigned char) tex.dyn_buffer.buf[text_size] & 0xc0) == 0x80) {
+            text_size -= 1;
+        }
+        tex.dyn_buffer.buf[text_size] = '\0';
+    }
+
+    *out_size = text_size;
     return tex.dyn_buffer.buf;
 }

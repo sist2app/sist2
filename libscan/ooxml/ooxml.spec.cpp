@@ -35,7 +35,7 @@ TEST_F(OoxmlTest, Docx2) {
 
     ASSERT_STREQ(meta(MetaAuthor)->str_val, "liz evans");
     ASSERT_EQ(meta(MetaPages)->long_val, 1);
-    ASSERT_EQ(content_len(), 2780);
+    ASSERT_EQ(content_len(), 2794);
 }
 
 TEST_F(OoxmlTest, Docx2Thumbnail) {
@@ -90,5 +90,5 @@ TEST_F(OoxmlArcTest, Docx2In7z) {
     ASSERT_EQ(sub_docs.size(), 1);
     ASSERT_STREQ(get_meta(sub_docs.last(), MetaAuthor)->str_val, "liz evans");
     ASSERT_EQ(get_meta(sub_docs.last(), MetaPages)->long_val, 1);
-    ASSERT_EQ(strlen(get_meta(sub_docs.last(), MetaContent)->str_val), 2780);
+    ASSERT_EQ(strlen(get_meta(sub_docs.last(), MetaContent)->str_val), 2794);
 }

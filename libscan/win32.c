@@ -7,7 +7,9 @@
 #include "macros.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <io.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -116,14 +118,22 @@ static wchar_t *utf8_to_wide_path(const char *utf8) {
     return wide == NULL ? NULL : wide_path_to_extended(wide);
 }
 
-int sist_open(const char *path, int flags) {
+int sist_open(const char *path, int flags, ...) {
     wchar_t *wide = utf8_to_wide_path(path);
     if (wide == NULL) {
         errno = EINVAL;
         return -1;
     }
 
-    const int fd = _wopen(wide, flags);
+    int mode = 0;
+    if (flags & O_CREAT) {
+        va_list args;
+        va_start(args, flags);
+        mode = va_arg(args, int);
+        va_end(args);
+    }
+
+    const int fd = _wopen(wide, flags, mode);
     free(wide);
     return fd;
 }
