@@ -257,6 +257,17 @@ scan_email_ctx_t make_email_ctx(int64_t content_size) {
     return ctx;
 }
 
+scan_pst_ctx_t make_pst_ctx(int64_t content_size) {
+    scan_pst_ctx_t ctx = {};
+
+    ctx.content_size = content_size;
+    ctx.parse = arc_parse_trampoline;
+    ctx.log = noop_log;
+    ctx.logf = noop_logf;
+
+    return ctx;
+}
+
 meta_line_t *get_meta(const document_t *doc, metakey key) {
     return get_meta_from(doc->meta_head, key);
 }

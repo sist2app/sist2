@@ -20,6 +20,7 @@ extern "C" {
 #include "libscan/mobi/scan_mobi.h"
 #include "libscan/msdoc/msdoc.h"
 #include "libscan/ooxml/ooxml.h"
+#include "libscan/pst/pst.h"
 #include "libscan/raw/raw.h"
 #include "libscan/text/text.h"
 #include "libscan/wpd/wpd.h"
@@ -86,6 +87,12 @@ scan_arc_ctx_t make_arc_ctx(archive_mode_t mode, const char *passphrase = nullpt
  * ArcTest::recurse_into(), the same way archive entries are.
  */
 scan_email_ctx_t make_email_ctx(int64_t content_size = 5000);
+
+/**
+ * Outlook mailbox context. The messages and their attachments are handed to the parser installed
+ * with ArcTest::recurse_into(), the same way archive entries are.
+ */
+scan_pst_ctx_t make_pst_ctx(int64_t content_size = 5000);
 
 /* Document helpers */
 

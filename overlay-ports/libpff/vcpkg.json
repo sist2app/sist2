@@ -1,0 +1,8 @@
+{
+  "name": "libpff",
+  "version-date": "2023-12-05",
+  "description": "Library to access the Personal Folder File (PFF) and Offline Folder File (OFF) formats, used by Outlook .pst and .ost mailboxes",
+  "homepage": "https://github.com/libyal/libpff",
+  "license": "LGPL-3.0-or-later",
+  "port-version": 1
+}

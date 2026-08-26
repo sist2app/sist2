@@ -2,71 +2,11 @@
 
 #include <envelope.h>
 
+#include "../sub_document.h"
 #include "../util.h"
 
 #define EMAIL_MAX_MEM ((size_t) 256 * 1024 * 1024)
 #define EMAIL_MAX_DECODED ((size_t) 64 * 1024 * 1024)
-
-/* Mail inside mail inside mail: past this the message was built to make the scan never end */
-#define MAX_EMAIL_DEPTH 16
-
-/** Body of one part, read by the sub-document parser through a vfile */
-typedef struct {
-    const char *data;
-    size_t size;
-    size_t cursor;
-} part_data_t;
-
-static int email_read(vfile_t *f, void *buf, size_t size) {
-    part_data_t *part = f->mem;
-
-    const size_t to_read = MIN(size, part->size - part->cursor);
-    memcpy(buf, part->data + part->cursor, to_read);
-    part->cursor += to_read;
-
-    if (to_read > 0 && f->calculate_checksum) {
-        f->has_checksum = TRUE;
-        safe_digest_update(f->sha1_ctx, buf, to_read);
-    }
-
-    return (int) to_read;
-}
-
-/* Media type detection reads the head of the part and then rewinds; those bytes are digested by
- * the read that follows the rewind, not here, so that they are not digested twice */
-static int email_read_rewindable(vfile_t *f, void *buf, size_t size) {
-    part_data_t *part = f->mem;
-
-    const size_t to_read = MIN(size, part->size - part->cursor);
-    memcpy(buf, part->data + part->cursor, to_read);
-    part->cursor += to_read;
-
-    return (int) to_read;
-}
-
-static void email_reset(vfile_t *f) {
-    part_data_t *part = f->mem;
-    part->cursor = 0;
-}
-
-static void email_close(vfile_t *f) {
-    if (f->sha1_ctx != NULL) {
-        EVP_DigestFinal_ex(f->sha1_ctx, f->sha1_digest, NULL);
-        EVP_MD_CTX_free(f->sha1_ctx);
-        f->sha1_ctx = NULL;
-    }
-}
-
-/** How many messages or archives had to be opened to reach this file */
-static int email_depth(const char *filepath) {
-    int depth = 0;
-
-    for (const char *p = filepath; (p = strstr(p, "#/")) != NULL; p += 2) {
-        depth += 1;
-    }
-
-    return depth;
-}
 
 static int is_container(const ev_part *part) {
     return strncmp(part->content_type, "multipart/", 10) == 0 ||
@@ -219,79 +159,9 @@ static void append_content(scan_email_ctx_t *ctx, document_t *doc, const ev_mess
     text_buffer_destroy(&tex);
 }
 
-/** Name of a sub-document, with anything that would forge a path in it replaced */
-static void sanitize_name(const char *name, char *buf, size_t buf_size) {
-    size_t len = strlen(name);
-
-    if (len >= buf_size) {
-        len = buf_size - 1;
-    }
-
-    for (size_t i = 0; i < len; i++) {
-        const unsigned char c = (unsigned char) name[i];
-        buf[i] = (c == '/' || c < 0x20 || c == 0x7f) ? '_' : name[i];
-    }
-    buf[len] = '\0';
-}
-
-static parse_job_t *sub_job_create(scan_email_ctx_t *ctx, vfile_t *f, document_t *doc) {
-    parse_job_t *sub_job = calloc(1, sizeof(parse_job_t));
-
-    sub_job->vfile.read = email_read;
-    sub_job->vfile.read_rewindable = email_read_rewindable;
-    sub_job->vfile.reset = email_reset;
-    sub_job->vfile.close = email_close;
-    sub_job->vfile.is_fs_file = FALSE;
-    sub_job->vfile.log = ctx->log;
-    sub_job->vfile.logf = ctx->logf;
-    sub_job->vfile.calculate_checksum = f->calculate_checksum;
-    sub_job->vfile.mtime = f->mtime;
-    strcpy(sub_job->parent, doc->filepath);
-
-    return sub_job;
-}
-
-/** Hands one part of a message to the parser as a document of its own */
-static void sub_job_submit(scan_email_ctx_t *ctx, vfile_t *f, parse_job_t *sub_job,
-                           const char *name, const char *data, size_t size) {
-    char safe_name[PATH_MAX];
-    sanitize_name(name, safe_name, sizeof(safe_name));
-
-    const int filepath_len = snprintf(sub_job->filepath, sizeof(sub_job->filepath), "%s#/%s",
-                                      f->filepath, safe_name);
-    if (filepath_len < 0 || filepath_len >= (int) sizeof(sub_job->filepath)) {
-        CTX_LOG_ERRORF(f->filepath, "Skipped %s, path too long", safe_name);
-        return;
-    }
-    strcpy(sub_job->vfile.filepath, sub_job->filepath);
-    sub_job->base = (int) (strrchr(sub_job->filepath, '/') - sub_job->filepath) + 1;
-
-    const char *dot = strrchr(sub_job->filepath, '.');
-    if (dot != NULL && (dot - sub_job->filepath) > (long) strlen(f->filepath)) {
-        sub_job->ext = (int) (dot - sub_job->filepath + 1);
-    } else {
-        // No extension of its own: the media type comes from the content instead
-        sub_job->ext = (int) strlen(sub_job->filepath);
-    }
-
-    part_data_t part_data = {.data = data, .size = size, .cursor = 0};
-
-    sub_job->vfile.mem = &part_data;
-    sub_job->vfile.st_size = size;
-    sub_job->vfile.has_checksum = FALSE;
-    sub_job->vfile.read_offset = 0;
-    sub_job->vfile.digested_bytes = 0;
-    sub_job->vfile.sha1_ctx = EVP_MD_CTX_new();
-    EVP_DigestInit(sub_job->vfile.sha1_ctx, EVP_sha1());
-
-    ctx->parse(sub_job);
-
-    sub_job->vfile.close(&sub_job->vfile);
-}
-
 static void parse_attachments(scan_email_ctx_t *ctx, vfile_t *f, document_t *doc,
                               const ev_message *msg, const char *skipped) {
-    parse_job_t *sub_job = sub_job_create(ctx, f, doc);
+    parse_job_t *sub_job = sub_document_job_create(f, doc->filepath, ctx->log, ctx->logf);
 
     const size_t count = ev_part_count(msg);
     char name[PATH_MAX];
@@ -304,12 +174,12 @@ static void parse_attachments(scan_email_ctx_t *ctx, vfile_t *f, document_t *doc
         }
 
         if (part->filename != NULL) {
-            snprintf(name, sizeof(name), "%s", part->filename);
+            sub_document_sanitize_name(part->filename, name, sizeof(name));
         } else {
             snprintf(name, sizeof(name), "part-%zu", i);
         }
 
-        sub_job_submit(ctx, f, sub_job, name, part->data, part->size);
+        sub_document_submit(ctx->parse, f, sub_job, name, part->data, part->size);
     }
 
     free(sub_job);
@@ -345,11 +215,11 @@ scan_code_t parse_email(scan_email_ctx_t *ctx, vfile_t *f, document_t *doc) {
 
     append_content(ctx, doc, msg, skipped);
 
-    if (email_depth(f->filepath) < MAX_EMAIL_DEPTH) {
+    if (sub_document_depth(f->filepath) < SUB_DOCUMENT_MAX_DEPTH) {
         parse_attachments(ctx, f, doc, msg, skipped);
     } else {
         CTX_LOG_ERRORF(f->filepath, "Attachments skipped, messages nested more than %d deep",
-                       MAX_EMAIL_DEPTH);
+                       SUB_DOCUMENT_MAX_DEPTH);
     }
 
     free(skipped);
@@ -360,8 +230,9 @@ scan_code_t parse_email(scan_email_ctx_t *ctx, vfile_t *f, document_t *doc) {
 
 scan_code_t parse_mbox(scan_email_ctx_t *ctx, vfile_t *f, document_t *doc) {
 
-    if (email_depth(f->filepath) >= MAX_EMAIL_DEPTH) {
-        CTX_LOG_ERRORF(f->filepath, "Skipped, mailboxes nested more than %d deep", MAX_EMAIL_DEPTH);
+    if (sub_document_depth(f->filepath) >= SUB_DOCUMENT_MAX_DEPTH) {
+        CTX_LOG_ERRORF(f->filepath, "Skipped, mailboxes nested more than %d deep",
+                       SUB_DOCUMENT_MAX_DEPTH);
         return SCAN_OK;
     }
 
@@ -382,7 +253,7 @@ scan_code_t parse_mbox(scan_email_ctx_t *ctx, vfile_t *f, document_t *doc) {
         return SCAN_ERR_READ;
     }
 
-    parse_job_t *sub_job = sub_job_create(ctx, f, doc);
+    parse_job_t *sub_job = sub_document_job_create(f, doc->filepath, ctx->log, ctx->logf);
 
     const size_t count = ev_mbox_count(mbox);
     char name[64];
@@ -407,7 +278,7 @@ scan_code_t parse_mbox(scan_email_ctx_t *ctx, vfile_t *f, document_t *doc) {
 
         const size_t message_len = ev_mbox_unquote(data, size, message);
 
-        sub_job_submit(ctx, f, sub_job, name, message, message_len);
+        sub_document_submit(ctx->parse, f, sub_job, name, message, message_len);
 
         free(message);
     }

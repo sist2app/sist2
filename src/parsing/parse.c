@@ -32,6 +32,7 @@ typedef enum {
     FILETYPE_WPD,
     FILETYPE_EMAIL,
     FILETYPE_MBOX,
+    FILETYPE_PST,
 } file_type_t;
 
 static file_type_t get_file_type(unsigned int mime, size_t size) {
@@ -74,6 +75,8 @@ static file_type_t get_file_type(unsigned int mime, size_t size) {
         return FILETYPE_EMAIL;
     } else if (is_mbox(&ScanCtx.email_ctx, mime)) {
         return FILETYPE_MBOX;
+    } else if (is_pst(&ScanCtx.pst_ctx, mime)) {
+        return FILETYPE_PST;
     }
 
     return FILETYPE_DONT_PARSE;
@@ -245,6 +248,12 @@ void parse(parse_job_t *job) {
             sink_write_document(doc, NULL);
 
             parse_mbox(&ScanCtx.email_ctx, &job->vfile, doc);
+            break;
+        case FILETYPE_PST:
+
+            sink_write_document(doc, NULL);
+
+            parse_pst(&ScanCtx.pst_ctx, &job->vfile, doc);
             break;
         case FILETYPE_DONT_PARSE:
         default:

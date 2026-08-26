@@ -15,6 +15,7 @@
     "libantiword2",
     "libenvelope",
     "libmobi",
+    "libpff",
     "libwpd",
     "utf8h",
     "libuv",

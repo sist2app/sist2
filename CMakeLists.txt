@@ -73,6 +73,7 @@ add_library(
         scan
         libscan/util.h
         libscan/scan.h
+        libscan/sub_document.c libscan/sub_document.h
         libscan/macros.h
         libscan/win32.h libscan/win32.c
 
@@ -85,6 +86,8 @@ add_library(
         libscan/font/font.c libscan/font/font.h
         libscan/msdoc/msdoc.c libscan/msdoc/msdoc.h
         libscan/email/email.c libscan/email/email.h
+        libscan/pst/pst.c libscan/pst/pst.h
+        libscan/pst/rtf.c libscan/pst/rtf.h
         libscan/json/json.c libscan/json/json.h
         libscan/wpd/wpd.c libscan/wpd/wpd.h libscan/wpd/libwpd_c_api.h libscan/wpd/libwpd_c_api.cpp
         libscan/mobi/scan_mobi.c libscan/mobi/scan_mobi.h
@@ -260,9 +263,11 @@ find_library(MUPDF_LIB NAMES libmupdf.a REQUIRED)
 find_library(MOBI_LIB NAMES libmobi.a mobi REQUIRED)
 find_library(ANTIWORD2_LIB NAMES libantiword2.a antiword2 REQUIRED)
 find_library(ENVELOPE_LIB NAMES libenvelope.a envelope REQUIRED)
+find_library(PFF_LIB NAMES libpff.a pff REQUIRED)
 find_path(MOBI_INCLUDE_DIR mobi.h REQUIRED)
 find_path(ANTIWORD2_INCLUDE_DIR antiword2.h REQUIRED)
 find_path(ENVELOPE_INCLUDE_DIR envelope.h REQUIRED)
+find_path(PFF_INCLUDE_DIR libpff.h REQUIRED)
 find_path(UTF8H_INCLUDE_DIR utf8h/utf8.h REQUIRED)
 find_library(CMS_LIB NAMES lcms2)
 find_library(JAS_LIB NAMES jasper)
@@ -425,6 +430,7 @@ target_link_libraries(
         ${ANTIWORD2_LIB}
         ${ENVELOPE_LIB}
         ${MOBI_LIB}
+        ${PFF_LIB}
         unofficial::pcre::pcre unofficial::pcre::pcre16 unofficial::pcre::pcre32 unofficial::pcre::pcrecpp
         leptonica
         libraw::raw
@@ -448,6 +454,7 @@ target_include_directories(
         ${MOBI_INCLUDE_DIR}
         ${ANTIWORD2_INCLUDE_DIR}
         ${ENVELOPE_INCLUDE_DIR}
+        ${PFF_INCLUDE_DIR}
         ${UTF8H_INCLUDE_DIR}
         ${WPD_INCLUDE_DIR}
         ${FFMPEG_INCLUDE_DIRS}

@@ -44,10 +44,17 @@ and are not part of the CMake build:
 clang -g -O1 -fsanitize=fuzzer,address,undefined -fno-sanitize-recover=all \
     -I. -o /tmp/highlight_fuzz src/web/highlight.c tests/fuzz/highlight_fuzz.c
 /tmp/highlight_fuzz -max_total_time=60 /tmp/highlight-corpus
+
+clang -g -O1 -fsanitize=fuzzer,address,undefined -fno-sanitize-recover=all \
+    -I. -Ibuild/vcpkg_installed/x64-linux/include \
+    -o /tmp/rtf_fuzz libscan/pst/rtf.c tests/fuzz/rtf_fuzz.c
+/tmp/rtf_fuzz -max_total_time=60 /tmp/rtf-corpus
 ```
 
-The target asserts the invariants, not just the absence of a crash: the mark tags it finds must be
-balanced and unnested, and the output with the tags removed must be a run of bytes from the input.
+Both targets assert the invariants, not just the absence of a crash. The highlighter's mark tags
+must be balanced and unnested, and the output with the tags removed must be a run of bytes from
+the input; the RTF reader must return a NUL-terminated string no longer than the size it was
+given, whose length is the one it reports.
 
 ## Build
 
@@ -67,6 +74,11 @@ ctest -j $(nproc)          # from build/, runs every variant, one process per te
 
 The OCR tests need a tessdata folder containing `eng.traineddata`. It is looked up in
 `$TESSDATA_PREFIX`, then `./tessdata`, then the usual distro locations.
+
+The Outlook mailbox tests (`PstTest`) read whatever `.pst` or `.ost` sits in
+`third-party/libscan-test-files/test_files/pst/`, and are skipped when there is none — only
+Outlook writes the format, so the corpus cannot carry a generated one. `RtfTest` covers the RTF
+reader those messages go through and needs no mailbox.
 
 ### Run fuzz tests:
 ```bash

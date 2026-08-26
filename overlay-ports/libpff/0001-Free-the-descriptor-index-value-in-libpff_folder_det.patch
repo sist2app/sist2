@@ -1,0 +1,210 @@
+From 5af69d26e8eac45ee27a2f0252bf146798c58af1 Mon Sep 17 00:00:00 2001
+From: Shy <admin@bunke.red>
+Date: Tue, 25 Aug 2026 19:59:24 -0400
+Subject: [PATCH] Free the descriptor index value in
+ libpff_folder_determine_*()
+
+libpff_folder_determine_sub_folders(), _sub_messages() and
+_sub_associated_contents() retrieve a descriptor index value through
+libpff_descriptors_index_get_index_value_by_identifier(), which allocates
+one, read the item values out of it and then return without freeing it.
+
+Every folder walked leaks 32 bytes per sub-item list, so walking a mailbox
+leaks in proportion to the number of folders in it.
+
+Free the value once the item values have been read, and on the error paths
+that follow the retrieval.
+---
+ libpff/libpff_folder.c | 90 ++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 78 insertions(+), 12 deletions(-)
+
+diff --git a/libpff/libpff_folder.c b/libpff/libpff_folder.c
+index 9b4ab00..4896bc2 100644
+--- a/libpff/libpff_folder.c
++++ b/libpff/libpff_folder.c
+@@ -512,7 +512,7 @@ int libpff_folder_determine_sub_folders(
+ 			 function,
+ 			 sub_folders_descriptor_identifier );
+ 
+-			return( -1 );
++			goto on_error;
+ 		}
+ 		else if( result != 0 )
+ 		{
+@@ -525,7 +525,7 @@ int libpff_folder_determine_sub_folders(
+ 				 "%s: invalid descriptor index value.",
+ 				 function );
+ 
+-				return( -1 );
++				goto on_error;
+ 			}
+ #if defined( HAVE_DEBUG_OUTPUT )
+ 			if( libcnotify_verbose != 0 )
+@@ -558,7 +558,7 @@ int libpff_folder_determine_sub_folders(
+ 				 "%s: unable to create sub folders item values.",
+ 				 function );
+ 
+-				return( -1 );
++				goto on_error;
+ 			}
+ 			if( libpff_item_values_read(
+ 			     internal_item->sub_item_values[ LIBPFF_FOLDER_SUB_ITEM_SUB_FOLDERS ],
+@@ -577,11 +577,33 @@ int libpff_folder_determine_sub_folders(
+ 				 function,
+ 				 sub_folders_descriptor_identifier );
+ 
+-				return( -1 );
++				goto on_error;
++			}
++			if( libpff_index_value_free(
++			     &descriptor_index_value,
++			     error ) != 1 )
++			{
++				libcerror_error_set(
++				 error,
++				 LIBCERROR_ERROR_DOMAIN_RUNTIME,
++				 LIBCERROR_RUNTIME_ERROR_FINALIZE_FAILED,
++				 "%s: unable to free descriptor index value.",
++				 function );
++
++				goto on_error;
+ 			}
+ 		}
+ 	}
+ 	return( 1 );
++
++on_error:
++	if( descriptor_index_value != NULL )
++	{
++		libpff_index_value_free(
++		 &descriptor_index_value,
++		 NULL );
++	}
++	return( -1 );
+ }
+ 
+ /* Determine if the item has sub messages
+@@ -643,7 +665,7 @@ int libpff_folder_determine_sub_messages(
+ 			 function,
+ 			 sub_messages_descriptor_identifier );
+ 
+-			return( -1 );
++			goto on_error;
+ 		}
+ 		else if( result != 0 )
+ 		{
+@@ -656,7 +678,7 @@ int libpff_folder_determine_sub_messages(
+ 				 "%s: invalid descriptor index value.",
+ 				 function );
+ 
+-				return( -1 );
++				goto on_error;
+ 			}
+ #if defined( HAVE_DEBUG_OUTPUT )
+ 			if( libcnotify_verbose != 0 )
+@@ -689,7 +711,7 @@ int libpff_folder_determine_sub_messages(
+ 				 "%s: unable to create sub messages item values.",
+ 				 function );
+ 
+-				return( -1 );
++				goto on_error;
+ 			}
+ 			if( libpff_item_values_read(
+ 			     internal_item->sub_item_values[ LIBPFF_FOLDER_SUB_ITEM_SUB_MESSAGES ],
+@@ -708,11 +730,33 @@ int libpff_folder_determine_sub_messages(
+ 				 function,
+ 				 sub_messages_descriptor_identifier );
+ 
+-				return( -1 );
++				goto on_error;
++			}
++			if( libpff_index_value_free(
++			     &descriptor_index_value,
++			     error ) != 1 )
++			{
++				libcerror_error_set(
++				 error,
++				 LIBCERROR_ERROR_DOMAIN_RUNTIME,
++				 LIBCERROR_RUNTIME_ERROR_FINALIZE_FAILED,
++				 "%s: unable to free descriptor index value.",
++				 function );
++
++				goto on_error;
+ 			}
+ 		}
+ 	}
+ 	return( 1 );
++
++on_error:
++	if( descriptor_index_value != NULL )
++	{
++		libpff_index_value_free(
++		 &descriptor_index_value,
++		 NULL );
++	}
++	return( -1 );
+ }
+ 
+ /* Determine if the item has sub associated contents
+@@ -774,7 +818,7 @@ int libpff_folder_determine_sub_associated_contents(
+ 			 function,
+ 			 sub_associated_contents_descriptor_identifier );
+ 
+-			return( -1 );
++			goto on_error;
+ 		}
+ 		else if( result != 0 )
+ 		{
+@@ -787,7 +831,7 @@ int libpff_folder_determine_sub_associated_contents(
+ 				 "%s: invalid descriptor index value.",
+ 				 function );
+ 
+-				return( -1 );
++				goto on_error;
+ 			}
+ #if defined( HAVE_DEBUG_OUTPUT )
+ 			if( libcnotify_verbose != 0 )
+@@ -820,7 +864,7 @@ int libpff_folder_determine_sub_associated_contents(
+ 				 "%s: unable to create sub associated contents item values.",
+ 				 function );
+ 
+-				return( -1 );
++				goto on_error;
+ 			}
+ 			if( libpff_item_values_read(
+ 			     internal_item->sub_item_values[ LIBPFF_FOLDER_SUB_ITEM_SUB_ASSOCIATED_CONTENTS ],
+@@ -839,11 +883,33 @@ int libpff_folder_determine_sub_associated_contents(
+ 				 function,
+ 				 sub_associated_contents_descriptor_identifier );
+ 
+-				return( -1 );
++				goto on_error;
++			}
++			if( libpff_index_value_free(
++			     &descriptor_index_value,
++			     error ) != 1 )
++			{
++				libcerror_error_set(
++				 error,
++				 LIBCERROR_ERROR_DOMAIN_RUNTIME,
++				 LIBCERROR_RUNTIME_ERROR_FINALIZE_FAILED,
++				 "%s: unable to free descriptor index value.",
++				 function );
++
++				goto on_error;
+ 			}
+ 		}
+ 	}
+ 	return( 1 );
++
++on_error:
++	if( descriptor_index_value != NULL )
++	{
++		libpff_index_value_free(
++		 &descriptor_index_value,
++		 NULL );
++	}
++	return( -1 );
+ }
+ 
+ /* Determine if the item has unknowns

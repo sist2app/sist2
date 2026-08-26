@@ -242,6 +242,13 @@ void initialize_scan_context(scan_args_t *args) {
     ScanCtx.email_ctx.parse = (parse_callback_t) parse;
     ScanCtx.email_ctx.rfc822_mime = mime_get_mime_by_string("message/rfc822");
     ScanCtx.email_ctx.mbox_mime = mime_get_mime_by_string("application/mbox");
+
+    ScanCtx.pst_ctx.content_size = args->content_size;
+    ScanCtx.pst_ctx.log = log_callback;
+    ScanCtx.pst_ctx.logf = logf_callback;
+    ScanCtx.pst_ctx.parse = (parse_callback_t) parse;
+    ScanCtx.pst_ctx.pst_mime = mime_get_mime_by_string("application/vnd.ms-outlook-pst");
+    ScanCtx.pst_ctx.outlook_mime = mime_get_mime_by_string("application/vnd.ms-outlook");
 }
 
 // Both producers run on the master's producer thread and submit through scan_master_submit()
