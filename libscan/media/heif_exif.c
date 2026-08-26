@@ -51,15 +51,15 @@ static int is_heif(const AVFormatContext *pFormatCtx) {
     return FALSE;
 }
 
-static int read_box(AVIOContext *pb, int64_t limit, box_t *box) {
+static int read_box(AVIOContext *pb, const int64_t limit, box_t *box) {
 
-    int64_t offset = avio_tell(pb);
+    const int64_t offset = avio_tell(pb);
     if (offset < 0 || offset + 8 > limit) {
         return FALSE;
     }
 
     int64_t size = avio_rb32(pb);
-    uint32_t type = avio_rb32(pb);
+    const uint32_t type = avio_rb32(pb);
     int64_t header_size = 8;
 
     if (size == 1) {
@@ -83,7 +83,7 @@ static int read_box(AVIOContext *pb, int64_t limit, box_t *box) {
     return TRUE;
 }
 
-static int find_box(AVIOContext *pb, int64_t start, int64_t end, uint32_t type, box_t *box) {
+static int find_box(AVIOContext *pb, const int64_t start, const int64_t end, const uint32_t type, box_t *box) {
 
     if (avio_seek(pb, start, SEEK_SET) < 0) {
         return FALSE;
@@ -108,21 +108,21 @@ static uint32_t find_exif_item_id(AVIOContext *pb, const box_t *iinf) {
         return 0;
     }
 
-    int version = avio_r8(pb);
+    const int version = avio_r8(pb);
     avio_skip(pb, 3);
     avio_skip(pb, version == 0 ? 2 : 4);
 
     box_t infe;
     while (read_box(pb, iinf->end, &infe)) {
-        int64_t next = infe.end;
+        const int64_t next = infe.end;
 
         if (infe.type == INFE_BOX) {
-            int infe_version = avio_r8(pb);
+            const int infe_version = avio_r8(pb);
             avio_skip(pb, 3);
 
             // The item type is only written from version 2 on
             if (infe_version >= 2) {
-                uint32_t item_id = infe_version == 2 ? avio_rb16(pb) : avio_rb32(pb);
+                const uint32_t item_id = infe_version == 2 ? avio_rb16(pb) : avio_rb32(pb);
                 avio_skip(pb, 2);
 
                 if (avio_rb32(pb) == EXIF_ITEM) {
@@ -139,7 +139,7 @@ static uint32_t find_exif_item_id(AVIOContext *pb, const box_t *iinf) {
     return 0;
 }
 
-static int64_t read_uint(AVIOContext *pb, int size) {
+static int64_t read_uint(AVIOContext *pb, const int size) {
 
     switch (size) {
         case 0:
@@ -153,36 +153,36 @@ static int64_t read_uint(AVIOContext *pb, int size) {
     }
 }
 
-static int find_item_extent(AVIOContext *pb, const box_t *iloc, uint32_t item_id, extent_t *extent) {
+static int find_item_extent(AVIOContext *pb, const box_t *iloc, const uint32_t item_id, extent_t *extent) {
 
     if (avio_seek(pb, iloc->start, SEEK_SET) < 0) {
         return FALSE;
     }
 
-    int version = avio_r8(pb);
+    const int version = avio_r8(pb);
     avio_skip(pb, 3);
 
     int byte = avio_r8(pb);
-    int offset_size = byte >> 4;
-    int length_size = byte & 0xf;
+    const int offset_size = byte >> 4;
+    const int length_size = byte & 0xf;
 
     byte = avio_r8(pb);
-    int base_offset_size = byte >> 4;
-    int index_size = version == 1 || version == 2 ? byte & 0xf : 0;
+    const int base_offset_size = byte >> 4;
+    const int index_size = version == 1 || version == 2 ? byte & 0xf : 0;
 
-    int64_t item_count = version < 2 ? avio_rb16(pb) : avio_rb32(pb);
+    const int64_t item_count = version < 2 ? avio_rb16(pb) : avio_rb32(pb);
 
     for (int64_t i = 0; i < item_count; i++) {
         if (avio_feof(pb) || avio_tell(pb) >= iloc->end) {
             return FALSE;
         }
 
-        uint32_t id = version < 2 ? avio_rb16(pb) : avio_rb32(pb);
-        int construction_method = version == 0 ? CONSTRUCTION_FILE : avio_rb16(pb) & 0xf;
+        const uint32_t id = version < 2 ? avio_rb16(pb) : avio_rb32(pb);
+        const int construction_method = version == 0 ? CONSTRUCTION_FILE : avio_rb16(pb) & 0xf;
         avio_skip(pb, 2);
 
-        int64_t base_offset = read_uint(pb, base_offset_size);
-        int64_t extent_count = avio_rb16(pb);
+        const int64_t base_offset = read_uint(pb, base_offset_size);
+        const int64_t extent_count = avio_rb16(pb);
 
         if (base_offset < 0 || avio_feof(pb)) {
             return FALSE;
@@ -193,8 +193,8 @@ static int find_item_extent(AVIOContext *pb, const box_t *iloc, uint32_t item_id
                 return FALSE;
             }
 
-            int64_t offset = read_uint(pb, offset_size);
-            int64_t length = read_uint(pb, length_size);
+            const int64_t offset = read_uint(pb, offset_size);
+            const int64_t length = read_uint(pb, length_size);
 
             if (offset < 0 || length < 0) {
                 return FALSE;
@@ -253,15 +253,15 @@ static AVPacket *encode_blank_jpeg(void) {
  * ffmpeg parses EXIF as part of decoding a picture that carries it, so the tags of a HEIF item are
  * read by handing its bytes to the JPEG decoder as the APP1 segment of a blank picture.
  */
-static AVDictionary *decode_exif(const uint8_t *tiff, int tiff_len) {
+static AVDictionary *decode_exif(const uint8_t *tiff, const int tiff_len) {
 
     AVPacket *jpeg = encode_blank_jpeg();
     if (jpeg == NULL) {
         return NULL;
     }
 
-    int segment_size = 2 + EXIF_HEADER_SIZE + tiff_len;
-    int size = 2 + 2 + segment_size + (jpeg->size - 2);
+    const int segment_size = 2 + EXIF_HEADER_SIZE + tiff_len;
+    const int size = 2 + 2 + segment_size + (jpeg->size - 2);
 
     uint8_t *buf = av_malloc(size + AV_INPUT_BUFFER_PADDING_SIZE);
     uint8_t *ptr = buf;
@@ -316,7 +316,7 @@ AVDictionary *heif_exif_metadata(scan_media_ctx_t *ctx, AVFormatContext *pFormat
         return NULL;
     }
 
-    int64_t file_size = avio_size(pb);
+    const int64_t file_size = avio_size(pb);
     if (file_size <= 0) {
         return NULL;
     }
@@ -337,7 +337,7 @@ AVDictionary *heif_exif_metadata(scan_media_ctx_t *ctx, AVFormatContext *pFormat
         return NULL;
     }
 
-    uint32_t item_id = find_exif_item_id(pb, &iinf);
+    const uint32_t item_id = find_exif_item_id(pb, &iinf);
     if (item_id == 0) {
         return NULL;
     }
@@ -381,7 +381,7 @@ AVDictionary *heif_exif_metadata(scan_media_ctx_t *ctx, AVFormatContext *pFormat
         return NULL;
     }
 
-    int64_t tiff_offset = 4 + AV_RB32(payload);
+    const int64_t tiff_offset = 4 + AV_RB32(payload);
     AVDictionary *metadata = NULL;
 
     if (tiff_offset < extent.length) {
