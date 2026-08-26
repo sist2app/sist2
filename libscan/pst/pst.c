@@ -43,9 +43,12 @@
 /** Bytes of a subject kept in the path of a message */
 #define PST_MAX_NAME_LEN 96
 
-// PidTagDisplayCc and PidTagInternetMessageId, which libpff carries no constants for
+// PidTagDisplayCc, PidTagInternetMessageId, PidTagSenderSmtpAddress and
+// PidTagSentRepresentingSmtpAddress, which libpff carries no constants for
 #define PST_ENTRY_TYPE_MESSAGE_DISPLAY_CC 0x0e03
 #define PST_ENTRY_TYPE_MESSAGE_INTERNET_MESSAGE_ID 0x1035
+#define PST_ENTRY_TYPE_MESSAGE_SENDER_SMTP_ADDRESS 0x5d01
+#define PST_ENTRY_TYPE_MESSAGE_SENT_REPRESENTING_SMTP_ADDRESS 0x5d02
 
 typedef struct {
     scan_pst_ctx_t *ctx;
@@ -260,14 +263,37 @@ static void append_header(dyn_buffer_t *buf, const char *name, const char *value
     dyn_buffer_append_string(buf, "\r\n");
 }
 
+/*
+ * The mail address of a sender. A message that never left the organisation carries the X.500
+ * address of the sender's mailbox instead of a mail address, and the mail address of it, when the
+ * message kept one at all, is a property of its own.
+ */
+static char *sender_address(libpff_item_t *message, uint32_t address_type_entry,
+                            uint32_t address_entry, uint32_t smtp_address_entry) {
+    char *address_type = item_string(message, address_type_entry);
+    const int is_smtp = address_type != NULL && strcmp(address_type, "SMTP") == 0;
+    free(address_type);
+
+    if (is_smtp) {
+        return item_string(message, address_entry);
+    }
+
+    return item_string(message, smtp_address_entry);
+}
+
 /** From: as an address when the message carries one, and as a display name otherwise */
 static void append_from(dyn_buffer_t *buf, libpff_item_t *message) {
     char *name = item_string(message, LIBPFF_ENTRY_TYPE_MESSAGE_SENDER_NAME);
-    char *address = item_string(message, LIBPFF_ENTRY_TYPE_MESSAGE_SENDER_EMAIL_ADDRESS);
+    char *address = sender_address(message, LIBPFF_ENTRY_TYPE_MESSAGE_SENDER_ADDRESS_TYPE,
+                                   LIBPFF_ENTRY_TYPE_MESSAGE_SENDER_EMAIL_ADDRESS,
+                                   PST_ENTRY_TYPE_MESSAGE_SENDER_SMTP_ADDRESS);
 
     if (name == NULL && address == NULL) {
         name = item_string(message, LIBPFF_ENTRY_TYPE_MESSAGE_SENT_REPRESENTING_NAME);
-        address = item_string(message, LIBPFF_ENTRY_TYPE_MESSAGE_SENT_REPRESENTING_EMAIL_ADDRESS);
+        address = sender_address(message,
+                                 LIBPFF_ENTRY_TYPE_MESSAGE_SENT_REPRESENTING_ADDRESS_TYPE,
+                                 LIBPFF_ENTRY_TYPE_MESSAGE_SENT_REPRESENTING_EMAIL_ADDRESS,
+                                 PST_ENTRY_TYPE_MESSAGE_SENT_REPRESENTING_SMTP_ADDRESS);
     }
 
     if (name != NULL && address != NULL) {

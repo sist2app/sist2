@@ -75,10 +75,9 @@ ctest -j $(nproc)          # from build/, runs every variant, one process per te
 The OCR tests need a tessdata folder containing `eng.traineddata`. It is looked up in
 `$TESSDATA_PREFIX`, then `./tessdata`, then the usual distro locations.
 
-The Outlook mailbox tests (`PstTest`) read whatever `.pst` or `.ost` sits in
-`third-party/libscan-test-files/test_files/pst/`, and are skipped when there is none — only
-Outlook writes the format, so the corpus cannot carry a generated one. `RtfTest` covers the RTF
-reader those messages go through and needs no mailbox.
+The Outlook mailboxes in `test_files/pst/` are the two Apache Tika test mailboxes rather than
+generated files — only Outlook writes the format — and are under the Apache License 2.0 rather
+than the CC0 the rest of the corpus is under. `test_files/pst/README.md` says which is which.
 
 ### Run fuzz tests:
 ```bash
