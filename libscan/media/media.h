@@ -84,6 +84,12 @@ void parse_media(scan_media_ctx_t *ctx, vfile_t *f, document_t *doc, const char 
 
 void init_media();
 
+/**
+ * Re-encodes the picture of a file as WebP, scaled to fit max_size, for browsers that cannot
+ * display the original format. Returns 0 and a buffer that the caller frees.
+ */
+int transcode_image(scan_media_ctx_t *ctx, const char *filepath, int max_size, void **buf, size_t *buf_len);
+
 int store_image_thumbnail(scan_media_ctx_t *ctx, void *buf, size_t buf_len, document_t *doc, const char *url);
 
 #endif

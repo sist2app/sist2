@@ -7,6 +7,7 @@
 #include "src/web/web_util.h"
 #include "src/web/highlight.h"
 #include "src/cli.h"
+#include "libscan/media/media.h"
 #include <time.h>
 
 #include <src/ctx.h>
@@ -376,17 +377,14 @@ void serve_file_from_url(cJSON *json, index_t *idx, struct mg_connection *nc) {
     dyn_buffer_destroy(&encoded);
 }
 
-void serve_file_from_disk(cJSON *json, index_t *idx, struct mg_connection *nc, struct mg_http_message *hm) {
+// root[PATH_MAX] + path_unescaped + '/' + name_unescaped + '.' + ext
+#define FULL_PATH_LEN (PATH_MAX * 7)
 
-    if (strcmp(MG_VERSION, EXPECTED_MONGOOSE_VERSION) != 0) {
-        LOG_WARNING("serve.c", "sist2 was not linked with latest mongoose version, "
-                               "serving file from disk might not work as expected.");
-    }
+static void document_full_path(const cJSON *json, const index_t *idx, char *full_path) {
 
     const char *path = cJSON_GetObjectItem(json, "path")->valuestring;
     const char *name = cJSON_GetObjectItem(json, "name")->valuestring;
     const char *ext = cJSON_GetObjectItem(json, "extension")->valuestring;
-    const char *mime = cJSON_GetObjectItem(json, "mime")->valuestring;
 
     char name_unescaped[PATH_MAX * 3];
     str_unescape(name_unescaped, name);
@@ -394,11 +392,24 @@ void serve_file_from_disk(cJSON *json, index_t *idx, struct mg_connection *nc, s
     char path_unescaped[PATH_MAX * 3];
     str_unescape(path_unescaped, path);
 
-    // root[PATH_MAX] + path_unescaped + '/' + name_unescaped + '.' + ext
-    char full_path[PATH_MAX * 7];
-    snprintf(full_path, sizeof(full_path), "%s%s%s%s%s%s",
+    snprintf(full_path, FULL_PATH_LEN, "%s%s%s%s%s%s",
              idx->desc.root, path_unescaped, strlen(path_unescaped) == 0 ? "" : "/",
              name_unescaped, strlen(ext) == 0 ? "" : ".", ext);
+}
+
+void serve_file_from_disk(cJSON *json, index_t *idx, struct mg_connection *nc, struct mg_http_message *hm) {
+
+    if (strcmp(MG_VERSION, EXPECTED_MONGOOSE_VERSION) != 0) {
+        LOG_WARNING("serve.c", "sist2 was not linked with latest mongoose version, "
+                               "serving file from disk might not work as expected.");
+    }
+
+    const char *name = cJSON_GetObjectItem(json, "name")->valuestring;
+    const char *ext = cJSON_GetObjectItem(json, "extension")->valuestring;
+    const char *mime = cJSON_GetObjectItem(json, "mime")->valuestring;
+
+    char full_path[FULL_PATH_LEN];
+    document_full_path(json, idx, full_path);
 
     LOG_DEBUGF("serve.c", "Serving file from disk: %s", full_path);
 
@@ -579,6 +590,90 @@ void file(struct mg_connection *nc, struct mg_http_message *hm) {
     } else {
         serve_file_from_url(source, idx, nc);
     }
+    cJSON_Delete(source);
+}
+
+/** The longest side of a picture re-encoded for the browser */
+#define TRANSCODED_IMAGE_SIZE 2560
+#define TRANSCODED_IMAGE_QUALITY 80
+
+static void media_log(const char *filepath, int level, char *str) {
+    if (LogCtx.verbose && (level != LEVEL_DEBUG || LogCtx.very_verbose)) {
+        sist_log(filepath, level, str);
+    }
+}
+
+static void media_logf(const char *filepath, int level, char *format, ...) {
+
+    va_list args;
+
+    va_start(args, format);
+    if (LogCtx.verbose && (level != LEVEL_DEBUG || LogCtx.very_verbose)) {
+        vsist_logf(filepath, level, format, args);
+    }
+    va_end(args);
+}
+
+/**
+ * A picture in a format that no browser decodes, re-encoded as WebP. The transcode runs on the
+ * event loop, so a request for one holds up the others until it is done.
+ */
+void transcoded_image(struct mg_connection *nc, struct mg_http_message *hm) {
+    sist_id_t sid;
+
+    if (hm->uri.len != 20 || !parse_sid(&sid, hm->uri.buf + 3)) {
+        LOG_DEBUGF("serve.c", "Invalid picture path: %.*s", (int) hm->uri.len, hm->uri.buf);
+        HTTP_REPLY_NOT_FOUND
+        return;
+    }
+
+    index_t *idx = web_get_index_by_id(sid.index_id);
+    if (idx == NULL) {
+        HTTP_REPLY_NOT_FOUND
+        return;
+    }
+
+    cJSON *source = get_root_document_by_id(sid.index_id, sid.doc_id);
+    if (source == NULL) {
+        HTTP_REPLY_NOT_FOUND
+        return;
+    }
+
+    if (strlen(idx->desc.rewrite_url) != 0) {
+        serve_file_from_url(source, idx, nc);
+        cJSON_Delete(source);
+        return;
+    }
+
+    char full_path[FULL_PATH_LEN];
+    document_full_path(source, idx, full_path);
+
+    scan_media_ctx_t media_ctx = {
+            .log = media_log,
+            .logf = media_logf,
+            .tn_qscale = TRANSCODED_IMAGE_QUALITY,
+            .tn_count = 1
+    };
+
+    void *buf = NULL;
+    size_t buf_len = 0;
+
+    if (transcode_image(&media_ctx, full_path, TRANSCODED_IMAGE_SIZE, &buf, &buf_len) != 0) {
+        LOG_DEBUGF("serve.c", "Could not transcode image, serving it as-is: %s", full_path);
+        serve_file_from_disk(source, idx, nc, hm);
+        cJSON_Delete(source);
+        return;
+    }
+
+    web_send_headers(
+            nc, 200, buf_len,
+            "Content-Type: image/webp\r\n"
+            "Cache-Control: private, max-age=3600"
+    );
+    mg_send(nc, buf, buf_len);
+    nc->is_resp = 0;
+
+    free(buf);
     cJSON_Delete(source);
 }
 
@@ -854,6 +949,8 @@ static void ev_router(struct mg_connection *nc, int ev, void *ev_data) {
             status(nc);
         } else if (mg_http_match_uri(hm, "/f/*")) {
             file(nc, hm);
+        } else if (mg_http_match_uri(hm, "/p/*")) {
+            transcoded_image(nc, hm);
         } else if (mg_http_match_uri(hm, "/t/*/*")) {
             thumbnail_with_num(nc, hm);
         } else if (mg_http_match_uri(hm, "/t/*")) {

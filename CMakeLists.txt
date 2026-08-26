@@ -83,6 +83,7 @@ add_library(
         libscan/comic/comic.c libscan/comic/comic.h
         libscan/ooxml/ooxml.c libscan/ooxml/ooxml.h
         libscan/media/media.c libscan/media/media.h
+        libscan/media/heif_exif.c libscan/media/heif_exif.h
         libscan/font/font.c libscan/font/font.h
         libscan/msdoc/msdoc.c libscan/msdoc/msdoc.h
         libscan/email/email.c libscan/email/email.h

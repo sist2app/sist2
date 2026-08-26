@@ -146,7 +146,8 @@ export default {
       return true;
     },
     onDownloadClick() {
-      const url = this.lightboxSources[this.lightboxSlide];
+      // The source of a transcoded picture is a re-encoded copy, so download the original instead
+      const url = this.lightboxSources[this.lightboxSlide].replace(/^p\//, "f/");
 
       const a = document.getElementById("lightbox-download");
       a.setAttribute("href", url);

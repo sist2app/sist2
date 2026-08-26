@@ -455,3 +455,4 @@ image/jp2, jp2
 +application/mbox, mbox
 +application/pgp-encrypted,
 +application/vnd.ms-outlook-pst, pst|ost
++image/heif, heif|hif

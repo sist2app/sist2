@@ -1,4 +1,5 @@
 #include "media.h"
+#include "heif_exif.h"
 #include "../ocr/ocr.h"
 #include <ctype.h>
 #include <libavutil/pixdesc.h>
@@ -360,6 +361,57 @@ static int exif_decode_user_comment(const char *value, char *buf, size_t size) {
     return TRUE;
 }
 
+static void append_exif_meta(scan_media_ctx_t *ctx, document_t *doc, const AVDictionary *frame_metadata) {
+
+    AVDictionary *metadata = exif_metadata(frame_metadata);
+    AVDictionaryEntry *tag = NULL;
+
+    while ((tag = av_dict_get(metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
+        char key[256];
+        STRCPY_TOLOWER(key, tag->key);
+
+        if (strcmp(key, "artist") == 0) {
+            append_tag_meta_if_not_exists(ctx, doc, tag, MetaArtist);
+        } else if (strcmp(key, "imagedescription") == 0) {
+            append_tag_meta_if_not_exists(ctx, doc, tag, MetaContent);
+        } else if (strcmp(key, "make") == 0) {
+            APPEND_TAG_META(MetaExifMake);
+        } else if (strcmp(key, "model") == 0) {
+            APPEND_TAG_META(MetaExifModel);
+        } else if (strcmp(key, "software") == 0) {
+            APPEND_TAG_META(MetaExifSoftware);
+        } else if (strcmp(key, "fnumber") == 0) {
+            APPEND_TAG_META(MetaExifFNumber);
+        } else if (strcmp(key, "focallength") == 0) {
+            APPEND_TAG_META(MetaExifFocalLength);
+        } else if (strcmp(key, "usercomment") == 0) {
+            char comment[4096];
+
+            if (exif_decode_user_comment(tag->value, comment, sizeof(comment))) {
+                APPEND_UTF8_META(doc, MetaExifUserComment, comment);
+            } else {
+                APPEND_TAG_META(MetaExifUserComment);
+            }
+        } else if (strcmp(key, "isospeedratings") == 0) {
+            APPEND_TAG_META(MetaExifIsoSpeedRatings);
+        } else if (strcmp(key, "exposuretime") == 0) {
+            APPEND_TAG_META(MetaExifExposureTime);
+        } else if (strcmp(key, "datetime") == 0) {
+            APPEND_TAG_META(MetaExifDateTime);
+        } else if (strcmp(key, "gpslatitude") == 0) {
+            APPEND_TAG_META(MetaExifGpsLatitudeDMS);
+        } else if (strcmp(key, "gpslatituderef") == 0) {
+            APPEND_TAG_META(MetaExifGpsLatitudeRef);
+        } else if (strcmp(key, "gpslongitude") == 0) {
+            APPEND_TAG_META(MetaExifGpsLongitudeDMS);
+        } else if (strcmp(key, "gpslongituderef") == 0) {
+            APPEND_TAG_META(MetaExifGpsLongitudeRef);
+        }
+    }
+
+    av_dict_free(&metadata);
+}
+
 __always_inline
 static void
 append_video_meta(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, AVFrame *frame, document_t *doc, int is_video) {
@@ -398,53 +450,7 @@ append_video_meta(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, AVFrame *f
             }
         }
     } else {
-        // EXIF metadata
-        AVDictionary *metadata = exif_metadata(frame->metadata);
-
-        while ((tag = av_dict_get(metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
-            char key[256];
-            STRCPY_TOLOWER(key, tag->key);
-
-            if (strcmp(key, "artist") == 0) {
-                append_tag_meta_if_not_exists(ctx, doc, tag, MetaArtist);
-            } else if (strcmp(key, "imagedescription") == 0) {
-                append_tag_meta_if_not_exists(ctx, doc, tag, MetaContent);
-            } else if (strcmp(key, "make") == 0) {
-                APPEND_TAG_META(MetaExifMake);
-            } else if (strcmp(key, "model") == 0) {
-                APPEND_TAG_META(MetaExifModel);
-            } else if (strcmp(key, "software") == 0) {
-                APPEND_TAG_META(MetaExifSoftware);
-            } else if (strcmp(key, "fnumber") == 0) {
-                APPEND_TAG_META(MetaExifFNumber);
-            } else if (strcmp(key, "focallength") == 0) {
-                APPEND_TAG_META(MetaExifFocalLength);
-            } else if (strcmp(key, "usercomment") == 0) {
-                char comment[4096];
-
-                if (exif_decode_user_comment(tag->value, comment, sizeof(comment))) {
-                    APPEND_UTF8_META(doc, MetaExifUserComment, comment);
-                } else {
-                    APPEND_TAG_META(MetaExifUserComment);
-                }
-            } else if (strcmp(key, "isospeedratings") == 0) {
-                APPEND_TAG_META(MetaExifIsoSpeedRatings);
-            } else if (strcmp(key, "exposuretime") == 0) {
-                APPEND_TAG_META(MetaExifExposureTime);
-            } else if (strcmp(key, "datetime") == 0) {
-                APPEND_TAG_META(MetaExifDateTime);
-            } else if (strcmp(key, "gpslatitude") == 0) {
-                APPEND_TAG_META(MetaExifGpsLatitudeDMS);
-            } else if (strcmp(key, "gpslatituderef") == 0) {
-                APPEND_TAG_META(MetaExifGpsLatitudeRef);
-            } else if (strcmp(key, "gpslongitude") == 0) {
-                APPEND_TAG_META(MetaExifGpsLongitudeDMS);
-            } else if (strcmp(key, "gpslongituderef") == 0) {
-                APPEND_TAG_META(MetaExifGpsLongitudeRef);
-            }
-        }
-
-        av_dict_free(&metadata);
+        append_exif_meta(ctx, doc, frame->metadata);
     }
 }
 
@@ -849,7 +855,7 @@ static void parse_tile_grid_image(scan_media_ctx_t *ctx, AVFormatContext *pForma
     av_frame_free(&canvas);
 }
 
-void parse_media_format_ctx(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, document_t *doc) {
+static void parse_media_streams(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, document_t *doc) {
 
     int video_stream = -1;
     int audio_stream = -1;
@@ -861,8 +867,6 @@ void parse_media_format_ctx(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, 
     if (tile_grid != NULL) {
         parse_tile_grid_image(ctx, pFormatCtx, tile_grid, doc);
 
-        avformat_close_input(&pFormatCtx);
-        avformat_free_context(pFormatCtx);
         return;
     }
 
@@ -932,8 +936,6 @@ void parse_media_format_ctx(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, 
             CTX_LOG_DEBUGF(doc->filepath,
                            "Will not generate thumbnail because image is too small: %dx%d",
                            stream->codecpar->width, stream->codecpar->width);
-            avformat_close_input(&pFormatCtx);
-            avformat_free_context(pFormatCtx);
             return;
         }
 
@@ -978,6 +980,18 @@ void parse_media_format_ctx(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, 
         }
 
         avcodec_free_context(&decoder);
+    }
+}
+
+void parse_media_format_ctx(scan_media_ctx_t *ctx, AVFormatContext *pFormatCtx, document_t *doc) {
+
+    parse_media_streams(ctx, pFormatCtx, doc);
+
+    // The EXIF of a HEIF picture is an item of its own, which the demuxer does not expose
+    AVDictionary *heif_exif = heif_exif_metadata(ctx, pFormatCtx, doc);
+    if (heif_exif != NULL) {
+        append_exif_meta(ctx, doc, heif_exif);
+        av_dict_free(&heif_exif);
     }
 
     avformat_close_input(&pFormatCtx);
@@ -1243,4 +1257,116 @@ int store_image_thumbnail(scan_media_ctx_t *ctx, void *buf, size_t buf_len, docu
     avio_context_free(&io_ctx);
 
     return TRUE;
+}
+
+static int find_image_stream(const AVFormatContext *pFormatCtx) {
+
+    const int has_color_video_stream = format_has_color_video_stream(pFormatCtx);
+    int stream_index = -1;
+
+    for (int i = (int) pFormatCtx->nb_streams - 1; i >= 0; i--) {
+        const AVStream *stream = pFormatCtx->streams[i];
+
+        if (stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO
+            && !is_auxiliary_video_stream(stream, has_color_video_stream)) {
+            stream_index = i;
+        }
+    }
+
+    return stream_index;
+}
+
+int transcode_image(scan_media_ctx_t *ctx, const char *filepath, int max_size, void **buf, size_t *buf_len) {
+
+    AVFormatContext *pFormatCtx = avformat_alloc_context();
+    if (pFormatCtx == NULL) {
+        return -1;
+    }
+
+    int res = avformat_open_input(&pFormatCtx, filepath, NULL, NULL);
+    if (res < 0) {
+        avformat_close_input(&pFormatCtx);
+        avformat_free_context(pFormatCtx);
+        return -1;
+    }
+
+    avformat_find_stream_info(pFormatCtx, NULL);
+
+    document_t *doc = calloc(1, sizeof(document_t));
+    strncpy(doc->filepath, filepath, sizeof(doc->filepath) - 1);
+
+    AVFrame *picture = NULL;
+    frame_and_packet_t *frame_and_packet = NULL;
+    AVCodecContext *decoder = NULL;
+    enum AVCodecID codec_id = AV_CODEC_ID_NONE;
+
+    const AVStreamGroup *tile_grid = find_tile_grid(pFormatCtx);
+
+    if (tile_grid != NULL) {
+        codec_id = tile_grid->streams[0]->codecpar->codec_id;
+        picture = decode_tile_grid(ctx, pFormatCtx, tile_grid, doc);
+    } else {
+        int stream_index = find_image_stream(pFormatCtx);
+
+        if (stream_index != -1) {
+            AVStream *stream = pFormatCtx->streams[stream_index];
+            codec_id = stream->codecpar->codec_id;
+
+            const AVCodec *codec = avcodec_find_decoder(codec_id);
+            decoder = avcodec_alloc_context3(codec);
+            decoder->thread_count = 1;
+            avcodec_parameters_to_context(decoder, stream->codecpar);
+
+            if (avcodec_open2(decoder, codec, NULL) == 0) {
+                frame_and_packet = read_frame(ctx, pFormatCtx, decoder, stream_index, doc);
+
+                if (frame_and_packet != NULL) {
+                    picture = frame_and_packet->frame;
+                }
+            }
+        }
+    }
+
+    int return_value = -1;
+
+    if (picture != NULL) {
+        AVFrame *scaled_frame = scale_frame(picture, codec_id, max_size);
+
+        if (scaled_frame != NULL && scaled_frame != STORE_AS_IS) {
+            AVCodecContext *encoder = alloc_webp_encoder(scaled_frame->width, scaled_frame->height, ctx->tn_qscale);
+
+            if (encoder != NULL) {
+                avcodec_send_frame(encoder, scaled_frame);
+                avcodec_send_frame(encoder, NULL);
+
+                AVPacket *packet = av_packet_alloc();
+
+                if (avcodec_receive_packet(encoder, packet) == 0) {
+                    *buf = malloc(packet->size);
+                    memcpy(*buf, packet->data, packet->size);
+                    *buf_len = packet->size;
+                    return_value = 0;
+                }
+
+                av_packet_free(&packet);
+                avcodec_free_context(&encoder);
+            }
+
+            av_free(*scaled_frame->data);
+            av_frame_free(&scaled_frame);
+        }
+    }
+
+    if (frame_and_packet != NULL) {
+        frame_and_packet_free(frame_and_packet);
+    } else if (picture != NULL) {
+        av_frame_free(&picture);
+    }
+
+    avcodec_free_context(&decoder);
+    avformat_close_input(&pFormatCtx);
+    avformat_free_context(pFormatCtx);
+    free(doc);
+
+    return return_value;
 }

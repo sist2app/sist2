@@ -54,6 +54,11 @@ namespace {
         parse_mbox(&ctx, f, doc);
     }
 
+    void parse_heic_case(vfile_t *f, document_t *doc) {
+        scan_media_ctx_t ctx = make_media_ctx(500, 0);
+        parse_media(&ctx, f, doc, "image/heic");
+    }
+
     void parse_mobi_case(vfile_t *f, document_t *doc) {
         scan_mobi_ctx_t ctx = make_mobi_ctx();
         parse_mobi(&ctx, f, doc);
@@ -65,6 +70,7 @@ namespace {
             {"Json",   "json/json1.json",       parse_json_case},
             {"NDJson", "json/ndjson1.jsonl",    parse_ndjson_case},
             {"Font",   "font/truetype1.ttf",    parse_font_case},
+            {"Heic",   "media/tiled.heic",      parse_heic_case},
             {"Mobi",   "mobi/sample.azw3",      parse_mobi_case},
             {"Email",  "email/multipart.eml",   parse_email_case},
             {"Mbox",   "email/mailbox.mbox",    parse_mbox_case},

@@ -261,8 +261,14 @@ export default Vue.extend({
             for (const hit of resp.hits.hits) {
                 if (hit._props.isPlayableImage || hit._props.isPlayableVideo) {
                     hit._seq = await this.$store.dispatch("getKeySequence");
+
+                    let source = `f/${sid(hit)}`;
+                    if (hit._props.needsTranscode) {
+                        source = `p/${sid(hit)}`;
+                    }
+
                     this.$store.commit("addLightboxSource", {
-                        source: `f/${sid(hit)}`,
+                        source: source,
                         thumbnail_count: hit._props.hasThumbnail
                             ? `t/${sid(hit)}`
                             : null,

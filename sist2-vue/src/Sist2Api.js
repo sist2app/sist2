@@ -4,6 +4,18 @@ import Sist2Query from "@/Sist2ElasticsearchQuery";
 import store from "@/store";
 
 
+/** Picture formats that no browser decodes, which sist2 web re-encodes on the fly */
+const TRANSCODED_MIME_TYPES = [
+    "image/heic",
+    "image/heif",
+    "image/tiff",
+    "image/x-tiff",
+    "image/jp2",
+    "image/x-portable-bitmap",
+    "image/x-portable-graymap",
+    "image/x-portable-pixmap"
+];
+
 class Sist2Api {
 
     baseUrl;
@@ -68,10 +80,9 @@ class Sist2Api {
                 } else {
                     hit._props.isImage = true;
                 }
-                if ("width" in hit._source && !hit._props.isSubDocument && hit._source.videoc !== "tiff"
-                    && hit._source.videoc !== "raw" && hit._source.videoc !== "ppm"
-                    && hit._source.mime !== "image/jp2") {
+                if ("width" in hit._source && !hit._props.isSubDocument && hit._source.videoc !== "raw") {
                     hit._props.isPlayableImage = true;
+                    hit._props.needsTranscode = TRANSCODED_MIME_TYPES.includes(hit._source.mime);
                 }
                 if ("width" in hit._source && "height" in hit._source) {
                     hit._props.imageAspectRatio = hit._source.width / hit._source.height;

@@ -132,6 +132,37 @@ TEST_F(MediaTest, ImageTiledHeic) {
     ASSERT_EQ(thumbnails_count(), 1);
 }
 
+/** The EXIF of a HEIF picture is an item of the container, which the demuxer does not read */
+TEST_F(MediaTest, ImageHeicExif) {
+    load("media/tiled.heic");
+
+    parse_media(&ctx, &f, &doc, "image/heic");
+
+    ASSERT_STREQ(meta(MetaExifMake)->str_val, "Apple");
+    ASSERT_STREQ(meta(MetaExifModel)->str_val, "iPhone 12 Pro Max");
+    ASSERT_STREQ(meta(MetaExifSoftware)->str_val, "14.6");
+    ASSERT_STREQ(meta(MetaExifDateTime)->str_val, "2021:08:15 17:08:10");
+    ASSERT_STREQ(meta(MetaExifExposureTime)->str_val, "1:2336");
+    ASSERT_STREQ(meta(MetaExifFNumber)->str_val, "8:5");
+    ASSERT_STREQ(meta(MetaExifFocalLength)->str_val, "51:10");
+    ASSERT_STREQ(meta(MetaExifIsoSpeedRatings)->str_val, "32");
+    ASSERT_STREQ(meta(MetaExifGpsLatitudeRef)->str_val, "N");
+    ASSERT_STREQ(meta(MetaExifGpsLatitudeDMS)->str_val, "52:1 , 3:1 , 2480:100");
+    ASSERT_STREQ(meta(MetaExifGpsLongitudeRef)->str_val, "E");
+    ASSERT_STREQ(meta(MetaExifGpsLongitudeDMS)->str_val, "4:1 , 44:1 , 6:100");
+}
+
+/** EXIF is read even when no thumbnail is generated */
+TEST_F(MediaTest, ImageHeicExifNoThumbnail) {
+    ctx.tn_count = 0;
+    load("media/tiled.heic");
+
+    parse_media(&ctx, &f, &doc, "image/heic");
+
+    ASSERT_STREQ(meta(MetaExifModel)->str_val, "iPhone 12 Pro Max");
+    ASSERT_EQ(thumbnails_count(), 0);
+}
+
 /** The thumbnail of a tiled HEIF picture is the picture, not the greyscale gain map beside it */
 TEST_F(MediaTest, ImageTiledHeicIsNotTheGainMap) {
     load("media/tiled.heic");
@@ -139,6 +170,36 @@ TEST_F(MediaTest, ImageTiledHeicIsNotTheGainMap) {
     parse_media(&ctx, &f, &doc, "image/heic");
 
     ASSERT_GT(thumbnail_chroma(&doc), 5);
+}
+
+/** A picture in a format the browser cannot decode is re-encoded as WebP */
+TEST_F(MediaTest, TranscodeHeic) {
+    void *buf = nullptr;
+    size_t buf_len = 0;
+
+    ASSERT_EQ(transcode_image(&ctx, test_file("media/tiled.heic").c_str(), 1024, &buf, &buf_len), 0);
+    ASSERT_GT(buf_len, 1000);
+    ASSERT_EQ(memcmp(buf, "RIFF", 4), 0);
+    ASSERT_EQ(memcmp((char *) buf + 8, "WEBP", 4), 0);
+
+    free(buf);
+}
+
+TEST_F(MediaTest, TranscodeJpeg) {
+    void *buf = nullptr;
+    size_t buf_len = 0;
+
+    ASSERT_EQ(transcode_image(&ctx, test_file("media/exif_GPS.jpg").c_str(), 1024, &buf, &buf_len), 0);
+    ASSERT_EQ(memcmp(buf, "RIFF", 4), 0);
+
+    free(buf);
+}
+
+TEST_F(MediaTest, TranscodeMissingFile) {
+    void *buf = nullptr;
+    size_t buf_len = 0;
+
+    ASSERT_EQ(transcode_image(&ctx, test_file("media/does-not-exist.heic").c_str(), 1024, &buf, &buf_len), -1);
 }
 
 /* Video */
