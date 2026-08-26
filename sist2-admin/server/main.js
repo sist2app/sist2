@@ -12,7 +12,7 @@ import { logger } from "./log.js";
 import { createDefaultFrontend, createDefaultSearchBackend } from "./models.js";
 import { createRouter, defaultSearchBackendName, detectTesseractLangs } from "./api.js";
 import { handleRequest } from "./http.js";
-import { sweepTempFolder } from "./sist2.js";
+import { sist2Version, sweepTempFolder } from "./sist2.js";
 import { cronMatches, startCron } from "./cron.js";
 import { jobProblem, submitJob, taskQueue } from "./tasks.js";
 import { startAutoStartFrontends, stopAllFrontends } from "./frontends.js";
@@ -68,6 +68,13 @@ function shutdown() {
 
 if (SIST2_BINARY.includes("/") && !fs.existsSync(SIST2_BINARY)) {
     logger.warn(`sist2 binary not found at ${SIST2_BINARY}; set the SIST2_BINARY environment variable`);
+}
+
+const binaryVersion = await sist2Version();
+if (binaryVersion === null) {
+    logger.warn(`Could not read the version of the sist2 binary at ${SIST2_BINARY}`);
+} else {
+    logger.info(`Using sist2 ${binaryVersion} (${SIST2_BINARY})`);
 }
 
 sweepTempFolder();
