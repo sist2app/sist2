@@ -8,6 +8,35 @@ import readline from "node:readline";
 import { DATA_FOLDER, SIST2_BINARY, TMP_FOLDER } from "./config.js";
 import { logger } from "./log.js";
 
+let versionPromise = null;
+
+/** Version of the sist2 binary, or null when it could not be run */
+export function sist2Version() {
+    if (versionPromise !== null) {
+        return versionPromise;
+    }
+
+    versionPromise = new Promise((resolve) => {
+        const child = spawn(SIST2_BINARY, ["--version"], { stdio: ["ignore", "pipe", "ignore"] });
+        let output = "";
+
+        child.stdout.on("data", (data) => {
+            output += data.toString();
+        });
+        child.on("error", () => resolve(null));
+        child.on("close", () => {
+            const version = output.trim();
+            if (version === "") {
+                resolve(null);
+            } else {
+                resolve(version);
+            }
+        });
+    });
+
+    return versionPromise;
+}
+
 export function scanArgs(scanOptions, outputPath) {
     const options = scanOptions;
     const args = [

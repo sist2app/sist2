@@ -4,6 +4,9 @@
             <a class="navbar-brand" href="#/">
                 <Sist2Icon/>
             </a>
+            <span v-if="store.info && store.info.sist2_version" class="badge version">
+                v{{ store.info.sist2_version }}
+            </span>
             <a class="btn btn-link ms-auto" href="#/tasks">Tasks</a>
         </div>
     </nav>
@@ -11,6 +14,7 @@
 
 <script setup>
 import Sist2Icon from "./icons/Sist2Icon.vue";
+import { store } from "../store.js";
 </script>
 
 <style scoped>
@@ -32,5 +36,11 @@ import Sist2Icon from "./icons/Sist2Icon.vue";
 .btn-link {
     color: #222;
     text-decoration: none;
+}
+
+.version {
+    margin-left: 0.5rem;
+    color: #888;
+    font-size: 0.75rem;
 }
 </style>

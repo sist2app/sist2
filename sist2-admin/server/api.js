@@ -33,6 +33,7 @@ import {
     stopFrontend
 } from "./frontends.js";
 import { SCRIPT_TEMPLATES, createScriptFromTemplate, deleteScriptDir, renameScriptDir } from "./scripts.js";
+import { sist2Version } from "./sist2.js";
 import {
     UserScriptTask,
     deleteTaskLogs,
@@ -210,11 +211,12 @@ function pingEs(esUrl, insecure) {
 export function createRouter() {
     const router = new Router();
 
-    router.get("/api", () => {
+    router.get("/api", async () => {
         return {
             tesseract_langs: tesseractLangs,
             logs_folder: LOG_FOLDER,
-            user_script_templates: Object.keys(SCRIPT_TEMPLATES)
+            user_script_templates: Object.keys(SCRIPT_TEMPLATES),
+            sist2_version: await sist2Version()
         };
     });
 
