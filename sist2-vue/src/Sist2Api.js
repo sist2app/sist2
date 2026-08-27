@@ -486,7 +486,13 @@ class Sist2Api {
 
     getDateRangeEs() {
         return this.esQuery({
-            // TODO: filter current selected indices
+            query: {
+                bool: {
+                    filter: [
+                        {terms: {index: store.getters.selectedIndices.map(idx => idx.id)}}
+                    ]
+                }
+            },
             aggs: {
                 dateMin: {min: {field: "mtime"}},
                 dateMax: {max: {field: "mtime"}},
