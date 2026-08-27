@@ -250,6 +250,7 @@ export default Vue.extend({
 
 .badge {
     margin-right: 3px;
+    user-select: none;
 }
 
 .badge-delete {
@@ -274,10 +275,6 @@ export default Vue.extend({
     color: #212529;
     background-color: #e0e0e0;
     width: 50px;
-}
-
-.badge {
-    user-select: none;
 }
 
 .badge-suggestion {

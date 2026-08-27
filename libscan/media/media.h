@@ -30,7 +30,6 @@ typedef struct {
 } scan_media_ctx_t;
 
 static inline AVCodecContext *alloc_jpeg_encoder(int w, int h, int qscale) {
-
     const AVCodec *jpeg_codec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
     AVCodecContext *jpeg = avcodec_alloc_context3(jpeg_codec);
     jpeg->width = w;
@@ -50,7 +49,6 @@ static inline AVCodecContext *alloc_jpeg_encoder(int w, int h, int qscale) {
 }
 
 static inline AVCodecContext *alloc_webp_encoder(int w, int h, int qscale) {
-
     // AV_CODEC_ID_WEBP resolves to libwebp_anim, which wraps every still thumbnail in an
     // animation encoder for nothing
     const AVCodec *webp_codec = avcodec_find_encoder_by_name("libwebp");

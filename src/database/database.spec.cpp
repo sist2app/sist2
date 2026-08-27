@@ -52,7 +52,6 @@ protected:
     void TearDown() override {
         database_close(db, FALSE);
         std::filesystem::remove(db_path);
-
     }
 
     /** A model a user script would have registered, and one chunk of a document it embedded */

@@ -319,7 +319,6 @@ void destroy_doc(document_t *doc) {
 
 void fuzz_buffer(char *buf, size_t *buf_len, int width, int n, int trunc_p) {
     for (int i = 0; i < n; i++) {
-
         size_t offset = rand() % (*buf_len - width - 1);
 
         if (rand() % 100 < trunc_p) {

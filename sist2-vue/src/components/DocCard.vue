@@ -102,7 +102,7 @@ export default {
     min-width: 64px;
     max-width: 100%;
     /*max-height: 400px;*/
-    margin: 0 auto 0;
+    margin: 0 auto;
     width: auto;
     height: auto;
 }
@@ -148,6 +148,6 @@ export default {
 }
 
 .sub-document .fit {
-    padding: 4px 4px 0 4px;
+    padding: 4px 4px 0;
 }
 </style>

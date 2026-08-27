@@ -49,7 +49,7 @@ const router = new VueRouter({
     mode: "hash",
     base: import.meta.env.BASE_URL,
     routes,
-    scrollBehavior(to, from, savedPosition) {
+    scrollBehavior() {
         // return desired position
     }
 })

@@ -4,13 +4,12 @@
 #include "libwpd-stream/libwpd-stream.h"
 
 class StringDocument : public WPXDocumentInterface {
-
 private:
     text_buffer_t *tex;
     document_t *doc;
     bool is_full;
-public:
 
+public:
     StringDocument(text_buffer_t *tex, document_t *doc) {
         this->tex = tex;
         this->doc = doc;
@@ -18,7 +17,6 @@ public:
     }
 
     void setDocumentMetaData(const WPXPropertyList &propList) override {
-
         WPXPropertyList::Iter propIter(propList);
         for (propIter.rewind(); propIter.next();) {
             wpd_set_meta(this->doc, propIter.key(), propIter()->getStr().cstr());

@@ -207,7 +207,7 @@ export default new Vuex.Store({
         busTouchEnd: () => {
             // noop
         },
-        busTnTouchStart: (doc_id) => {
+        busTnTouchStart: () => {
             // noop
         },
         setAuth0Token: (state, val) => state.auth0Token = val,

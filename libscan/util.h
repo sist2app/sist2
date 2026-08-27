@@ -172,7 +172,6 @@ static inline text_buffer_t text_buffer_create(const long max_size) {
 }
 
 static inline int text_buffer_append_char(text_buffer_t *buf, const int c) {
-
     if (SHOULD_IGNORE_CHAR(c) || c == ' ') {
         if (!buf->last_char_was_whitespace && buf->dyn_buffer.cur != 0) {
             dyn_buffer_write_char(&buf->dyn_buffer, ' ');
@@ -243,7 +242,6 @@ static inline int text_buffer_append_string16_be(text_buffer_t *buf, const char 
     (0xf0 == (0xf8 & *ptr) && ptr - str > (long) len - 4))
 
 static inline int text_buffer_append_string(text_buffer_t *buf, const char *str, const size_t len) {
-
     const char *ptr = str;
     const char *oldPtr = ptr;
 
@@ -279,7 +277,6 @@ static inline int text_buffer_append_string0(text_buffer_t *buf, const char *str
 }
 
 static inline int text_buffer_append_markup(text_buffer_t *buf, const char *markup) {
-
     int tag_open = TRUE;
     const char *ptr = markup;
     const char *start = markup;
@@ -383,7 +380,6 @@ static inline parse_job_t *create_parse_job(const char *filepath, const int mtim
 
 
 static inline int meta_contains_key (meta_line_t *meta_head, const enum metakey key) {
-
     const meta_line_t *meta = meta_head;
     while (meta != NULL) {
         if (meta->key == key) {

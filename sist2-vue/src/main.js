@@ -19,7 +19,7 @@ export function setupAuth0(domain, clientId, audience) {
         domain,
         clientId,
         audience,
-        onRedirectCallback: appState => {}
+        onRedirectCallback: () => {}
     });
 }
 

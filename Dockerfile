@@ -232,7 +232,7 @@ RUN mkdir -p /usr/share/tessdata && cd /usr/share/tessdata && \
 
 # python is for user scripts
 RUN ln -sf /usr/bin/python3 /usr/bin/python && \
-    python -m pip install --no-cache --break-system-packages \
+    python -m pip install --no-cache-dir --break-system-packages \
         git+https://github.com/sist2app/sist2-python.git@2.1
 
 COPY --from=build-glibc /build/build/sist2 /root/sist2

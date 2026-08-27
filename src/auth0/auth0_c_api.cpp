@@ -4,7 +4,6 @@
 #include "cjson/cJSON.h"
 
 int auth0_verify_jwt(const char *secret_str, const char *token, const char *audience) {
-
     using namespace jwt::params;
 
     jwt::jwt_object object;
@@ -15,7 +14,6 @@ int auth0_verify_jwt(const char *secret_str, const char *token, const char *audi
                 secret(secret_str),
                 verify(true)
         );
-
     } catch (const jwt::TokenExpiredError& e) {
         return AUTH0_ERR_EXPIRED;
     } catch (const jwt::SignatureFormatError& e) {
