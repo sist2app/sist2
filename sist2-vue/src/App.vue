@@ -213,11 +213,6 @@ html, body {
 }
 
 .theme-black .nav-tabs .nav-link:focus, .theme-black .nav-tabs .nav-link:hover {
-    border-color: #616161 #616161 #212121;
-    color: #e0e0e0;
-}
-
-.theme-black .nav-tabs .nav-link:focus, .theme-black .nav-tabs .nav-link:hover {
     border-color: #e0e0e0 #e0e0e0 #212121;
     color: #e0e0e0;
 }
