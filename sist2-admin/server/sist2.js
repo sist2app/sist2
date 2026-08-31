@@ -37,7 +37,7 @@ export function sist2Version() {
     return versionPromise;
 }
 
-export function scanArgs(scanOptions, outputPath) {
+export function scanArgs(scanOptions, indexFileOptions, outputPath) {
     const options = scanOptions;
     const args = [
         "scan",
@@ -98,16 +98,23 @@ export function scanArgs(scanOptions, outputPath) {
     if (options.checksums) {
         args.push("--checksums");
     }
+    if (indexFileOptions.low_memory_mode) {
+        args.push("--low-memory-mode");
+    }
 
     return args;
 }
 
-export function indexArgs(indexPath, indexOptions, backend, mappingsFile, settingsFile) {
+export function indexArgs(indexPath, indexOptions, indexFileOptions, backend, mappingsFile, settingsFile) {
     const absolutePath = path.join(DATA_FOLDER, indexPath);
 
     if (backend.backend_type === "sqlite") {
         const searchIndexAbsolute = path.join(DATA_FOLDER, backend.search_index);
-        return ["sqlite-index", absolutePath, "--search-index", searchIndexAbsolute];
+        const args = ["sqlite-index", absolutePath, "--search-index", searchIndexAbsolute];
+        if (indexFileOptions.low_memory_mode) {
+            args.push("--low-memory-mode");
+        }
+        return args;
     }
 
     const args = [
@@ -130,6 +137,9 @@ export function indexArgs(indexPath, indexOptions, backend, mappingsFile, settin
     }
     if (indexOptions.incremental_index) {
         args.push("--incremental-index");
+    }
+    if (indexFileOptions.low_memory_mode) {
+        args.push("--low-memory-mode");
     }
 
     return args;

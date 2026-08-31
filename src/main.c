@@ -36,7 +36,7 @@ void database_scan_begin(scan_args_t *args) {
 
     if (args->incremental) {
         // Update existing descriptor
-        database_open(db);
+        database_open_with_options(db, args->low_memory_mode);
         index_descriptor_t *original_desc = database_read_index_descriptor(db);
 
         // copy original index id
@@ -70,7 +70,7 @@ void database_scan_begin(scan_args_t *args) {
         desc->id = random_index_id();
 
         database_initialize(db);
-        database_open(db);
+        database_open_with_options(db, args->low_memory_mode);
         database_write_index_descriptor(db, desc);
     }
 
@@ -202,6 +202,7 @@ void initialize_scan_context(scan_args_t *args) {
     ScanCtx.msdoc_ctx.msdoc_mime = mime_get_mime_by_string("application/msword");
 
     ScanCtx.threads = args->threads;
+    ScanCtx.low_memory_mode = args->low_memory_mode;
     ScanCtx.incremental = args->incremental;
     ScanCtx.depth = args->depth;
     ScanCtx.job_timeout = args->job_timeout;
@@ -297,7 +298,7 @@ void sist2_scan(scan_args_t *args) {
     ScanCtx.master = NULL;
 
     database_t *db = database_create(args->output, INDEX_DATABASE);
-    database_open(db);
+    database_open_with_options(db, args->low_memory_mode);
 
     if (args->incremental != FALSE) {
         database_incremental_scan_end(db);
@@ -334,7 +335,7 @@ void sist2_index(index_args_t *args) {
     }
 
     database_t *db = database_create(args->index_path, INDEX_DATABASE);
-    database_open(db);
+    database_open_with_options(db, args->low_memory_mode);
     index_descriptor_t *desc = database_read_index_descriptor(db);
     database_close(db, FALSE);
 
@@ -355,7 +356,7 @@ void sist2_index(index_args_t *args) {
     int cnt = 0;
 
     db = database_create(args->index_path, INDEX_DATABASE);
-    database_open(db);
+    database_open_with_options(db, args->low_memory_mode);
 
     long long source_version = database_get_version(db);
     long long indexed_version = IndexCtx.needs_es_connection ? elastic_get_indexed_version(desc->id) : 0;
@@ -414,7 +415,7 @@ void sist2_index(index_args_t *args) {
 
 void sist2_sqlite_index(sqlite_index_args_t *args) {
     database_t *db = database_create(args->index_path, INDEX_DATABASE);
-    database_open(db);
+    database_open_with_options(db, args->low_memory_mode);
 
     database_t *search_db = database_create(args->search_index_path, FTS_DATABASE);
     database_initialize(search_db);
@@ -531,6 +532,7 @@ int main(int argc, const char *argv[]) {
     int common_threads = 0;
     int common_optimize_database = 0;
     char *common_search_index = NULL;
+    int common_low_memory_mode = 0;
 
     struct argparse_option options[] = {
             OPT_HELP(),
@@ -539,6 +541,8 @@ int main(int argc, const char *argv[]) {
             OPT_BOOLEAN(0, "verbose", &LogCtx.verbose, "Turn on logging."),
             OPT_BOOLEAN(0, "very-verbose", &LogCtx.very_verbose, "Turn on debug messages."),
             OPT_BOOLEAN(0, "json-logs", &LogCtx.json_logs, "Output logs in JSON format."),
+            OPT_BOOLEAN(0, "low-memory-mode", &common_low_memory_mode,
+                        "Disable in-memory temporary storage."),
 
             OPT_GROUP("Scan options"),
             OPT_INTEGER('t', "threads", &common_threads, "Number of threads. DEFAULT: 1"),
@@ -673,11 +677,14 @@ int main(int argc, const char *argv[]) {
 
     index_args->script_path = common_script_path;
     index_args->threads = common_threads;
+    index_args->low_memory_mode = common_low_memory_mode;
     scan_args->threads = common_threads;
+    scan_args->low_memory_mode = common_low_memory_mode;
 
     scan_args->optimize_database = common_optimize_database;
 
     sqlite_index_args->search_index_path = common_search_index;
+    sqlite_index_args->low_memory_mode = common_low_memory_mode;
     web_args->search_index_path = common_search_index;
 
     if (argc == 0) {

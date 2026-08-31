@@ -558,7 +558,7 @@ scan_master_t *scan_master_create(const int worker_count, const int print_progre
 
     // This thread is the only writer the index database ever sees
     ProcData.index_db = database_create(ScanCtx.index.path, INDEX_DATABASE);
-    database_open(ProcData.index_db);
+    database_open_with_options(ProcData.index_db, ScanCtx.low_memory_mode);
     master->index_db = ProcData.index_db;
 
     return master;

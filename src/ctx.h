@@ -35,6 +35,7 @@ typedef struct {
     const char **argv;
 
     int threads;
+    int low_memory_mode;
     int incremental;
     int depth;
     /** Seconds a worker may spend on one file before it is killed and restarted, 0 to disable */

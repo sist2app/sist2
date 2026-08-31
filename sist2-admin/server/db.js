@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { DB_FILE, MIGRATIONS_FOLDER } from "./config.js";
 import { logger } from "./log.js";
 import {
+    INDEX_FILE_OPTION_TYPES,
     JOB_FIELD_TYPES,
     SCAN_OPTION_TYPES,
     SEARCH_BACKEND_TYPES,
@@ -97,6 +98,7 @@ const JOB_COLUMNS = [
     ...Object.keys(JOB_FIELD_TYPES),
     "search_backend",
     "incremental_index",
+    ...Object.keys(INDEX_FILE_OPTION_TYPES).map((field) => `index_file_${field}`),
     ...Object.keys(SCAN_OPTION_TYPES).map((field) => `scan_${field}`)
 ];
 

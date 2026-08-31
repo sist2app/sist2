@@ -3,6 +3,10 @@ const TYPE_INTEGER = "integer";
 const TYPE_REAL = "real";
 const TYPE_BOOLEAN = "boolean";
 
+export const INDEX_FILE_OPTION_TYPES = {
+    low_memory_mode: TYPE_BOOLEAN
+};
+
 export const SCAN_OPTION_TYPES = {
     path: TYPE_TEXT,
     threads: TYPE_INTEGER,
@@ -167,6 +171,7 @@ function mapToRow(types, obj, prefix) {
 export function rowToJob(row, userScripts) {
     const job = mapFromRow(JOB_FIELD_TYPES, row, "");
     job.name = row.name;
+    job.index_file_options = mapFromRow(INDEX_FILE_OPTION_TYPES, row, "index_file_");
     job.scan_options = mapFromRow(SCAN_OPTION_TYPES, row, "scan_");
     job.index_options = {
         search_backend: fromRow(TYPE_TEXT, row.search_backend),
@@ -179,6 +184,7 @@ export function rowToJob(row, userScripts) {
 export function jobToParams(job) {
     const params = mapToRow(JOB_FIELD_TYPES, job, "");
     params.name = job.name;
+    Object.assign(params, mapToRow(INDEX_FILE_OPTION_TYPES, job.index_file_options, "index_file_"));
     Object.assign(params, mapToRow(SCAN_OPTION_TYPES, job.scan_options, "scan_"));
     params.search_backend = toRow(TYPE_TEXT, job.index_options.search_backend);
     params.incremental_index = toRow(TYPE_BOOLEAN, job.index_options.incremental_index);
@@ -240,6 +246,9 @@ export function createDefaultJob(name) {
         last_index_date: null,
         status: "created",
         do_full_scan: false,
+        index_file_options: {
+            low_memory_mode: false
+        },
         scan_options: {
             // Not "/": a job is not runnable until someone says what to scan
             path: "",
@@ -319,6 +328,11 @@ export function normalizeJob(body, existing) {
     for (const field of CLIENT_JOB_FIELDS) {
         if (body[field] !== undefined) {
             job[field] = coerce(JOB_FIELD_TYPES[field], body[field]);
+        }
+    }
+    for (const field of Object.keys(INDEX_FILE_OPTION_TYPES)) {
+        if (body.index_file_options !== undefined && body.index_file_options[field] !== undefined) {
+            job.index_file_options[field] = coerce(INDEX_FILE_OPTION_TYPES[field], body.index_file_options[field]);
         }
     }
     for (const field of Object.keys(SCAN_OPTION_TYPES)) {

@@ -54,6 +54,17 @@ protected:
         std::filesystem::remove(db_path);
     }
 
+    int temp_store() const {
+        sqlite3_stmt *stmt = nullptr;
+        if (sqlite3_prepare_v2(db->db, "PRAGMA temp_store", -1, &stmt, nullptr) != SQLITE_OK) {
+            return -1;
+        }
+
+        const int result = sqlite3_step(stmt) == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1;
+        sqlite3_finalize(stmt);
+        return result;
+    }
+
     /** A model a user script would have registered, and one chunk of a document it embedded */
     void write_embedding(int doc_id, int start, int end, float value, int model_id = 1,
                          const char *model_path = "idx_384.test") {
@@ -92,6 +103,19 @@ protected:
         return doc;
     }
 };
+
+/** The default sets in-memory temporary storage for better performance. */
+TEST_F(DatabaseTest, DefaultModeForcesTemporaryDataIntoMemory) {
+    EXPECT_EQ(temp_store(), 2);
+}
+
+/** Low-memory mode deliberately does not force temporary storage into memory for an index database. */
+TEST_F(DatabaseTest, LowMemoryModeDoesNotOverrideSqliteTemporaryStorage) {
+    database_close(db, FALSE);
+    database_open_with_options(db, TRUE);
+
+    EXPECT_EQ(temp_store(), 0);
+}
 
 /** What SQLite would use for its temporary files, the way database.c looks it up */
 static const char *temp_directory() {
