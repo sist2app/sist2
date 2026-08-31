@@ -106,6 +106,8 @@ void database_initialize(database_t *db);
 
 void database_open(database_t *db);
 
+void database_open_with_options(database_t *db, int low_memory_mode);
+
 void database_close(database_t *, int optimize);
 
 void database_increment_version(database_t *db);

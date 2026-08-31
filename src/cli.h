@@ -13,6 +13,7 @@ typedef struct scan_args {
     int tn_size;
     int content_size;
     int threads;
+    int low_memory_mode;
     int incremental;
     int optimize_database;
     char *output;
@@ -69,6 +70,7 @@ typedef struct index_args {
     int async_script;
     int force_reset;
     int threads;
+    int low_memory_mode;
     int incremental;
 } index_args_t;
 
@@ -78,6 +80,7 @@ typedef struct {
     int rebuild;
     int optimize;
     int skip_spellfix;
+    int low_memory_mode;
 } sqlite_index_args_t;
 
 typedef enum {

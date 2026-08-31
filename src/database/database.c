@@ -213,6 +213,10 @@ void database_initialize(database_t *db) {
 }
 
 void database_open(database_t *db) {
+    database_open_with_options(db, FALSE);
+}
+
+void database_open_with_options(database_t *db, int low_memory_mode) {
     LOG_DEBUGF("database.c", "Opening database %s (%d)", db->filename, db->type);
 
     CRASH_IF_NOT_SQLITE_OK(sqlite3_open(db->filename, &db->db));
@@ -223,7 +227,7 @@ void database_open(database_t *db) {
 //    CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, "PRAGMA cache_size = -200000;", NULL, NULL, NULL));
     CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, "PRAGMA synchronous = OFF;", NULL, NULL, NULL));
 
-    if (db->type == INDEX_DATABASE) {
+    if (db->type == INDEX_DATABASE && !low_memory_mode) {
         CRASH_IF_NOT_SQLITE_OK(sqlite3_exec(db->db, "PRAGMA temp_store = memory;", NULL, NULL, NULL));
     }
 
