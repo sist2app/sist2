@@ -134,7 +134,7 @@ export class ScanTask extends Task {
         }
 
         const outputPath = path.join(DATA_FOLDER, output);
-        const args = scanArgs(job.scan_options, outputPath);
+        const args = scanArgs(job.scan_options, job.index_file_options, outputPath);
 
         const returnCode = await runSist2(
             args,
@@ -202,6 +202,7 @@ export class IndexTask extends Task {
         const args = indexArgs(
             job.index_path,
             job.index_options,
+            job.index_file_options,
             backend,
             mappingsFile,
             settingsFile

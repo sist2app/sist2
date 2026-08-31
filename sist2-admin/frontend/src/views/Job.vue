@@ -42,6 +42,8 @@
 
         <JobOptions :job="job"/>
 
+        <IndexFileOptions :options="job.index_file_options"/>
+
         <div class="card mb-3">
             <div class="card-header">Search backend options</div>
             <div class="card-body">
@@ -60,6 +62,7 @@
 import { onMounted, onUnmounted, ref, watch } from "vue";
 
 import BackButton from "../components/BackButton.vue";
+import IndexFileOptions from "../components/IndexFileOptions.vue";
 import JobOptions from "../components/JobOptions.vue";
 import ScanOptions from "../components/ScanOptions.vue";
 import SearchBackendSelect from "../components/SearchBackendSelect.vue";
