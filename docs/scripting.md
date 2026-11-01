@@ -159,7 +159,7 @@ if (ctx._source?.exif_fnumber != null) {
 }
 ```
 
-Display year and months from `EXIF:DateTime` tag
+Display year and months from the `exif_datetime` field (`DateTimeOriginal`, else `DateTimeDigitized`, else `DateTime`)
 
 ```Java
 if (ctx._source?.exif_datetime != null) {
