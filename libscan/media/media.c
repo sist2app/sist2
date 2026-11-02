@@ -366,6 +366,17 @@ static void append_exif_meta(scan_media_ctx_t *ctx, document_t *doc, const AVDic
     AVDictionary *metadata = exif_metadata(frame_metadata);
     AVDictionaryEntry *tag = NULL;
 
+    // The capture time is the date a photo is searched by: prefer DateTimeOriginal (0x9003), then
+    // DateTimeDigitized (0x9004), and DateTime (0x0132), which is the time the file was last changed, last
+    const char *datetime_keys[] = {"DateTimeOriginal", "DateTimeDigitized", "DateTime"};
+    for (int i = 0; i < (int) (sizeof(datetime_keys) / sizeof(datetime_keys[0])); i++) {
+        const AVDictionaryEntry *datetime = av_dict_get(metadata, datetime_keys[i], NULL, 0);
+        if (datetime != NULL && *datetime->value != '\0') {
+            APPEND_UTF8_META(doc, MetaExifDateTime, datetime->value);
+            break;
+        }
+    }
+
     while ((tag = av_dict_get(metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
         char key[256];
         STRCPY_TOLOWER(key, tag->key);
@@ -396,8 +407,6 @@ static void append_exif_meta(scan_media_ctx_t *ctx, document_t *doc, const AVDic
             APPEND_TAG_META(MetaExifIsoSpeedRatings);
         } else if (strcmp(key, "exposuretime") == 0) {
             APPEND_TAG_META(MetaExifExposureTime);
-        } else if (strcmp(key, "datetime") == 0) {
-            APPEND_TAG_META(MetaExifDateTime);
         } else if (strcmp(key, "gpslatitude") == 0) {
             APPEND_TAG_META(MetaExifGpsLatitudeDMS);
         } else if (strcmp(key, "gpslatituderef") == 0) {
@@ -977,6 +986,23 @@ static void parse_media_streams(scan_media_ctx_t *ctx, AVFormatContext *pFormatC
 
         if (number_of_thumbnails_generated > 0) {
             doc->thumbnail_count = number_of_thumbnails_generated;
+        }
+
+        avcodec_free_context(&decoder);
+    } else if (video_stream != -1 && !IS_VIDEO(pFormatCtx)) {
+        // No thumbnail, but ffmpeg only hands over a picture's EXIF with its decoded frame
+        AVStream *stream = pFormatCtx->streams[video_stream];
+
+        const AVCodec *video_codec = avcodec_find_decoder(stream->codecpar->codec_id);
+        AVCodecContext *decoder = avcodec_alloc_context3(video_codec);
+        decoder->thread_count = 1;
+        avcodec_parameters_to_context(decoder, stream->codecpar);
+        avcodec_open2(decoder, video_codec, NULL);
+
+        frame_and_packet_t *frame_and_packet = read_frame(ctx, pFormatCtx, decoder, video_stream, doc);
+        if (frame_and_packet != NULL) {
+            append_exif_meta(ctx, doc, frame_and_packet->frame->metadata);
+            frame_and_packet_free(frame_and_packet);
         }
 
         avcodec_free_context(&decoder);

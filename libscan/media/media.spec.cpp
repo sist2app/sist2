@@ -31,7 +31,8 @@ TEST_F(MediaTest, ImageExif1) {
                             "cute little ornaments.");
     ASSERT_STREQ(meta(MetaExifMake)->str_val, "NIKON CORPORATION");
     ASSERT_STREQ(meta(MetaExifModel)->str_val, "NIKON D7000");
-    ASSERT_STREQ(meta(MetaExifDateTime)->str_val, "2019:11:08 14:37:59");
+    // DateTimeOriginal, not DateTime (2019:11:08 14:37:59), which Lightroom set when it exported the file
+    ASSERT_STREQ(meta(MetaExifDateTime)->str_val, "2014:01:15 17:26:00");
     ASSERT_STREQ(meta(MetaExifExposureTime)->str_val, "1:160");
     ASSERT_STREQ(meta(MetaArtist)->str_val, "FinalDoom");
     ASSERT_STREQ(meta(MetaExifSoftware)->str_val, "Adobe Photoshop Lightroom 5.7 (Windows)");
@@ -150,6 +151,18 @@ TEST_F(MediaTest, ImageHeicExif) {
     ASSERT_STREQ(meta(MetaExifGpsLatitudeDMS)->str_val, "52:1 , 3:1 , 2480:100");
     ASSERT_STREQ(meta(MetaExifGpsLongitudeRef)->str_val, "E");
     ASSERT_STREQ(meta(MetaExifGpsLongitudeDMS)->str_val, "4:1 , 44:1 , 6:100");
+}
+
+/** EXIF is read even when no thumbnail is generated */
+TEST_F(MediaTest, ImageExifNoThumbnail) {
+    ctx.tn_count = 0;
+    load("media/exiftest1.jpg");
+
+    parse_media(&ctx, &f, &doc, "image/jpeg");
+
+    ASSERT_STREQ(meta(MetaExifModel)->str_val, "NIKON D7000");
+    ASSERT_STREQ(meta(MetaExifDateTime)->str_val, "2014:01:15 17:26:00");
+    ASSERT_EQ(thumbnails_count(), 0);
 }
 
 /** EXIF is read even when no thumbnail is generated */
